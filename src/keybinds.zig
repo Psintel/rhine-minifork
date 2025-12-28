@@ -22,30 +22,6 @@ const BindData = struct {
 
 pub var bindDatas: utils.WLHashMap(rwm.XkbBindingV1, BindData) = .empty;
 
-fn simplify(ns: type) type {
-    const d = meta.declarations(ns);
-
-    var E: [d.len]std.builtin.Type.EnumField = undefined;
-    var i = 0;
-
-    inline for (d) |decl| {
-        @setEvalBranchQuota(100000);
-        if (mem.startsWith(u8, decl.name, "XKB_KEY_")) {
-            E[i] = .{ .name = decl.name[8..], .value = @field(xkb, decl.name) };
-            i += 1;
-        }
-    }
-
-    const t: std.builtin.Type = .{ .@"enum" = .{
-        .tag_type = u32,
-        .decls = &.{},
-        .is_exhaustive = false,
-        .fields = E[0..i],
-    } };
-
-    return @Type(t);
-}
-
 pub const Bind = struct {
     mods: rwm.SeatV1.Modifiers,
     key: Sym,
@@ -57,6 +33,11 @@ const binds = [_]Bind{
         .mods = .{ .mod1 = true },
         .key = xkb.XKB_KEY_q,
         .trigger = kill,
+    },
+    .{
+        .mods = .{ .mod1 = true },
+        .key = xkb.XKB_KEY_d,
+        .trigger = launch(&.{"fuzzel"}),
     },
 } ++ directionals(
     .{ .mod1 = true },
@@ -90,6 +71,16 @@ pub fn register(ctx: *Context, seat: *rwm.SeatV1) !void {
     }
 }
 
+pub fn unregister(ctx: *Context, seat: *rwm.SeatV1) void {
+
+    for (ctx.seats.get(seat).?.binds.items) |b| {
+        _ = bindDatas.swapRemove(b);
+    }
+
+    if (bindDatas.entries.len == 0) bindDatas.clearAndFree(ctx.alloc);
+
+}
+
 fn kill(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
     const dat = bindDatas.get(b).?;
 
@@ -104,7 +95,7 @@ fn kill(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void
     }
 }
 
-pub fn focusDir(comptime dir: Tiler.Dir) Trigger {
+fn focusDir(comptime dir: Tiler.Dir) Trigger {
     return struct {
         pub fn focus(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
             log.info("trying to shift focus rightward", .{});
@@ -129,7 +120,7 @@ pub fn focusDir(comptime dir: Tiler.Dir) Trigger {
     }.focus;
 }
 
-pub fn moveDir(comptime dir: Tiler.Dir) Trigger {
+fn moveDir(comptime dir: Tiler.Dir) Trigger {
     return struct {
         pub fn move(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
             const dat = bindDatas.get(b).?;
@@ -163,4 +154,24 @@ fn directionals(mods: rwm.SeatV1.Modifiers, keys: [4]u32, f: fn (comptime Tiler.
         };
     }
     return out;
+}
+
+fn launch(comptime command: [:null] const ?[*:0] const u8) Trigger {
+    return struct {
+        pub fn launch(_: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, _: *Context) void {
+            switch (event) {
+                .pressed => {
+                    const pid = std.posix.fork() catch {
+                        log.err("fork failed for command {*}", .{command});
+                        return;
+                    };
+                    const args: [*:null] const ?[*:0] const u8 = .{ "/bin/sh", "-c" } ++ command;
+                    if (pid == 0) {
+                        std.posix.execveZ("/bin/sh", args, std.c.environ) catch std.posix.exit(1);
+                    }
+                },
+                .released => {},
+            }
+        }
+    }.launch;
 }

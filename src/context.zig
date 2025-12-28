@@ -19,7 +19,7 @@ bind: *rwm.XkbBindingsV1,
 // state info
 running: bool = true,
 locked: bool = false,
-workspaces: [1]Workspace,
+workspaces: [2]Workspace,
 
 last_active: ?*rwm.SeatV1 = null, // last seat with activity
 

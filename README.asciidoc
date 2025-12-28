@@ -1,4 +1,11 @@
-# Rhine: a recursive window manager for river
+    ATTENTION: this is obviously nowhere near done. don't try to use this. 
+    It can't even handle more than one output yet.
+
+= Rhine: a recursive window manager for river
 
 Rhine is a window manager for the river wayland compositor (using the river_compositor_V1 protocol).
+
+The aim is to allow for a modular system of tiling algorithms (maybe even ones loaded from shared object files).
+
+if one desires to mess around nonetheless then use alt(&shift) and arrow keys for navigation. alt + D opens fuzzel
 

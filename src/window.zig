@@ -26,8 +26,8 @@ size: utils.Vec2 = undefined,
 tilable: Tilable.embed(@This()) = .{},
 
 // will we keep those?
-pos: utils.Lerp(100_000) = .{ .static = .{ .x = 0, .y = 0 } },
-goal_size: utils.Lerp(100_000) = .{ .static = .{ .x = 0, .y = 0 } },
+pos: utils.Lerp(1) = .{ .static = .{ .x = 0, .y = 0 } },
+goal_size: utils.Lerp(1) = .{ .static = .{ .x = 0, .y = 0 } },
 
 pub fn init(ctx: *Context, win: *rwm.WindowV1) !@This() {
     const output = ctx.outs.entries.get(0); // XXX: fix this
@@ -80,12 +80,16 @@ pub fn listener(win: *rwm.WindowV1, e: rwm.WindowV1.Event, ctx: *Context) void {
         },
         .app_id => |app_id| {
             win_data.app_id = std.mem.sliceTo(app_id.app_id, 0);
+            log.info("{} has app_id {?s}", .{win.getId(), win_data.app_id});
         },
         .dimensions => |d| {
             win_data.size = .{
                 .x = d.width,
                 .y = d.height,
             };
+        },
+        .parent => {
+            std.debug.assert(false);
         },
         else => {
             log.warn("lmao! can't actually handle event {s}", .{@tagName(e)});

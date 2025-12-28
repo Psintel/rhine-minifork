@@ -6,6 +6,7 @@ const wl = wayland.client.wl;
 const rwm = wayland.client.river;
 
 const Context = @import("context.zig");
+const Keybinds = @import("keybinds.zig");
 
 const log = std.log.scoped(.seat);
 
@@ -49,6 +50,9 @@ pub fn listener(seat: *rwm.SeatV1, e: rwm.SeatV1.Event, ctx: *Context) void {
             seat_data.pointer_pos = .{ .x = pos.x, .y = pos.y };
             log.info("pointer is at {}", .{seat_data.pointer_pos});
         },
+        .removed => {
+            seat_data.deinit(ctx, seat);
+        },
         else => {
             log.warn("lmao! can't actually handle event {s}", .{@tagName(e)});
         },
@@ -56,7 +60,6 @@ pub fn listener(seat: *rwm.SeatV1, e: rwm.SeatV1.Event, ctx: *Context) void {
 }
 
 pub fn deinit(self: *@This(), ctx: *Context, seat: *rwm.SeatV1) void {
-    _ = seat; // autofix
-
+    Keybinds.unregister(ctx, seat);
     self.binds.clearAndFree(ctx.alloc);
 }

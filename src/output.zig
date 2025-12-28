@@ -1,4 +1,5 @@
 const std = @import("std");
+const meta = std.meta;
 const wayland = @import("wayland");
 
 const wl = wayland.client.wl;
@@ -11,6 +12,7 @@ const Workspace = @import("workspace.zig");
 position: ?utils.Vec2 = null,
 size: ?utils.Vec2 = null,
 workspace: Workspace.WS,
+overlay: ?Workspace.WS = null,
 
 pub fn listener(out: *rwm.OutputV1, e: rwm.OutputV1.Event, ctx: *Context) void {
     const log = std.log.scoped(.output);
@@ -22,6 +24,8 @@ pub fn listener(out: *rwm.OutputV1, e: rwm.OutputV1.Event, ctx: *Context) void {
                 .x = dim.width,
                 .y = dim.height,
             };
+            // since we are tiling screenspace, a resize dirties the manage state
+            ctx.wm.manageDirty();
         },
         .position => |pos| {
             data.position = .{

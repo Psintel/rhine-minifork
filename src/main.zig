@@ -92,7 +92,7 @@ fn listen(iface: *rwm.WindowManagerV1, e: rwm.WindowManagerV1.Event, ctx: *Conte
 }
 
 fn manage(ctx: *Context) !void {
-    std.log.info("manage event", .{});
+    // std.log.info("manage event", .{});
     const curr_time = std.time.microTimestamp();
 
     var seats = ctx.seats.iterator();
@@ -101,12 +101,12 @@ fn manage(ctx: *Context) !void {
     // with what the compositor knows
     while (seats.next()) |seat| {
         if (ctx.locked) {
-            std.log.info("disabling keybinds for seat {}", .{seat.key_ptr.*.getId()});
+            // std.log.info("disabling keybinds for seat {}", .{seat.key_ptr.*.getId()});
             for (seat.value_ptr.binds.items) |b| {
                 b.disable();
             }
         } else {
-            std.log.info("enabling keybinds for seat {}", .{seat.key_ptr.*.getId()});
+            // std.log.info("enabling keybinds for seat {}", .{seat.key_ptr.*.getId()});
             for (seat.value_ptr.binds.items) |b| {
                 b.enable();
             }
@@ -124,7 +124,6 @@ fn manage(ctx: *Context) !void {
         }
     }
 
-    std.log.info("iterating windows", .{});
     var it = ctx.wins.iterator();
     while (it.next()) |w| {
         const win = w.key_ptr.*;
@@ -153,8 +152,6 @@ fn manage(ctx: *Context) !void {
             goal.staticify();
         }
     }
-
-    std.log.info("iterating outputs", .{});
 
     var outs = ctx.outs.iterator();
     while (outs.next()) |out| {
@@ -185,7 +182,6 @@ fn render(ctx: *Context) !void {
     const wins = ctx.wins.entries.len;
     if (wins == 0) return;
     const curr_time = std.time.microTimestamp();
-    std.log.info("curr_time: {}", .{curr_time});
 
     var outs = ctx.outs.iterator();
 
@@ -202,6 +198,15 @@ fn render(ctx: *Context) !void {
             .pos = out.value_ptr.position.?,
             .dim = out.value_ptr.size.?,
         });
+
+        if (out.value_ptr.overlay) |ov| {
+            const ows = &ctx.workspaces[ov];
+            const pad = 25;
+            try ows.render(&tctx, .{
+                .pos = out.value_ptr.position.?.add(.fromScalar(pad)),
+                .dim = out.value_ptr.size.?.sub(.fromScalar(2 * pad)),
+            });
+        }
     }
 
     var windows = ctx.wins.iterator();
@@ -216,7 +221,6 @@ fn render(ctx: *Context) !void {
         } else {
             pos.staticify();
         }
-
     }
 }
 
@@ -232,7 +236,11 @@ fn unwrapIFace(iface: anytype) !@TypeOf(iface.?) {
 }
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
+    var gpa = std.heap.DebugAllocator(.{
+        .stack_trace_frames = 1000,
+        .retain_metadata = true,
+    }).init;
+
     defer if (gpa.deinit() == .leak) std.log.err("got a memory leak", .{});
 
     const display = try wl.Display.connect(null);
@@ -245,28 +253,32 @@ pub fn main() !void {
 
     if (display.roundtrip() != .SUCCESS) return error.RoundTripFailed;
 
-    var bsp: @import("bsp.zig") = .{};
+    var bsp: [2]@import("bsp.zig") = .{ .{}, .{} };
 
     var ctx: Context = .{
         .alloc = gpa.allocator(),
         .wm = try unwrapIFace(reg.wm),
         .bind = try unwrapIFace(reg.bindings),
         .shell = try unwrapIFace(reg.shell),
-        .workspaces = .{.{
-            .tiler = bsp.tiler.get(),
+        .workspaces = .{ .{
+            .tiler = bsp[0].tiler.get(),
             .id = 0,
-        }},
+        }, .{
+            .tiler = bsp[1].tiler.get(),
+            .id = 1,
+        } },
     };
     defer ctx.deinit();
 
     ctx.wm.setListener(*Context, listen, &ctx);
 
     while (ctx.running) {
-        if (display.roundtrip() != .SUCCESS) return error.DispatchError;
         if (ctx.dirty) {
             ctx.dirty = false;
             ctx.wm.manageDirty();
             std.log.info("dirty state", .{});
         }
+
+        if (display.roundtrip() != .SUCCESS) return error.DispatchError;
     }
 }
