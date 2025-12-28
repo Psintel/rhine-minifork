@@ -1,0 +1,4 @@
+# Rhine: a recursive window manager for river
+
+Rhine is a window manager for the river wayland compositor (using the river_compositor_V1 protocol).
+
