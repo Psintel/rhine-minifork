@@ -9,3 +9,9 @@ The aim is to allow for a modular system of tiling algorithms (maybe even ones l
 
 if one desires to mess around nonetheless then use alt (+shift) and arrow keys for navigation. alt+d opens fuzzel
 
+What will rhine _not_ do (for now)
+- ssd. all windows will be (for now) undecorated
+- clip windows
+
+what tilers will _not_ do (for now)
+- manage borders
