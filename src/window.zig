@@ -18,7 +18,7 @@ const log = std.log.scoped(.window);
 win: *rwm.WindowV1,
 node: *rwm.NodeV1,
 
-workspace: u32,
+workspace: Workspace.WS,
 
 app_id: ?[:0]const u8 = null,
 size: utils.Vec2 = undefined,
@@ -26,8 +26,8 @@ size: utils.Vec2 = undefined,
 tilable: Tilable.embed(@This()) = .{},
 
 // will we keep those?
-pos: utils.Lerp(1) = .{ .static = .{ .x = 0, .y = 0 } },
-goal_size: utils.Lerp(1) = .{ .static = .{ .x = 0, .y = 0 } },
+pos: utils.Lerp(100_000) = .{ .static = .{ .x = 0, .y = 0 } },
+goal_size: utils.Lerp(100_000) = .{ .static = .{ .x = 0, .y = 0 } },
 
 pub fn init(ctx: *Context, win: *rwm.WindowV1) !@This() {
     const output = ctx.outs.entries.get(0); // XXX: fix this
@@ -41,12 +41,11 @@ pub fn init(ctx: *Context, win: *rwm.WindowV1) !@This() {
     }
 
     var tctx: Tiler.TileContext = .{
-        .winData = ctx.wins,
         .focus = if (seat) |s| s.focus else null,
         .cursorPos = cursor,
         .gpa = ctx.alloc,
     };
-    try ctx.workspaces[ws].addWindow(&tctx, win);
+    try ctx.workspaces.getPtr(ws).?.addWindow(&tctx, win);
     return .{
         .win = win,
         .node = try win.getNode(),
@@ -57,10 +56,9 @@ pub fn init(ctx: *Context, win: *rwm.WindowV1) !@This() {
 pub fn deinit(self: *const @This(), ctx: *Context, win: *rwm.WindowV1) void {
     self.node.destroy();
 
-    const ws = &ctx.workspaces[self.workspace];
+    const ws = ctx.workspaces.getPtr(self.workspace).?;
 
     var tctx: Tiler.TileContext = .{
-        .winData = ctx.wins,
         .focus = null, // TODO: fix this
         .gpa = ctx.alloc,
     };
@@ -80,7 +78,7 @@ pub fn listener(win: *rwm.WindowV1, e: rwm.WindowV1.Event, ctx: *Context) void {
         },
         .app_id => |app_id| {
             win_data.app_id = std.mem.sliceTo(app_id.app_id, 0);
-            log.info("{} has app_id {?s}", .{win.getId(), win_data.app_id});
+            log.info("{} has app_id {?s}", .{ win.getId(), win_data.app_id });
         },
         .dimensions => |d| {
             win_data.size = .{
@@ -110,8 +108,6 @@ pub fn setSize(self: *@This(), new: utils.Vec2) void {
             } };
         },
     }
-
-    // self.win.proposeDimensions(new.x, new.y);
 }
 
 pub fn getSize(self: *@This()) utils.Vec2 {

@@ -18,6 +18,9 @@ const Seat = @import("seat.zig");
 const Context = @import("context.zig");
 const Workspace = @import("workspace.zig");
 const Tiler = @import("tiler.zig");
+const Layouts = @import("layouts.zig");
+
+const log = std.log;
 
 const Registry = struct {
     wm: ?*rwm.WindowManagerV1 = null,
@@ -155,19 +158,32 @@ fn manage(ctx: *Context) !void {
 
     var outs = ctx.outs.iterator();
     while (outs.next()) |out| {
-        const ws = &ctx.workspaces[out.value_ptr.workspace];
+        const ws = ctx.workspaces.getPtr(out.value_ptr.workspace).?;
         const seat = if (ctx.last_active) |s| ctx.seats.get(s) else null;
         const focus = if (seat) |s| s.focus else null;
 
         var tctx: Tiler.TileContext = .{
-            .winData = ctx.wins,
             .focus = focus,
             .gpa = ctx.alloc,
         };
-        try ws.manage(&tctx, .{
+        var manages = try ws.manage(&tctx, .{
             .dim = out.value_ptr.size.?,
             .pos = out.value_ptr.position.?,
         });
+        defer manages.clearAndFree(ctx.alloc);
+
+        for (ws.windows.keys()) |w| {
+            const wd = ctx.wins.getPtr(w).?;
+            const manageState = manages.get(w) orelse {
+                log.err("workspace {} failed to manage window {}", .{ out.value_ptr.workspace, w.getId() });
+                continue;
+            };
+
+            wd.setSize(manageState.size);
+
+            const col = manageState.border;
+            w.setBorders(.{ .top = true, .bottom = true, .left = true, .right = true }, 2, col.r, col.g, col.b, col.a);
+        }
     }
 
     for (ctx.shouldClose.items) |w| {
@@ -186,26 +202,34 @@ fn render(ctx: *Context) !void {
     var outs = ctx.outs.iterator();
 
     while (outs.next()) |out| {
-        const ws = &ctx.workspaces[out.value_ptr.workspace];
+        const ws = ctx.workspaces.getPtr(out.value_ptr.workspace).?;
         const seat = if (ctx.last_active) |s| ctx.seats.get(s) else null;
         const focus = if (seat) |s| s.focus else null;
         var tctx: Tiler.TileContext = .{
-            .winData = ctx.wins,
             .focus = focus,
             .gpa = ctx.alloc,
         };
-        try ws.render(&tctx, .{
+        var renders = try ws.render(&tctx, .{
             .pos = out.value_ptr.position.?,
             .dim = out.value_ptr.size.?,
         });
+        defer renders.clearAndFree(ctx.alloc);
 
-        if (out.value_ptr.overlay) |ov| {
-            const ows = &ctx.workspaces[ov];
-            const pad = 25;
-            try ows.render(&tctx, .{
-                .pos = out.value_ptr.position.?.add(.fromScalar(pad)),
-                .dim = out.value_ptr.size.?.sub(.fromScalar(2 * pad)),
-            });
+        for (ws.windows.keys()) |w| {
+            const wd = ctx.wins.getPtr(w).?;
+            const renderState = renders.get(w) orelse {
+                log.err("workspace {} failed to render window {}", .{ out.value_ptr.workspace, w.getId() });
+                continue;
+            };
+
+            if (renderState.show) {
+                w.show();
+            } else {
+                w.hide();
+                continue;
+            }
+
+            wd.setPos(renderState.position);
         }
     }
 
@@ -253,21 +277,18 @@ pub fn main() !void {
 
     if (display.roundtrip() != .SUCCESS) return error.RoundTripFailed;
 
-    var bsp: [2]@import("bsp.zig") = .{ .{}, .{} };
-
     var ctx: Context = .{
         .alloc = gpa.allocator(),
         .wm = try unwrapIFace(reg.wm),
         .bind = try unwrapIFace(reg.bindings),
         .shell = try unwrapIFace(reg.shell),
-        .workspaces = .{ .{
-            .tiler = bsp[0].tiler.get(),
-            .id = 0,
-        }, .{
-            .tiler = bsp[1].tiler.get(),
-            .id = 1,
-        } },
+        .workspaces = .empty,
     };
+
+    try ctx.workspaces.put(ctx.alloc, 0, .{
+        .tiler = try Layouts.new(ctx.alloc, .bsp) ,
+    });
+
     defer ctx.deinit();
 
     ctx.wm.setListener(*Context, listen, &ctx);
@@ -279,6 +300,6 @@ pub fn main() !void {
             std.log.info("dirty state", .{});
         }
 
-        if (display.roundtrip() != .SUCCESS) return error.DispatchError;
+        if (display.dispatch() != .SUCCESS) return error.DispatchError;
     }
 }

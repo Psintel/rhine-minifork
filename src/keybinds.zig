@@ -2,6 +2,7 @@ const std = @import("std");
 const wayland = @import("wayland");
 const mem = std.mem;
 const meta = std.meta;
+const posix = std.posix;
 
 const wl = wayland.client.wl;
 const rwm = wayland.client.river;
@@ -39,6 +40,16 @@ const binds = [_]Bind{
         .key = xkb.XKB_KEY_d,
         .trigger = launch(&.{"fuzzel"}),
     },
+    .{
+        .mods = .{ .mod1 = true },
+        .key = xkb.XKB_KEY_Return,
+        .trigger = launch(&.{"foot"}),
+    },
+    .{
+        .mods = .{ .mod1 = true },
+        .key = xkb.XKB_KEY_s,
+        .trigger = changeSplit ,
+    },
 } ++ directionals(
     .{ .mod1 = true },
     .{ xkb.XKB_KEY_h, xkb.XKB_KEY_j, xkb.XKB_KEY_k, xkb.XKB_KEY_l },
@@ -72,13 +83,11 @@ pub fn register(ctx: *Context, seat: *rwm.SeatV1) !void {
 }
 
 pub fn unregister(ctx: *Context, seat: *rwm.SeatV1) void {
-
     for (ctx.seats.get(seat).?.binds.items) |b| {
         _ = bindDatas.swapRemove(b);
     }
 
     if (bindDatas.entries.len == 0) bindDatas.clearAndFree(ctx.alloc);
-
 }
 
 fn kill(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
@@ -107,9 +116,8 @@ fn focusDir(comptime dir: Tiler.Dir) Trigger {
                     var tc: Tiler.TileContext = .{
                         .focus = sdat.focus,
                         .gpa = ctx.alloc,
-                        .winData = ctx.wins,
                     };
-                    if (ctx.workspaces[0].getWindow(&tc, dir)) |w| {
+                    if (ctx.workspaces.getPtr(0).?.getWindow(&tc, dir)) |w| {
                         sdat.focus = w;
                         log.info("focus  window {}", .{w.getId()});
                     }
@@ -131,9 +139,8 @@ fn moveDir(comptime dir: Tiler.Dir) Trigger {
                     var tc: Tiler.TileContext = .{
                         .focus = sdat.focus,
                         .gpa = ctx.alloc,
-                        .winData = ctx.wins,
                     };
-                    ctx.workspaces[0].move(&tc, dir);
+                    ctx.workspaces.getPtr(0).?.move(&tc, dir);
                     sdat.ignore_next = true;
                     ctx.wm.manageDirty();
                 },
@@ -156,7 +163,7 @@ fn directionals(mods: rwm.SeatV1.Modifiers, keys: [4]u32, f: fn (comptime Tiler.
     return out;
 }
 
-fn launch(comptime command: [:null] const ?[*:0] const u8) Trigger {
+fn launch(comptime command: [:null]const ?[*:0]const u8) Trigger {
     return struct {
         pub fn launch(_: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, _: *Context) void {
             switch (event) {
@@ -165,13 +172,41 @@ fn launch(comptime command: [:null] const ?[*:0] const u8) Trigger {
                         log.err("fork failed for command {*}", .{command});
                         return;
                     };
-                    const args: [*:null] const ?[*:0] const u8 = .{ "/bin/sh", "-c" } ++ command;
+                    const args: [*:null]const ?[*:0]const u8 = .{ "/bin/sh", "-c" } ++ command;
                     if (pid == 0) {
-                        std.posix.execveZ("/bin/sh", args, std.c.environ) catch std.posix.exit(1);
+                        _ = posix.setsid() catch posix.exit(1);
+                        const sig_dfl = posix.Sigaction{
+                            .handler = .{ .handler = posix.SIG.DFL },
+                            .mask = posix.sigemptyset(),
+                            .flags = 0,
+                        };
+                        posix.sigaction(posix.SIG.PIPE, &sig_dfl, null);
+                        posix.execveZ("/bin/sh", args, std.c.environ) catch posix.exit(1);
                     }
                 },
                 .released => {},
             }
         }
     }.launch;
+}
+
+fn changeSplit(_: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
+    switch (event) {
+        .pressed => {
+            const seat = ctx.last_active orelse return;
+            const seat_data = ctx.seats.get(seat).?;
+            const out = ctx.outs.entries.get(0); // TODO: fix
+            const ws = ctx.workspaces.getPtr(out.value.workspace).?;
+            var tc: Tiler.TileContext = .{
+                .focus = seat_data.focus,
+                .gpa = ctx.alloc,
+            };
+
+            ws.command(&tc, .{ .command = @intFromEnum(@import("bsp.zig").Commands.ChangeSplit) }) catch |e| {
+                log.err("changesplit failed with {}", .{e});
+                return;
+            };
+        },
+        .released => {},
+    }
 }

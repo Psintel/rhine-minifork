@@ -11,7 +11,10 @@ const Output = @import("output.zig");
 const Seat = @import("seat.zig");
 const Workspace = @import("workspace.zig");
 
-// protocols
+// base allocator
+alloc: mem.Allocator,
+
+// protocol interfaces
 wm: *rwm.WindowManagerV1,
 shell: *rwm.LayerShellV1,
 bind: *rwm.XkbBindingsV1,
@@ -19,16 +22,15 @@ bind: *rwm.XkbBindingsV1,
 // state info
 running: bool = true,
 locked: bool = false,
-workspaces: [2]Workspace,
 
-last_active: ?*rwm.SeatV1 = null, // last seat with activity
-
-alloc: mem.Allocator,
-
+// global state
 wins: utils.WLHashMap(rwm.WindowV1, Window) = .empty,
 outs: utils.WLHashMap(rwm.OutputV1, Output) = .empty,
 seats: utils.WLHashMap(rwm.SeatV1, Seat) = .empty,
+workspaces: std.AutoArrayHashMapUnmanaged(Workspace.WS, Workspace)  = .empty,
 
+// short-lived state
+last_active: ?*rwm.SeatV1 = null, // last seat with activity
 shouldClose: std.ArrayList(*rwm.WindowV1) = .empty,
 dirty: bool = false,
 
@@ -48,7 +50,7 @@ pub fn deinit(self: *@This()) void {
         s.value_ptr.deinit(self, s.key_ptr.*);
     }
 
-    for (&self.workspaces) |*w| {
+    for (self.workspaces.values()) |*w| {
         w.deinit(self);
     }
 

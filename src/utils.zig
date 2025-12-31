@@ -150,16 +150,20 @@ pub const Color = struct {
     };
 };
 
-pub fn WLHashMap(IFace: type, container: type) type {
-    const T = *IFace;
-    return std.ArrayHashMapUnmanaged(T, container, struct {
-        pub fn hash(_: @This(), win: T) u32 {
-            return win.getId();
+pub fn IdHashMap(K: type, V: type) type {
+    return std.ArrayHashMapUnmanaged(K, V, struct {
+        pub fn hash(_: @This(), k: K) u32 {
+            return k.getId();
         }
-        pub fn eql(_: @This(), w1: T, w2: T, _: usize) bool {
-            return w1 == w2;
+        pub fn eql(_: @This(), k1: K, k2: K, _: usize) bool {
+            return meta.eql(k1, k2);
         }
     }, false);
+}
+
+pub fn WLHashMap(IFace: type, container: type) type {
+    const T = *IFace;
+    return IdHashMap(T, container);
 }
 
 pub fn maybe(I: type, O: type, v: ?I, f: fn (I) ?O) ?O {

@@ -15,13 +15,19 @@ const Workspace = @import("workspace.zig");
 const Tiler = @import("tiler.zig");
 const Context = @import("context.zig");
 
-const WT = *rwm.WindowV1;
+const WT = Tiler.WT;
+const ManageMap = Tiler.ManageMap;
+const RenderMap = Tiler.RenderMap;
 
 const log = std.log.scoped(.bsp);
 
 const border = 2;
 const gap = 1;
 const pad = gap + border;
+
+pub const Commands = enum(u32) {
+    ChangeSplit,
+};
 
 fn scale(i: i32, f: f32) i32 {
     return @intFromFloat(@as(f32, @floatFromInt(i)) * f);
@@ -208,44 +214,38 @@ const subTile = union(enum) {
         }
     }
 
-    pub fn manage(self: *@This(), size: utils.Vec2, ctx: *Tiler.TileContext) Tiler.Error!void {
+    pub fn manage(self: *@This(), size: utils.Vec2, ctx: *Tiler.TileContext, out: *ManageMap) Tiler.Error!void {
         switch (self.*) {
             .Leaf => |w| {
-                const window = ctx.winData.getPtr(w).?;
-                window.setSize(size.sub(.fromScalar(2 * pad)));
-                const color: utils.Color = if (w == ctx.focus) .blue else .gray;
-                w.setBorders(.{
-                    .top = true,
-                    .bottom = true,
-                    .left = true,
-                    .right = true,
-                }, border, color.r, color.g, color.b, color.a);
+                out.put(ctx.gpa, w, .{
+                    .size = size.sub(.fromScalar(2 * pad)),
+                    .state = .normal,
+                    .border = if (w == ctx.focus) .blue else .gray,
+                }) catch return error.OutOfMemory;
             },
             .Branch => |b| {
                 const ds: utils.Vec2 = splitDim(size, b.direction, b.ratio);
 
-                try b.left.manage(ds, ctx);
-                try b.right.manage(ds, ctx);
+                try b.left.manage(ds, ctx, out);
+                try b.right.manage(ds, ctx, out);
             },
         }
     }
 
-    pub fn render(self: *@This(), ctx: *Tiler.TileContext, rect: utils.Rect2) Tiler.Error!void {
+    pub fn render(self: *@This(), ctx: *Tiler.TileContext, rect: utils.Rect2, out: *RenderMap) Tiler.Error!void {
         switch (self.*) {
             .Leaf => |w| {
-                const data = ctx.winData.getPtr(w) orelse return Tiler.Error.TileError;
-                const pos: utils.Vec2 = .{.x = rect.pos.x + pad, .y = rect.pos.y + pad};
-
-                data.setPos(pos);
-
-                // data.node.setPosition(rect.pos.x + pad, rect.pos.y + pad);
+                out.put(ctx.gpa, w, .{
+                    .show = true,
+                    .position = rect.pos.add(.fromScalar(pad)),
+                }) catch return error.OutOfMemory;
                 log.info("put {} at ({}, {})", .{ w.getId(), rect.pos.x, rect.pos.y });
             },
             .Branch => |b| {
                 const l, const r = subDivide(rect, b.direction, b.ratio);
 
-                try b.left.render(ctx, l);
-                try b.right.render(ctx, r);
+                try b.left.render(ctx, l, out);
+                try b.right.render(ctx, r, out);
             },
         }
     }
@@ -327,16 +327,28 @@ pub fn remove(self: *@This(), ctx: *Tiler.TileContext, win: WT) void {
     }
 }
 
-pub fn manage(self: *@This(), ctx: *Tiler.TileContext, bound: utils.Rect2) Tiler.Error!void {
-    const tree = &(self.tree orelse return);
+pub fn manage(self: *@This(), ctx: *Tiler.TileContext, bound: utils.Rect2) Tiler.Error!ManageMap {
+    const tree = &(self.tree orelse return .empty);
     log.info("initiating manage with tree size {}", .{tree.count()});
 
-    try tree.manage(bound.dim, ctx);
+    var out: ManageMap = .empty;
+    errdefer out.clearAndFree(ctx.gpa);
+
+    try out.ensureTotalCapacity(ctx.gpa, tree.count());
+    try tree.manage(bound.dim, ctx, &out);
+
+    return out;
 }
 
-pub fn render(self: *@This(), ctx: *Tiler.TileContext, bound: utils.Rect2) Tiler.Error!void {
-    const tree = &(self.tree orelse return);
-    try tree.render(ctx, bound);
+pub fn render(self: *@This(), ctx: *Tiler.TileContext, bound: utils.Rect2) Tiler.Error!RenderMap{
+    const tree = &(self.tree orelse return .empty);
+    var out: RenderMap = .empty;
+    errdefer out.clearAndFree(ctx.gpa);
+
+    try out.ensureTotalCapacity(ctx.gpa, tree.count());
+    try tree.render(ctx, bound, &out);
+
+    return out;
 }
 
 pub fn getWindow(self: *@This(), ctx: *Tiler.TileContext, dir: Tiler.Dir) ?WT {
@@ -413,5 +425,17 @@ pub fn move(self: *@This(), ctx: *Tiler.TileContext, dir: Tiler.Dir) void {
         //     res.Branch.left = res.Branch.right;
         //     res.Branch.right = t;
         // }
+    }
+}
+
+pub fn command(self: *@This(), ctx: *Tiler.TileContext, cmd: Tiler.Command) Tiler.Error!void {
+    const tree = &(self.tree orelse return);
+    const op: Commands = std.enums.fromInt(Commands, cmd.command) orelse return error.InvalidCommand;
+    switch(op) {
+        .ChangeSplit => {
+            const f = ctx.focus orelse return;
+            const n = tree.parent(f) orelse return;
+            n.Branch.direction = n.Branch.direction.other();
+        }
     }
 }
