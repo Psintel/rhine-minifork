@@ -54,10 +54,7 @@ fn listen(iface: *rwm.WindowManagerV1, e: rwm.WindowManagerV1.Event, ctx: *Conte
         },
         .window => |args| {
             const win = args.id;
-            std.log.info("registered window with id {}", .{win.getId()});
-            const data: Window = Window.init(ctx, win) catch return;
-            ctx.wins.put(ctx.alloc, win, data) catch return;
-            win.setListener(*Context, Window.listener, ctx);
+            ctx.should_open.append(ctx.alloc, win) catch return;
         },
         .output => |args| {
             std.log.info("registerd output with id {}", .{args.id.getId()});
@@ -95,7 +92,17 @@ fn listen(iface: *rwm.WindowManagerV1, e: rwm.WindowManagerV1.Event, ctx: *Conte
 }
 
 fn manage(ctx: *Context) !void {
-    // std.log.info("manage event", .{});
+
+    // register new windows
+    for (ctx.should_open.items) |win| {
+        std.log.info("registered window with id {}", .{win.getId()});
+        const data: Window = Window.init(ctx, win) catch return;
+        ctx.wins.put(ctx.alloc, win, data) catch return;
+        win.setListener(*Context, Window.listener, ctx);
+    }
+
+    ctx.should_open.clearAndFree(ctx.alloc);
+
     const curr_time = std.time.microTimestamp();
 
     var seats = ctx.seats.iterator();

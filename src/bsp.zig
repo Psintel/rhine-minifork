@@ -306,8 +306,8 @@ pub fn add(self: *@This(), ctx: *Tiler.TileContext, win: WT) Tiler.Error!void {
     if (ctx.cursorPos) |cur| {
         log.info("adding with cursor pos {}", .{cur});
         if (switch (d) {
-            .V => cur.x > target.pos.x + @divTrunc(target.dim.x, 2),
-            .H => cur.y > target.pos.y + @divTrunc(target.dim.y, 2),
+            .V => cur.x < target.pos.x + @divTrunc(target.dim.x, 2),
+            .H => cur.y < target.pos.y + @divTrunc(target.dim.y, 2),
         }) {
             const t = n.Branch.left;
             n.Branch.left = n.Branch.right;
