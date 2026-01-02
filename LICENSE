@@ -1,0 +1,11 @@
+--2026-01-02 20:37:07--  https://www.gnu.org/licenses/agpl-3.0.txt
+Resolving www.gnu.org... 2001:470:142:5::116, 209.51.188.116
+Connecting to www.gnu.org|2001:470:142:5::116|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 34523 (34K) [text/plain]
+Saving to: ‘agpl-3.0.txt’
+
+     0K .......... .......... .......... ...                  100%  377K=0.09s
+
+2026-01-02 20:37:08 (377 KB/s) - ‘agpl-3.0.txt’ saved [34523/34523]
+
