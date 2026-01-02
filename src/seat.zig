@@ -13,6 +13,8 @@ const log = std.log.scoped(.seat);
 seat: ?u32, // unsure what this is supposed to be
 focus: ?*rwm.WindowV1 = null,
 pointer_pos: utils.Vec2 = .{ .x = 0, .y = 0 },
+
+
 binds: std.ArrayList(*rwm.XkbBindingV1) = .empty,
 
 // the following may be removed in the future
@@ -48,7 +50,6 @@ pub fn listener(seat: *rwm.SeatV1, e: rwm.SeatV1.Event, ctx: *Context) void {
         },
         .pointer_position => |pos| {
             seat_data.pointer_pos = .{ .x = pos.x, .y = pos.y };
-            log.info("pointer is at {}", .{seat_data.pointer_pos});
         },
         .removed => {
             seat_data.deinit(ctx, seat);
@@ -61,5 +62,5 @@ pub fn listener(seat: *rwm.SeatV1, e: rwm.SeatV1.Event, ctx: *Context) void {
 
 pub fn deinit(self: *@This(), ctx: *Context, seat: *rwm.SeatV1) void {
     Keybinds.unregister(ctx, seat);
-    self.binds.clearAndFree(ctx.alloc);
+    self.binds.clearAndFree(ctx.gpa);
 }

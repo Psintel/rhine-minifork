@@ -127,6 +127,14 @@ pub const Rect2 = struct {
         .pos = .{ .x = 0, .y = 0 },
         .dim = .{ .x = 1 << 16, .y = 1 << 16 },
     };
+
+    pub fn inside(self: @This(), pos: Vec2) bool {
+        const near = self.pos;
+        const far = self.pos.add(self.dim);
+
+        return near.x <= pos.x and pos.x < far.x and
+            near.y <= pos.y and pos.y < far.y;
+    }
 };
 
 pub const Color = struct {

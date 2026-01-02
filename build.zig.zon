@@ -37,8 +37,8 @@
             .hash = "wayland-0.5.0-dev-lQa1ki3YAQCEdP63PCLFnVQzfXAixkrXsPavlEl8UkPe",
         },
         .river = .{
-            .url = "git+https://codeberg.org/river/river#0ad1a8fa0bdabc9c73013d0102f3136e346355c5",
-            .hash = "river-0.4.0-dev-_G6NjnrjCQC0Zi7_CzoeOEkyp733JglzODl4vT5KuCLR",
+            .url = "git+https://codeberg.org/river/river#f36231a3b9e46a1508d28a5cdee1341f735926c6",
+            .hash = "river-0.4.0-dev-_G6NjvveCgCoLEL1SmoZC8wOqRshd_dFn0eXNm7GpCr0",
         },
     },
     .paths = .{

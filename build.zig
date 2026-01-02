@@ -23,6 +23,8 @@ pub fn build(b: *Build) !void {
     scanner.addCustomProtocol(protos.path(b, "river-window-management-v1.xml"));
     scanner.addCustomProtocol(protos.path(b, "river-layer-shell-v1.xml"));
     scanner.addCustomProtocol(protos.path(b, "river-xkb-bindings-v1.xml"));
+    scanner.addCustomProtocol(protos.path(b, "river-input-management-v1.xml"));
+    scanner.addCustomProtocol(protos.path(b, "river-libinput-config-v1.xml"));
     // scanner.addCustomProtocol(protos.path(b, "river-window-management-v1.xml"));
 
     // Pass the maximum version implemented by your wayland server or client.
@@ -37,6 +39,8 @@ pub fn build(b: *Build) !void {
     scanner.generate("river_window_manager_v1", 2);
     scanner.generate("river_layer_shell_v1", 1);
     scanner.generate("river_xkb_bindings_v1", 1);
+    scanner.generate("river_input_manager_v1", 1);
+    scanner.generate("river_libinput_config_v1", 1);
 
     const docs_obj = b.addObject(.{
         .name = "wayland",

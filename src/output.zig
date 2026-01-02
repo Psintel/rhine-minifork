@@ -8,11 +8,29 @@ const rwm = wayland.client.river;
 const utils = @import("utils.zig");
 const Context = @import("context.zig");
 const Workspace = @import("workspace.zig");
+const Output = @This();
 
 position: ?utils.Vec2 = null,
 size: ?utils.Vec2 = null,
+exclusive_area: ?utils.Rect2 = null,
 workspace: Workspace.WS,
-overlay: ?Workspace.WS = null,
+
+shell_out: *rwm.LayerShellOutputV1,
+
+pub fn init(ctx: *Context, out: *rwm.OutputV1) !void {
+    const shell = try ctx.shell.getOutput(out);
+    errdefer shell.destroy();
+
+    try ctx.outs.put(ctx.gpa, out, .{
+        .workspace = Workspace.getFirst(ctx),
+        .shell_out = undefined,
+    });
+
+    const self = ctx.outs.getPtr(out).?;
+
+    shell.setListener(*Output, shellListener, self);
+    out.setListener(*Context, Output.listener, ctx);
+}
 
 pub fn listener(out: *rwm.OutputV1, e: rwm.OutputV1.Event, ctx: *Context) void {
     const log = std.log.scoped(.output);
@@ -33,14 +51,53 @@ pub fn listener(out: *rwm.OutputV1, e: rwm.OutputV1.Event, ctx: *Context) void {
                 .y = pos.y,
             };
         },
+        .removed => {
+            deinit(ctx, out);
+        },
         else => {
             log.warn("lmao! can't actually handle event {s}", .{@tagName(e)});
         },
     }
 }
 
-pub fn deinit(self: *@This(), ctx: *Context, out: *rwm.OutputV1) void {
-    _ = out; // autofix
-    _ = self; // autofix
-    _ = ctx; // autofix
+pub fn shellListener(_: *rwm.LayerShellOutputV1, event: rwm.LayerShellOutputV1.Event, data: *Output) void {
+    switch (event) {
+        .non_exclusive_area => |area| {
+            data.exclusive_area = .{ .pos = .{
+                .x = area.x,
+                .y = area.y,
+            }, .dim = .{
+                .x = area.width,
+                .y = area.height,
+            } };
+        },
+    }
+}
+
+pub fn getArea(self: @This()) utils.Rect2 {
+    return self.exclusive_area orelse .{
+        .pos = self.position.?,
+        .dim = self.size.?,
+    };
+}
+
+pub fn byPointer(ctx: *Context, pos: utils.Vec2) ?*rwm.OutputV1 {
+
+    var iter = ctx.outs.iterator();
+    while (iter.next()) |o| {
+        const r: utils.Rect2 = .{ .dim = o.value_ptr.size.?, .pos = o.value_ptr.position.? };
+        if (r.inside(pos)) {
+            return o.key_ptr.*;
+        }
+    }
+
+    return null;
+}
+
+pub fn deinit(ctx: *Context, out: *rwm.OutputV1) void {
+    // const self = ctx.outs.getPtr(out).?;
+    // const shell = self.shell_out;
+    // shell.destroy(); // this segfaults.. why?
+    _ = ctx.outs.swapRemove(out);
+    out.destroy();
 }

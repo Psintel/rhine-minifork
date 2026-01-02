@@ -12,6 +12,7 @@ const utils = @import("utils.zig");
 const Workspace = @import("workspace.zig");
 const Tilable = @import("tilable.zig");
 const Tiler = @import("tiler.zig");
+const Output = @import("output.zig");
 
 const log = std.log.scoped(.window);
 
@@ -23,29 +24,35 @@ workspace: Workspace.WS,
 app_id: ?[:0]const u8 = null,
 size: utils.Vec2 = undefined,
 
-tilable: Tilable.embed(@This()) = .{},
-
 // will we keep those?
 pos: utils.Lerp(100_000) = .{ .static = .{ .x = 0, .y = 0 } },
 goal_size: utils.Lerp(100_000) = .{ .static = .{ .x = 0, .y = 0 } },
 
 pub fn init(ctx: *Context, win: *rwm.WindowV1) !@This() {
-    const output = ctx.outs.entries.get(0); // XXX: fix this
-    const ws = output.value.workspace;
-    const seat = if (ctx.last_active) |l| ctx.seats.get(l) else null;
-
+    const seat = if (ctx.last_active) |s| ctx.seats.get(s) else null;
     var cursor: ?utils.Vec2 = null;
+    const ws = ws: {
+        if (seat) |s| {
+            const pos = s.pointer_pos;
 
-    if (seat) |s| {
-        cursor = s.pointer_pos.sub(output.value.position.?).elmul(utils.Rect2.unit.dim).eldivT(output.value.size.?);
-    }
+            const out = Output.byPointer(ctx, pos) orelse break :ws null;
+            const out_data = ctx.outs.get(out).?;
+            cursor = pos.sub(out_data.position.?).elmul( utils.Rect2.unit.dim ).eldivT(out_data.size.?);
+            break :ws out_data.workspace;
+        }
+
+        break :ws null;
+    } orelse Workspace.getFirst(ctx);
+
 
     var tctx: Tiler.TileContext = .{
         .focus = if (seat) |s| s.focus else null,
         .cursorPos = cursor,
-        .gpa = ctx.alloc,
+        .gpa = ctx.gpa,
     };
+
     try ctx.workspaces.getPtr(ws).?.addWindow(&tctx, win);
+
     return .{
         .win = win,
         .node = try win.getNode(),
@@ -60,16 +67,16 @@ pub fn deinit(self: *const @This(), ctx: *Context, win: *rwm.WindowV1) void {
 
     var tctx: Tiler.TileContext = .{
         .focus = null, // TODO: fix this
-        .gpa = ctx.alloc,
+        .gpa = ctx.gpa,
     };
 
     ws.rmWindow(&tctx, win);
 }
 
-pub fn listener(win: *rwm.WindowV1, e: rwm.WindowV1.Event, ctx: *Context) void {
+pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) void {
     const win_data = ctx.wins.getPtr(win).?;
 
-    switch (e) {
+    switch (event) {
         .closed => {
             const full = ctx.wins.fetchSwapRemove(win).?;
             full.value.deinit(ctx, full.key);
@@ -87,10 +94,10 @@ pub fn listener(win: *rwm.WindowV1, e: rwm.WindowV1.Event, ctx: *Context) void {
             };
         },
         .parent => {
-            std.debug.assert(false);
+            @panic("parents are not allowed");
         },
         else => {
-            log.warn("lmao! can't actually handle event {s}", .{@tagName(e)});
+            log.warn("lmao! can't actually handle event {s}", .{@tagName(event)});
         },
     }
 }
@@ -110,10 +117,6 @@ pub fn setSize(self: *@This(), new: utils.Vec2) void {
     }
 }
 
-pub fn getSize(self: *@This()) utils.Vec2 {
-    return self.size;
-}
-
 pub fn setPos(self: *@This(), new: utils.Vec2) void {
     switch (self.pos) {
         .transit => return,
@@ -126,4 +129,14 @@ pub fn setPos(self: *@This(), new: utils.Vec2) void {
             } };
         },
     }
+}
+
+pub fn getWorkspace(ctx: *Context, win: *rwm.WindowV1) ?Workspace.WS {
+    var iter = ctx.workspaces.iterator();
+
+    while (iter.next()) |ws| {
+        if (ws.value_ptr.windows.contains(win)) return ws.key_ptr.*;
+    }
+
+    return null;
 }

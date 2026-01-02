@@ -10,6 +10,12 @@ const rwm = wayland.client.river;
 const utils = @import("utils.zig");
 const Context = @import("context.zig");
 const Tiler = @import("tiler.zig");
+const Window = @import("window.zig");
+const Workspace = @import("workspace.zig");
+const Output = @import("output.zig");
+
+const bsp = @import("bsp.zig");
+
 const xkb = @cImport(@cInclude("xkbcommon/xkbcommon-keysyms.h"));
 pub const Sym = u32;
 
@@ -48,7 +54,7 @@ const binds = [_]Bind{
     .{
         .mods = .{ .mod1 = true },
         .key = xkb.XKB_KEY_s,
-        .trigger = changeSplit ,
+        .trigger = changeSplit,
     },
 } ++ directionals(
     .{ .mod1 = true },
@@ -66,7 +72,17 @@ const binds = [_]Bind{
     .{ .mod1 = true, .shift = true },
     .{ xkb.XKB_KEY_Left, xkb.XKB_KEY_Down, xkb.XKB_KEY_Up, xkb.XKB_KEY_Right },
     moveDir,
-);
+) ++ ws: {
+    var out: [10]Bind = undefined;
+    for (&out, 0..) |*b, i| {
+        b.* = .{
+            .mods = .{ .mod1 = true },
+            .key = @field(xkb, std.fmt.comptimePrint("XKB_KEY_{}", .{(i + 1) % 10})),
+            .trigger = changeWorkspace(i),
+        };
+    }
+    break :ws out;
+};
 
 pub fn register(ctx: *Context, seat: *rwm.SeatV1) !void {
     const sc = ctx.seats.getPtr(seat).?;
@@ -74,8 +90,8 @@ pub fn register(ctx: *Context, seat: *rwm.SeatV1) !void {
 
     for (binds) |b| {
         const nb = try ctx.bind.getXkbBinding(seat, b.key, b.mods);
-        try sc.binds.append(ctx.alloc, nb);
-        try bindDatas.put(ctx.alloc, nb, .{
+        try sc.binds.append(ctx.gpa, nb);
+        try bindDatas.put(ctx.gpa, nb, .{
             .seat = seat,
         });
         nb.setListener(*Context, b.trigger, ctx);
@@ -87,67 +103,7 @@ pub fn unregister(ctx: *Context, seat: *rwm.SeatV1) void {
         _ = bindDatas.swapRemove(b);
     }
 
-    if (bindDatas.entries.len == 0) bindDatas.clearAndFree(ctx.alloc);
-}
-
-fn kill(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
-    const dat = bindDatas.get(b).?;
-
-    switch (event) {
-        .pressed => {
-            if (ctx.seats.get(dat.seat).?.focus) |w| {
-                ctx.shouldClose.append(ctx.alloc, w) catch return;
-                log.info("marked window {} for closure", .{w.getId()});
-            }
-        },
-        .released => {},
-    }
-}
-
-fn focusDir(comptime dir: Tiler.Dir) Trigger {
-    return struct {
-        pub fn focus(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
-            log.info("trying to shift focus rightward", .{});
-            const dat = bindDatas.get(b).?;
-            const sdat = ctx.seats.getPtr(dat.seat).?;
-
-            switch (event) {
-                .pressed => {
-                    var tc: Tiler.TileContext = .{
-                        .focus = sdat.focus,
-                        .gpa = ctx.alloc,
-                    };
-                    if (ctx.workspaces.getPtr(0).?.getWindow(&tc, dir)) |w| {
-                        sdat.focus = w;
-                        log.info("focus  window {}", .{w.getId()});
-                    }
-                },
-                .released => {},
-            }
-        }
-    }.focus;
-}
-
-fn moveDir(comptime dir: Tiler.Dir) Trigger {
-    return struct {
-        pub fn move(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
-            const dat = bindDatas.get(b).?;
-            const sdat = ctx.seats.getPtr(dat.seat).?;
-
-            switch (event) {
-                .pressed => {
-                    var tc: Tiler.TileContext = .{
-                        .focus = sdat.focus,
-                        .gpa = ctx.alloc,
-                    };
-                    ctx.workspaces.getPtr(0).?.move(&tc, dir);
-                    sdat.ignore_next = true;
-                    ctx.wm.manageDirty();
-                },
-                .released => {},
-            }
-        }
-    }.move;
+    if (bindDatas.entries.len == 0) bindDatas.clearAndFree(ctx.gpa);
 }
 
 fn directionals(mods: rwm.SeatV1.Modifiers, keys: [4]u32, f: fn (comptime Tiler.Dir) Trigger) [4]Bind {
@@ -161,6 +117,71 @@ fn directionals(mods: rwm.SeatV1.Modifiers, keys: [4]u32, f: fn (comptime Tiler.
         };
     }
     return out;
+}
+
+fn kill(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
+    const dat = bindDatas.get(b).?;
+
+    switch (event) {
+        .pressed => {
+            if (ctx.seats.get(dat.seat).?.focus) |w| {
+                ctx.shouldClose.append(ctx.gpa, w) catch return;
+                log.info("marked window {} for closure", .{w.getId()});
+            }
+        },
+        .released => {},
+    }
+}
+
+fn focusDir(comptime dir: Tiler.Dir) Trigger {
+    return struct {
+        pub fn focus(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
+            const data = bindDatas.get(b).?;
+            const seat_data = ctx.seats.getPtr(data.seat).?;
+            const win = seat_data.focus orelse return;
+            const ws_id = Window.getWorkspace(ctx, win) orelse return;
+            const ws = ctx.workspaces.getPtr(ws_id).?;
+
+            switch (event) {
+                .pressed => {
+                    var tc: Tiler.TileContext = .{
+                        .focus = seat_data.focus,
+                        .gpa = ctx.gpa,
+                    };
+                    if (ws.getWindow(&tc, dir)) |w| {
+                        seat_data.focus = w;
+                        log.info("focus  window {}", .{w.getId()});
+                    }
+                },
+                .released => {},
+            }
+        }
+    }.focus;
+}
+
+fn moveDir(comptime dir: Tiler.Dir) Trigger {
+    return struct {
+        pub fn move(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
+            const data = bindDatas.get(b).?;
+            const seat_data = ctx.seats.getPtr(data.seat).?;
+            const win = seat_data.focus orelse return;
+            const ws_id = Window.getWorkspace(ctx, win) orelse return;
+            const ws = ctx.workspaces.getPtr(ws_id).?;
+
+            switch (event) {
+                .pressed => {
+                    var tc: Tiler.TileContext = .{
+                        .focus = seat_data.focus,
+                        .gpa = ctx.gpa,
+                    };
+                    ws.move(&tc, dir);
+                    seat_data.ignore_next = true;
+                    ctx.wm.manageDirty();
+                },
+                .released => {},
+            }
+        }
+    }.move;
 }
 
 fn launch(comptime command: [:null]const ?[*:0]const u8) Trigger {
@@ -190,23 +211,59 @@ fn launch(comptime command: [:null]const ?[*:0]const u8) Trigger {
     }.launch;
 }
 
-fn changeSplit(_: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
+fn changeSplit(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
     switch (event) {
         .pressed => {
-            const seat = ctx.last_active orelse return;
-            const seat_data = ctx.seats.get(seat).?;
-            const out = ctx.outs.entries.get(0); // TODO: fix
-            const ws = ctx.workspaces.getPtr(out.value.workspace).?;
+            const data = bindDatas.get(b).?;
+            const seat_data = ctx.seats.getPtr(data.seat).?;
+            const win = seat_data.focus orelse return;
+            const ws_id = Window.getWorkspace(ctx, win) orelse return;
+            const ws = ctx.workspaces.getPtr(ws_id).?;
+
             var tc: Tiler.TileContext = .{
-                .focus = seat_data.focus,
-                .gpa = ctx.alloc,
+                .focus = win,
+                .gpa = ctx.gpa,
             };
 
-            ws.command(&tc, .{ .command = @intFromEnum(@import("bsp.zig").Commands.ChangeSplit) }) catch |e| {
+            ws.command(&tc, .{ .command = @intFromEnum(bsp.Commands.ChangeSplit) }) catch |e| {
                 log.err("changesplit failed with {}", .{e});
                 return;
             };
         },
         .released => {},
     }
+}
+
+fn changeWorkspace(comptime target: Workspace.WS) Trigger {
+    return struct {
+        pub fn change(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
+            switch (event) {
+                .pressed => {
+                    const data = bindDatas.get(b).?;
+                    const seat_data = ctx.seats.getPtr(data.seat).?;
+
+                    const out = Output.byPointer(ctx, seat_data.pointer_pos).?;
+                    const out_data = ctx.outs.getPtr(out).?;
+
+                    // const win = seat_data.focus orelse return;
+                    // const ws = Window.getWorkspace(ctx, win) orelse return;
+
+                    // const out = Workspace.getOutput(ctx, ws) orelse return;
+
+                    if (Workspace.getOutput(ctx, target)) |_| return;
+
+                    _ = Workspace.get(ctx, target) catch |e| {
+                        log.err("failed to switch to workspace {} with error {}", .{ target, e });
+                        return;
+                    };
+
+                    log.info("switching to workspace {}", .{target});
+
+                    out_data.workspace = target;
+                    ctx.dirty = true;
+                },
+                .released => {},
+            }
+        }
+    }.change;
 }

@@ -10,9 +10,10 @@ const Window = @import("window.zig");
 const Output = @import("output.zig");
 const Seat = @import("seat.zig");
 const Workspace = @import("workspace.zig");
+const InputManager = @import("input/management.zig");
 
 // base allocator
-alloc: mem.Allocator,
+gpa: mem.Allocator,
 
 // protocol interfaces
 wm: *rwm.WindowManagerV1,
@@ -24,6 +25,7 @@ running: bool = true,
 locked: bool = false,
 
 // global state
+input_management: InputManager,
 wins: utils.WLHashMap(rwm.WindowV1, Window) = .empty,
 outs: utils.WLHashMap(rwm.OutputV1, Output) = .empty,
 seats: utils.WLHashMap(rwm.SeatV1, Seat) = .empty,
@@ -43,7 +45,7 @@ pub fn deinit(self: *@This()) void {
 
     var outs = self.outs.iterator();
     while (outs.next()) |o| {
-        o.value_ptr.deinit(self, o.key_ptr.*);
+        Output.deinit(self, o.key_ptr.*);
     }
 
     var seats = self.seats.iterator();
@@ -55,7 +57,7 @@ pub fn deinit(self: *@This()) void {
         w.deinit(self);
     }
 
-    self.wins.deinit(self.alloc);
-    self.outs.deinit(self.alloc);
-    self.seats.deinit(self.alloc);
+    self.wins.deinit(self.gpa);
+    self.outs.deinit(self.gpa);
+    self.seats.deinit(self.gpa);
 }

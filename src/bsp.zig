@@ -239,7 +239,6 @@ const subTile = union(enum) {
                     .show = true,
                     .position = rect.pos.add(.fromScalar(pad)),
                 }) catch return error.OutOfMemory;
-                log.info("put {} at ({}, {})", .{ w.getId(), rect.pos.x, rect.pos.y });
             },
             .Branch => |b| {
                 const l, const r = subDivide(rect, b.direction, b.ratio);
@@ -329,7 +328,6 @@ pub fn remove(self: *@This(), ctx: *Tiler.TileContext, win: WT) void {
 
 pub fn manage(self: *@This(), ctx: *Tiler.TileContext, bound: utils.Rect2) Tiler.Error!ManageMap {
     const tree = &(self.tree orelse return .empty);
-    log.info("initiating manage with tree size {}", .{tree.count()});
 
     var out: ManageMap = .empty;
     errdefer out.clearAndFree(ctx.gpa);

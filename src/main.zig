@@ -20,12 +20,17 @@ const Workspace = @import("workspace.zig");
 const Tiler = @import("tiler.zig");
 const Layouts = @import("layouts.zig");
 
+const InputManager = @import("input/management.zig");
+const LibInput = @import("input/libinput.zig");
+
 const log = std.log;
 
 const Registry = struct {
     wm: ?*rwm.WindowManagerV1 = null,
     shell: ?*rwm.LayerShellV1 = null,
     bindings: ?*rwm.XkbBindingsV1 = null,
+    input_manager: ?*rwm.InputManagerV1 = null,
+    input_config: ?*rwm.LibinputConfigV1 = null,
 
     pub fn register(registry: *wl.Registry, event: wl.Registry.Event, context: *@This()) void {
         switch (event) {
@@ -39,6 +44,12 @@ const Registry = struct {
                 } else if (mem.orderZ(u8, global.interface, rwm.XkbBindingsV1.interface.name) == .eq) {
                     context.bindings = registry.bind(global.name, rwm.XkbBindingsV1, 1) catch return;
                     std.log.info("registered xkb bindings interface with version {}", .{global.version});
+                } else if (mem.orderZ(u8, global.interface, rwm.InputManagerV1.interface.name) == .eq) {
+                    context.input_manager = registry.bind(global.name, rwm.InputManagerV1, 1) catch return;
+                    std.log.info("registered input manager interface with version {}", .{global.version});
+                } else if (mem.orderZ(u8, global.interface, rwm.LibinputConfigV1.interface.name) == .eq) {
+                    context.input_config = registry.bind(global.name, rwm.LibinputConfigV1, 1) catch return;
+                    std.log.info("registered libinput config interface with version {}", .{global.version});
                 }
             },
             .global_remove => {},
@@ -46,24 +57,25 @@ const Registry = struct {
     }
 };
 
-fn listen(iface: *rwm.WindowManagerV1, e: rwm.WindowManagerV1.Event, ctx: *Context) void {
-    switch (e) {
+fn listen(iface: *rwm.WindowManagerV1, event: rwm.WindowManagerV1.Event, ctx: *Context) void {
+    switch (event) {
         .finished => {
             ctx.running = false;
             iface.destroy();
         },
         .window => |args| {
             const win = args.id;
-            ctx.should_open.append(ctx.alloc, win) catch return;
+            ctx.should_open.append(ctx.gpa, win) catch return;
         },
         .output => |args| {
             std.log.info("registerd output with id {}", .{args.id.getId()});
-            ctx.outs.put(ctx.alloc, args.id, .{ .workspace = 0 }) catch return;
-            args.id.setListener(*Context, Output.listener, ctx);
+            Output.init(ctx, args.id) catch |e| {
+                std.log.err("failed to init output with error {}", .{e});
+            };
         },
         .seat => |args| {
             std.log.info("registerd seat with id {}", .{args.id.getId()});
-            ctx.seats.put(ctx.alloc, args.id, .{
+            ctx.seats.put(ctx.gpa, args.id, .{
                 .seat = null,
             }) catch return;
             args.id.setListener(*Context, Seat.listener, ctx);
@@ -92,23 +104,22 @@ fn listen(iface: *rwm.WindowManagerV1, e: rwm.WindowManagerV1.Event, ctx: *Conte
 }
 
 fn manage(ctx: *Context) !void {
-
     // register new windows
     for (ctx.should_open.items) |win| {
         std.log.info("registered window with id {}", .{win.getId()});
         const data: Window = Window.init(ctx, win) catch return;
-        ctx.wins.put(ctx.alloc, win, data) catch return;
+        ctx.wins.put(ctx.gpa, win, data) catch return;
         win.setListener(*Context, Window.listener, ctx);
     }
 
-    ctx.should_open.clearAndFree(ctx.alloc);
+    ctx.should_open.clearAndFree(ctx.gpa);
 
     const curr_time = std.time.microTimestamp();
 
-    var seats = ctx.seats.iterator();
 
     // make sure out internal idea of focus is in-sync
     // with what the compositor knows
+    var seats = ctx.seats.iterator();
     while (seats.next()) |seat| {
         if (ctx.locked) {
             // std.log.info("disabling keybinds for seat {}", .{seat.key_ptr.*.getId()});
@@ -154,6 +165,10 @@ fn manage(ctx: *Context) !void {
         const goal = &w.value_ptr.goal_size;
 
         const ts = goal.get(curr_time);
+        // switch(goal.*){
+        //     .transit => win.informResizeStart(),
+        //     .static => win.informResizeEnd(),
+        // }
         win.proposeDimensions(ts.x, ts.y);
 
         if (!goal.done(curr_time)) {
@@ -171,13 +186,10 @@ fn manage(ctx: *Context) !void {
 
         var tctx: Tiler.TileContext = .{
             .focus = focus,
-            .gpa = ctx.alloc,
+            .gpa = ctx.gpa,
         };
-        var manages = try ws.manage(&tctx, .{
-            .dim = out.value_ptr.size.?,
-            .pos = out.value_ptr.position.?,
-        });
-        defer manages.clearAndFree(ctx.alloc);
+        var manages = try ws.manage(&tctx, out.value_ptr.getArea());
+        defer manages.clearAndFree(ctx.gpa);
 
         for (ws.windows.keys()) |w| {
             const wd = ctx.wins.getPtr(w).?;
@@ -197,30 +209,29 @@ fn manage(ctx: *Context) !void {
         w.close();
     }
 
-    ctx.shouldClose.clearAndFree(ctx.alloc);
+    ctx.shouldClose.clearAndFree(ctx.gpa);
 }
 
 fn render(ctx: *Context) !void {
-    std.log.info("render event", .{});
     const wins = ctx.wins.entries.len;
     if (wins == 0) return;
     const curr_time = std.time.microTimestamp();
 
-    var outs = ctx.outs.iterator();
+    for (ctx.wins.keys()) |w| {
+        w.hide();
+    }
 
+    var outs = ctx.outs.iterator();
     while (outs.next()) |out| {
         const ws = ctx.workspaces.getPtr(out.value_ptr.workspace).?;
         const seat = if (ctx.last_active) |s| ctx.seats.get(s) else null;
         const focus = if (seat) |s| s.focus else null;
         var tctx: Tiler.TileContext = .{
             .focus = focus,
-            .gpa = ctx.alloc,
+            .gpa = ctx.gpa,
         };
-        var renders = try ws.render(&tctx, .{
-            .pos = out.value_ptr.position.?,
-            .dim = out.value_ptr.size.?,
-        });
-        defer renders.clearAndFree(ctx.alloc);
+        var renders = try ws.render(&tctx, out.value_ptr.getArea());
+        defer renders.clearAndFree(ctx.gpa);
 
         for (ws.windows.keys()) |w| {
             const wd = ctx.wins.getPtr(w).?;
@@ -232,7 +243,6 @@ fn render(ctx: *Context) !void {
             if (renderState.show) {
                 w.show();
             } else {
-                w.hide();
                 continue;
             }
 
@@ -274,6 +284,8 @@ pub fn main() !void {
 
     defer if (gpa.deinit() == .leak) std.log.err("got a memory leak", .{});
 
+    const alloc = gpa.allocator();
+
     const display = try wl.Display.connect(null);
     defer display.disconnect();
     const registry = try display.getRegistry();
@@ -285,26 +297,32 @@ pub fn main() !void {
     if (display.roundtrip() != .SUCCESS) return error.RoundTripFailed;
 
     var ctx: Context = .{
-        .alloc = gpa.allocator(),
+        .gpa = alloc,
+
         .wm = try unwrapIFace(reg.wm),
         .bind = try unwrapIFace(reg.bindings),
         .shell = try unwrapIFace(reg.shell),
-        .workspaces = .empty,
+        .input_management =  .{
+            .manager = try unwrapIFace(reg.input_manager),
+            .libinput = try unwrapIFace(reg.input_config),
+            .gpa = alloc,
+        }
     };
 
-    try ctx.workspaces.put(ctx.alloc, 0, .{
-        .tiler = try Layouts.new(ctx.alloc, .bsp) ,
+    try ctx.workspaces.put(ctx.gpa, 0, .{
+        .tiler = try Layouts.new(ctx.gpa, .bsp),
     });
 
     defer ctx.deinit();
 
     ctx.wm.setListener(*Context, listen, &ctx);
+    ctx.input_management.manager.setListener(*InputManager, InputManager.listener, &ctx.input_management);
+    ctx.input_management.libinput.setListener(*InputManager, LibInput.listener, &ctx.input_management);
 
     while (ctx.running) {
         if (ctx.dirty) {
             ctx.dirty = false;
             ctx.wm.manageDirty();
-            std.log.info("dirty state", .{});
         }
 
         if (display.dispatch() != .SUCCESS) return error.DispatchError;
