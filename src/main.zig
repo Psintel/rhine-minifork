@@ -117,31 +117,28 @@ fn manage(ctx: *Context) !void {
     const curr_time = std.time.microTimestamp();
 
 
-    // make sure out internal idea of focus is in-sync
+    // make sure out internal seat data is in-sync
     // with what the compositor knows
     var seats = ctx.seats.iterator();
-    while (seats.next()) |seat| {
+    while (seats.next()) |_seat| {
+        const seat = _seat.key_ptr.*;
+        const seat_data = _seat.value_ptr;
+
         if (ctx.locked) {
-            // std.log.info("disabling keybinds for seat {}", .{seat.key_ptr.*.getId()});
-            for (seat.value_ptr.binds.items) |b| {
-                b.disable();
-            }
+            for (seat_data.binds.items) |b| b.disable();
         } else {
-            // std.log.info("enabling keybinds for seat {}", .{seat.key_ptr.*.getId()});
-            for (seat.value_ptr.binds.items) |b| {
-                b.enable();
-            }
+            for (seat_data.binds.items) |b| b.enable();
         }
 
-        if (seat.value_ptr.focus) |w| {
+        if (seat_data.focus) |w| {
             if (!ctx.wins.contains(w)) {
-                seat.value_ptr.focus = null;
+                seat_data.focus = null;
                 continue;
             }
 
-            seat.key_ptr.*.focusWindow(w);
+            seat.focusWindow(w);
         } else {
-            seat.key_ptr.*.clearFocus();
+            seat.clearFocus();
         }
     }
 
@@ -165,10 +162,10 @@ fn manage(ctx: *Context) !void {
         const goal = &w.value_ptr.goal_size;
 
         const ts = goal.get(curr_time);
-        // switch(goal.*){
-        //     .transit => win.informResizeStart(),
-        //     .static => win.informResizeEnd(),
-        // }
+        switch(goal.*){
+            .transit => win.informResizeStart(),
+            .static => win.informResizeEnd(),
+        }
         win.proposeDimensions(ts.x, ts.y);
 
         if (!goal.done(curr_time)) {

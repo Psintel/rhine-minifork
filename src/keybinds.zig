@@ -72,17 +72,13 @@ const binds = [_]Bind{
     .{ .mod1 = true, .shift = true },
     .{ xkb.XKB_KEY_Left, xkb.XKB_KEY_Down, xkb.XKB_KEY_Up, xkb.XKB_KEY_Right },
     moveDir,
-) ++ ws: {
-    var out: [10]Bind = undefined;
-    for (&out, 0..) |*b, i| {
-        b.* = .{
-            .mods = .{ .mod1 = true },
-            .key = @field(xkb, std.fmt.comptimePrint("XKB_KEY_{}", .{(i + 1) % 10})),
-            .trigger = changeWorkspace(i),
-        };
-    }
-    break :ws out;
-};
+) ++ numbers(
+    .{ .mod1 = true },
+    changeWorkspace,
+) ++ numbers(
+    .{ .mod1 = true, .shift = true },
+    moveToWorkspace,
+);
 
 pub fn register(ctx: *Context, seat: *rwm.SeatV1) !void {
     const sc = ctx.seats.getPtr(seat).?;
@@ -116,6 +112,19 @@ fn directionals(mods: rwm.SeatV1.Modifiers, keys: [4]u32, f: fn (comptime Tiler.
             .trigger = f(d),
         };
     }
+    return out;
+}
+
+fn numbers(mods: rwm.SeatV1.Modifiers, f: fn (comptime i32) Trigger) [10]Bind {
+    var out: [10]Bind = undefined;
+    for (&out, 0..) |*b, i| {
+        b.* = .{
+            .mods = mods,
+            .key = @field(xkb, std.fmt.comptimePrint("XKB_KEY_{}", .{(i + 1) % 10})),
+            .trigger = f(i),
+        };
+    }
+
     return out;
 }
 
@@ -238,28 +247,72 @@ fn changeWorkspace(comptime target: Workspace.WS) Trigger {
     return struct {
         pub fn change(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
             switch (event) {
-                .pressed => {
+                .pressed => { // TODO: determine output based on focus too
                     const data = bindDatas.get(b).?;
                     const seat_data = ctx.seats.getPtr(data.seat).?;
 
-                    const out = Output.byPointer(ctx, seat_data.pointer_pos).?;
+                    const out = Output.byPointer(ctx, seat_data.pointer_pos) orelse return;
                     const out_data = ctx.outs.getPtr(out).?;
 
-                    // const win = seat_data.focus orelse return;
-                    // const ws = Window.getWorkspace(ctx, win) orelse return;
-
-                    // const out = Workspace.getOutput(ctx, ws) orelse return;
-
-                    if (Workspace.getOutput(ctx, target)) |_| return;
-
-                    _ = Workspace.get(ctx, target) catch |e| {
+                    const w = Workspace.get(ctx, target) catch |e| {
                         log.err("failed to switch to workspace {} with error {}", .{ target, e });
                         return;
                     };
 
                     log.info("switching to workspace {}", .{target});
 
-                    out_data.workspace = target;
+                    if (Workspace.getOutput(ctx, target) == null) {
+                        out_data.workspace = target;
+                    }
+
+                    seat_data.focus = if (w.windows.entries.len > 0) w.windows.keys()[0] else null;
+                    ctx.dirty = true;
+                },
+                .released => {},
+            }
+        }
+    }.change;
+}
+
+fn moveToWorkspace(comptime target: Workspace.WS) Trigger {
+    return struct {
+        pub fn change(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
+            switch (event) {
+                .pressed => {
+                    const data = bindDatas.get(b).?;
+                    const seat_data = ctx.seats.getPtr(data.seat).?;
+
+                    const focus = seat_data.focus orelse return;
+                    const source = Window.getWorkspace(ctx, focus) orelse return;
+
+                    if (source == target) return;
+
+                    const out = Output.byPointer(ctx, seat_data.pointer_pos) orelse return;
+                    const out_data = ctx.outs.getPtr(out).?;
+
+                    const w = Workspace.get(ctx, target) catch |e| {
+                        log.err("failed to switch to workspace {} with error {}", .{ target, e });
+                        return;
+                    };
+
+                    log.info("switching to workspace {}", .{target});
+
+                    if (Workspace.getOutput(ctx, target) == null) {
+                        out_data.workspace = target;
+                    }
+
+                    const s = ctx.workspaces.getPtr(source).?;
+                    var tc: Tiler.TileContext = .{
+                        .cursorPos =  seat_data.pointer_pos,
+                        .focus =  seat_data.focus,
+                        .gpa = ctx.gpa,
+                    };
+
+                    s.rmWindow(&tc, focus);
+                    w.addWindow(&tc, focus) catch |e| {
+                        log.err("error adding window {} to workspace {}: {}", .{focus.getId(), target, e});
+                    };
+
                     ctx.dirty = true;
                 },
                 .released => {},

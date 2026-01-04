@@ -23,6 +23,11 @@ pub const WS = i32;
 windows: utils.WLHashMap(rwm.WindowV1, void) = .empty,
 tiler: Tiler,
 
+// floating windows are not dealt with by the tiler but just naively overlaid
+// more complex floating behaviour should go into a custom tiler
+floating: utils.WLHashMap(rwm.WindowV1, void) = .empty,
+
+
 pub fn getFirst(ctx: *Context) WS {
     var start: WS = 0;
 

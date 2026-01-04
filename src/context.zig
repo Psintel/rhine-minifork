@@ -35,7 +35,9 @@ workspaces: std.AutoArrayHashMapUnmanaged(Workspace.WS, Workspace)  = .empty,
 last_active: ?*rwm.SeatV1 = null, // last seat with activity
 shouldClose: std.ArrayList(*rwm.WindowV1) = .empty,
 dirty: bool = false,
-should_open: std.ArrayList(*rwm.WindowV1) = .empty,
+
+should_open: std.ArrayList(*rwm.WindowV1) = .empty, // uninitalized windows
+orphans: std.ArrayList(*rwm.WindowV1) = .empty, // initialized windows that need to be reassigned
 
 pub fn deinit(self: *@This()) void {
     var wins = self.wins.iterator();
