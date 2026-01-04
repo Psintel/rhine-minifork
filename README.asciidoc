@@ -1,7 +1,7 @@
     ATTENTION: this is still in heavy development, I myself am not daily driving it yet.
     I suppose we've reached the bare minimum functionality in order to start using this.
 
-= Rhine: a recursive window manager for river
+= Rhine: a modular window manager for river
 
 Rhine is a window manager for the river wayland compositor (using the river_compositor_V1 protocol).
 The aim is to allow for a modular system of tiling algorithms (maybe even ones loaded from shared object files).
@@ -10,9 +10,22 @@ if one desires to mess around nonetheless then use alt (+shift) and arrow keys f
 
 What will rhine _not_ do (for now):
 
-- ssd. all windows will be (for now) undecorated
+- ssd. all windows will be (for now) undecorated (aside from fun borders)
 - clip windows
+- present the best floating/stacking experience
 
 what tilers will _not_ do (for now):
 
 - manage borders
+
+keybinds (hardcoded for now):
+
+- alt+d                      : open fuzzel
+- alt+enter                  : open foot
+- alt+arrows                 : move focus
+- alt+{h,j,k,l}              : move focus
+- shift+alt+arrows           : move focus window
+- shift+alt+{h,j,k,l}        : move focus window
+- alt+s                      : change the direction of the innermost split
+- alt+{1,2,3,4,5,6,7,8,9,0,} : show workspace {1,2,3,4,5,6,7,8,9,10} on the current monitor
+- ctrl+alt+delete            : quit river (this is a river-internal keybind)

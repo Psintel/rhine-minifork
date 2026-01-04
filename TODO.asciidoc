@@ -1,0 +1,21 @@
+= TODO
+- floating windows
+    - implement pop-up heuristics
+- external config
+- special workspaces
+- libinput config
+    - figure out how to deal with results
+- pointer gestures (also tiling specific)
+    - waiting for protocol
+- pointer warp to focused client
+    - waiting for protocol
+
+= Ambitions
+- C abi for tilers
+    - we can override malloc, calloc, realloc and free for the shared object :D
+- maybe include a builtin bar
+- make all interface references just the id.
+    - serialize wm state to disk
+
+= maybe
+- output config
