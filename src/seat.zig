@@ -18,8 +18,8 @@ pointer_pos: utils.Vec2 = @splat(0),
 binds: std.ArrayList(*rwm.XkbBindingV1) = .empty,
 pointer_binds: std.ArrayList(*rwm.PointerBindingV1) = .empty,
 
-// the following may be removed in the future
-ignore_next: bool = false,
+// warp pointer to focus in next manage
+warp_to_window: ?*rwm.WindowV1 = null,
 
 pointer_op: ?Pointerbinds.PointerOp = null,
 
@@ -42,12 +42,6 @@ pub fn listener(seat: *rwm.SeatV1, e: rwm.SeatV1.Event, ctx: *Context) void {
         },
         .pointer_enter => |win| {
             if (win.window) |w| {
-                // _ = w;
-                if (seat_data.ignore_next) {
-                    seat_data.ignore_next = false;
-                    return;
-                }
-
                 seat_data.focus = w;
             }
         },

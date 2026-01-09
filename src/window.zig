@@ -22,12 +22,12 @@ node: *rwm.NodeV1,
 workspace: ?Workspace.WS = null,
 
 app_id: ?[:0]const u8 = null,
-size: utils.Vec2 = undefined,
+size: utils.Vec2 = @splat(0),
 float: bool = false, // is this window floating
 parent: ?*rwm.WindowV1 = null,
 
 // will we keep those?
-pos: utils.Lerp(100_000) = .{ .static = @splat(0) },
+pos:       utils.Lerp(100_000) = .{ .static = @splat(0) },
 goal_size: utils.Lerp(100_000) = .{ .static = @splat(0) },
 
 // initialize window

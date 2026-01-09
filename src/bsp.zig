@@ -208,37 +208,25 @@ const subTile = union(enum) {
         }
     }
 
-    pub fn manage(self: *@This(), size: utils.Vec2, ctx: *Tiler.TileContext, out: *ManageMap) Tiler.Error!void {
+    pub fn manage(self: *@This(), ctx: *Tiler.TileContext, rect: utils.Rect2, out: *ManageMap) void {
         switch (self.*) {
             .Leaf => |w| {
-                out.put(ctx.gpa, w, .{
-                    .size = size - @as(utils.Vec2, @splat(2)) * pad,
-                    .state = .normal,
-                    .border = if (w == ctx.focus) .blue else .gray,
-                }) catch return error.OutOfMemory;
-            },
-            .Branch => |b| {
-                const ds: utils.Vec2 = splitDim(size, b.direction, b.ratio);
-
-                try b.left.manage(ds, ctx, out);
-                try b.right.manage(ds, ctx, out);
-            },
-        }
-    }
-
-    pub fn render(self: *@This(), ctx: *Tiler.TileContext, rect: utils.Rect2, out: *RenderMap) Tiler.Error!void {
-        switch (self.*) {
-            .Leaf => |w| {
-                out.put(ctx.gpa, w, .{
-                    .show = true,
-                    .position = rect.pos + pad,
-                }) catch return error.OutOfMemory;
+                if (out.contains(w)) {
+                    const s = rect.dim - @as(utils.Vec2, @splat(2)) * pad;
+                    out.putAssumeCapacity(w, .{
+                        .show = true,
+                        .position = rect.pos + pad,
+                        .size = s,
+                        .state = .normal,
+                        .border = if (w == ctx.focus) .blue else .gray,
+                    });
+                }
             },
             .Branch => |b| {
                 const l, const r = subDivide(rect, b.direction, b.ratio);
 
-                try b.left.render(ctx, l, out);
-                try b.right.render(ctx, r, out);
+                b.left.manage(ctx, l, out);
+                b.right.manage(ctx, r, out);
             },
         }
     }
@@ -320,27 +308,10 @@ pub fn remove(self: *@This(), ctx: *Tiler.TileContext, win: WT) void {
     }
 }
 
-pub fn manage(self: *@This(), ctx: *Tiler.TileContext, bound: utils.Rect2) Tiler.Error!ManageMap {
-    const tree = &(self.tree orelse return .empty);
+pub fn manage(self: *@This(), ctx: *Tiler.TileContext, bound: utils.Rect2, wins: *ManageMap) void {
+    const tree = &(self.tree orelse return);
 
-    var out: ManageMap = .empty;
-    errdefer out.clearAndFree(ctx.gpa);
-
-    try out.ensureTotalCapacity(ctx.gpa, tree.count());
-    try tree.manage(bound.dim, ctx, &out);
-
-    return out;
-}
-
-pub fn render(self: *@This(), ctx: *Tiler.TileContext, bound: utils.Rect2) Tiler.Error!RenderMap {
-    const tree = &(self.tree orelse return .empty);
-    var out: RenderMap = .empty;
-    errdefer out.clearAndFree(ctx.gpa);
-
-    try out.ensureTotalCapacity(ctx.gpa, tree.count());
-    try tree.render(ctx, bound, &out);
-
-    return out;
+    tree.manage(ctx, bound, wins);
 }
 
 pub fn getWindow(self: *@This(), ctx: *Tiler.TileContext, dir: Tiler.Dir) ?WT {

@@ -16,6 +16,7 @@ pub fn Lerp(comptime period: i64) type {
             start: i64,
 
             pub fn timeGet(self: @This(), t: i64) Vec2 {
+                if (period == 0) return self.to;
                 const d: f32 = @floatFromInt(t - self.start);
                 const p: f32 = @floatFromInt(period);
                 return ilerp(self.from, self.to, @min(d / p, 1.0));

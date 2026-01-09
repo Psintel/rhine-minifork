@@ -18,8 +18,7 @@ vtable: *const VTable,
 context: ?*anyopaque,
 
 pub const WT = *rwm.WindowV1;
-pub const ManageMap = utils.WLHashMap(rwm.WindowV1, ManageState);
-pub const RenderMap = utils.WLHashMap(rwm.WindowV1, RenderState);
+pub const ManageMap= utils.WLHashMap(rwm.WindowV1, TileState);
 
 pub const TileContext = struct {
     focus: ?WT = null,
@@ -34,19 +33,19 @@ pub const Dir = enum {
     Down,
 };
 
-pub const RenderState = struct {
-    show: bool,
-    position: utils.Vec2,
-};
+pub const TileState = struct {
+    show: bool = false, // show the window
 
-pub const ManageState = struct {
-    size: utils.Vec2,
+    position: utils.Vec2 = @splat(0),
+    size: utils.Vec2 = @splat(0),
+
     state: enum {
         normal,
         maximize,
         fullscreen,
-    },
-    border: utils.Color,
+    } = .normal,
+
+    border: utils.Color = .gray,
 };
 
 // custom tiler-specific commands
@@ -65,9 +64,9 @@ pub const VTable = struct {
     add: *const fn (?*anyopaque, *TileContext, WT) Error!void,
     // every added window must be removed to fully deinitialize
     remove: *const fn (?*anyopaque, *TileContext, WT) void,
-    // the memory is allocated using the context allocator and caller owned
-    manage: *const fn (?*anyopaque, *TileContext, bound: utils.Rect2) Error!ManageMap,
-    render: *const fn (?*anyopaque, *TileContext, bound: utils.Rect2) Error!RenderMap,
+
+    // upate the ManageMap structure. all tiler-tracked windows are guaranteed to be available
+    manage: *const fn (?*anyopaque, *TileContext, bound: utils.Rect2, *ManageMap) void,
 
     // these two center on the focus from context (since that is an arg, it's easily mockable)
     getWindow: *const fn (?*anyopaque, *TileContext, Dir) ?WT,
@@ -83,7 +82,6 @@ pub fn tiler(T: type) type {
             .add = add_impl,
             .remove = remove_impl,
             .manage = manage_impl,
-            .render = render_impl,
             .getWindow = get_impl,
             .move = move_impl,
             .command = command_impl,
@@ -98,14 +96,9 @@ pub fn tiler(T: type) type {
             return parent.remove(ctx, win);
         }
 
-        fn manage_impl(data: ?*anyopaque, ctx: *TileContext, bound: utils.Rect2) Error!ManageMap {
+        fn manage_impl(data: ?*anyopaque, ctx: *TileContext, bound: utils.Rect2, man: *ManageMap) void {
             const parent: *T = @ptrCast(@alignCast(data.?));
-            return parent.manage(ctx, bound);
-        }
-
-        fn render_impl(data: ?*anyopaque, ctx: *TileContext, bound: utils.Rect2) Error!RenderMap {
-            const parent: *T = @ptrCast(@alignCast(data.?));
-            return parent.render(ctx, bound);
+            return parent.manage(ctx, bound, man);
         }
 
         fn move_impl(data: ?*anyopaque, ctx: *TileContext, d: Dir) void {

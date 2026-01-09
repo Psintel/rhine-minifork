@@ -26,6 +26,8 @@ const LibInput = @import("input/libinput.zig");
 
 const log = std.log;
 
+var manage_states: Tiler.ManageMap = .empty;
+
 const Registry = struct {
     wm: ?*rwm.WindowManagerV1 = null,
     shell: ?*rwm.LayerShellV1 = null,
@@ -116,13 +118,57 @@ fn listen(iface: *rwm.WindowManagerV1, event: rwm.WindowManagerV1.Event, ctx: *C
     }
 }
 
+fn apply_tiler(ctx: *Context) !void {
+    const curr_time = std.time.microTimestamp();
+
+    var states = manage_states.iterator();
+    while (states.next()) |rs| {
+        rs.value_ptr.show = false;
+    }
+
+    // update workspace manage state from tiler
+    var outs = ctx.outs.iterator();
+    while (outs.next()) |out| {
+        const ws = ctx.workspaces.getPtr(out.value_ptr.workspace).?;
+        const seat = if (ctx.last_active) |s| ctx.seats.getPtr(s) else null;
+        const focus = if (seat) |s| s.focus else null;
+
+        if (focus) |f| {
+            if (!ctx.wins.contains(f)) seat.?.focus = null;
+        }
+
+        var tctx: Tiler.TileContext = .{
+            .focus = focus,
+            .gpa = ctx.gpa,
+        };
+        ws.manage(&tctx, out.value_ptr.getArea(), &manage_states);
+    }
+
+    var wins = ctx.wins.iterator();
+    while (wins.next()) |_w| {
+        const w = _w.key_ptr.*;
+        const wd = _w.value_ptr;
+
+        const man_state = manage_states.get(w) orelse {
+            log.err("failed to manage window {}", .{w.getId()});
+            continue;
+        };
+
+
+        wd.setSize(man_state.size, curr_time);
+        wd.setPos(man_state.position, curr_time);
+    }
+}
+
 fn manage(ctx: *Context) !void {
     // register new windows
     for (ctx.should_open.items) |win| {
         try Window.assign(ctx, win);
+        try manage_states.put(ctx.gpa, win, .{});
     }
-
     ctx.should_open.clearAndFree(ctx.gpa);
+
+    try apply_tiler(ctx);
 
     const curr_time = std.time.microTimestamp();
 
@@ -142,7 +188,7 @@ fn manage(ctx: *Context) !void {
         }
 
         if (seat_data.pointer_op) |*op| {
-            switch(op.state) {
+            switch (op.state) {
                 .start => {
                     op.start(op.context, ctx);
                     seat.opStartPointer();
@@ -159,6 +205,25 @@ fn manage(ctx: *Context) !void {
             }
         }
 
+        window_warp: {
+            if (seat_data.warp_to_window) |w| {
+                const wd = ctx.wins.get(w) orelse {
+                    seat_data.warp_to_window = null;
+                    break :window_warp;
+                };
+
+                const size = wd.goal_size.get(curr_time);
+                const pos = wd.pos.get(curr_time);
+                const two: utils.Vec2 = @splat(2);
+
+                const center = pos + size / two;
+                seat.pointerWarp(center[0], center[1]);
+
+                if (std.meta.activeTag(wd.pos) == .static)
+                    seat_data.warp_to_window = null;
+            }
+        }
+
         if (seat_data.focus) |w| {
             if (!ctx.wins.contains(w)) {
                 seat_data.focus = null;
@@ -171,9 +236,26 @@ fn manage(ctx: *Context) !void {
         }
     }
 
+    // apply window management
     var it = ctx.wins.iterator();
     while (it.next()) |w| {
         const win = w.key_ptr.*;
+        const wd = w.value_ptr;
+        const man_state = manage_states.get(win) orelse continue;
+
+        if (!man_state.show) continue;
+
+        const col = man_state.border;
+
+        win.setBorders(
+            .{ .top = true, .bottom = true, .left = true, .right = true },
+            2,
+            col.r,
+            col.g,
+            col.b,
+            col.a,
+        );
+
         win.setCapabilities(.{
             .window_menu = false,
             .maximize = false,
@@ -188,53 +270,19 @@ fn manage(ctx: *Context) !void {
             .bottom = true,
         });
 
-        const goal = &w.value_ptr.goal_size;
-
+        const goal = &wd.goal_size;
         const ts = goal.get(curr_time);
         switch (goal.*) {
             .transit => win.informResizeStart(),
             .static => win.informResizeEnd(),
         }
+
         win.proposeDimensions(ts[0], ts[1]);
 
         if (!goal.done(curr_time)) {
             ctx.dirty = true;
         } else {
             goal.staticify();
-        }
-    }
-
-    var outs = ctx.outs.iterator();
-    while (outs.next()) |out| {
-        const ws = ctx.workspaces.getPtr(out.value_ptr.workspace).?;
-        const seat = if (ctx.last_active) |s| ctx.seats.get(s) else null;
-        const focus = if (seat) |s| s.focus else null;
-
-        var tctx: Tiler.TileContext = .{
-            .focus = focus,
-            .gpa = ctx.gpa,
-        };
-        var manages = try ws.manage(&tctx, out.value_ptr.getArea());
-        defer manages.clearAndFree(ctx.gpa);
-
-        for (ws.windows.keys()) |w| {
-            const wd = ctx.wins.getPtr(w).?;
-            const manageState = manages.get(w) orelse {
-                log.err("workspace {} failed to manage window {}", .{ out.value_ptr.workspace, w.getId() });
-                continue;
-            };
-
-            wd.setSize(manageState.size, curr_time);
-
-            const col = manageState.border;
-            w.setBorders(
-                .{ .top = true, .bottom = true, .left = true, .right = true },
-                2,
-                col.r,
-                col.g,
-                col.b,
-                col.a,
-            );
         }
     }
 
@@ -250,59 +298,54 @@ fn render(ctx: *Context) !void {
     if (wins == 0) return;
     const curr_time = std.time.microTimestamp();
 
-    for (ctx.wins.keys()) |w| {
-        w.hide();
-    }
 
-    var outs = ctx.outs.iterator();
-    while (outs.next()) |out| {
-        const ws = ctx.workspaces.getPtr(out.value_ptr.workspace).?;
-        const seat = if (ctx.last_active) |s| ctx.seats.get(s) else null;
-        const focus = if (seat) |s| s.focus else null;
-        var tctx: Tiler.TileContext = .{
-            .focus = focus,
-            .gpa = ctx.gpa,
-        };
-        var renders = try ws.render(&tctx, out.value_ptr.getArea());
-        defer renders.clearAndFree(ctx.gpa);
+    var windows = ctx.wins.iterator();
+    while (windows.next()) |_w| {
+        const w = _w.key_ptr.*;
+        const wd = _w.value_ptr;
 
-        for (ws.windows.keys()) |w| {
-            const wd = ctx.wins.getPtr(w).?;
-            const renderState = renders.get(w) orelse {
-                log.err("workspace {} failed to render window {}", .{ out.value_ptr.workspace, w.getId() });
-                continue;
-            };
+        const tp = wd.pos.get(curr_time);
 
-            if (renderState.show) {
-                w.show();
-            } else {
-                w.hide();
-            }
+        const man_state = manage_states.get(w).?;
 
-            wd.setPos(renderState.position, curr_time);
+        if (man_state.show) {
+            w.show();
+        } else {
+            w.hide();
         }
 
-        if (focus) |f| ctx.wins.get(f).?.node.placeTop();
+        wd.node.setPosition(tp[0], tp[1]);
 
-        for (ws.floating.keys()) |w| {
+        if (!wd.pos.done(curr_time)) {
+            ctx.dirty = true;
+        } else {
+            wd.pos.staticify();
+        }
+    }
+
+    // put focus on top
+    var seats = ctx.seats.iterator();
+    while (seats.next()) |_seat| {
+        // const seat = _seat.key_ptr.*;
+        const seat_data = _seat.value_ptr;
+
+        if (seat_data.focus) |f| {
+            const f_data = ctx.wins.get(f).?;
+            f_data.node.placeTop();
+        }
+    }
+
+    // put float on top
+    var outs = ctx.outs.iterator();
+    while (outs.next()) |out| {
+        const ws = out.value_ptr.workspace;
+        const wsd = ctx.workspaces.get(ws).?;
+
+        for (wsd.floating.keys()) |w| {
             const wd = ctx.wins.getPtr(w).?;
 
             wd.node.placeTop();
             w.show();
-        }
-    }
-
-    var windows = ctx.wins.iterator();
-    while (windows.next()) |w| {
-        const pos = &w.value_ptr.pos;
-        const tp = pos.get(curr_time);
-
-        w.value_ptr.node.setPosition(tp[0], tp[1]);
-
-        if (!pos.done(curr_time)) {
-            ctx.dirty = true;
-        } else {
-            pos.staticify();
         }
     }
 }
@@ -323,7 +366,7 @@ pub fn main() !void {
         .stack_trace_frames = 1000,
         .retain_metadata = true,
         .safety = true,
-        .verbose_log = true,
+        // .verbose_log = true,
         .enable_memory_limit = true,
     }).init;
 

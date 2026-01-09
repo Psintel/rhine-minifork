@@ -27,14 +27,13 @@ tiler: Tiler,
 // more complex floating behaviour should go into a custom tiler
 floating: utils.WLHashMap(rwm.WindowV1, void) = .empty,
 
-
 pub fn getFirst(ctx: *Context) WS {
     var start: WS = 0;
 
     while (getOutput(ctx, start)) |_| start += 1;
 
     _ = get(ctx, start) catch |e| {
-        log.err("failed creating workspace {} with {}", .{start, e});
+        log.err("failed creating workspace {} with {}", .{ start, e });
         return -1;
     };
 
@@ -43,7 +42,7 @@ pub fn getFirst(ctx: *Context) WS {
 
 pub fn getOutput(ctx: *Context, ws: WS) ?*rwm.OutputV1 {
     var iter = ctx.outs.iterator();
-    while(iter.next()) |o| {
+    while (iter.next()) |o| {
         if (o.value_ptr.workspace == ws) return o.key_ptr.*;
     }
 
@@ -70,12 +69,8 @@ pub fn rmWindow(self: *@This(), ctx: *Tiler.TileContext, win: *rwm.WindowV1) voi
         self.tiler.vtable.remove(self.tiler.context, ctx, win);
 }
 
-pub fn manage(self: *@This(), ctx: *Tiler.TileContext, bounds: utils.Rect2) Tiler.Error!Tiler.ManageMap {
-    return self.tiler.vtable.manage(self.tiler.context, ctx, bounds);
-}
-
-pub fn render(self: *@This(), ctx: *Tiler.TileContext, bounds: utils.Rect2) Tiler.Error!Tiler.RenderMap {
-    return self.tiler.vtable.render(self.tiler.context, ctx, bounds);
+pub fn manage(self: *@This(), ctx: *Tiler.TileContext, bounds: utils.Rect2, man: *Tiler.ManageMap) void {
+    return self.tiler.vtable.manage(self.tiler.context, ctx, bounds, man);
 }
 
 pub fn getWindow(self: *@This(), ctx: *Tiler.TileContext, dir: Tiler.Dir) ?*rwm.WindowV1 {

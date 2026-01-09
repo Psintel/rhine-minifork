@@ -159,6 +159,7 @@ fn focusDir(comptime dir: Tiler.Dir) Trigger {
                     };
                     if (ws.getWindow(&tc, dir)) |w| {
                         seat_data.focus = w;
+                        seat_data.warp_to_window = w;
                         log.info("focus  window {}", .{w.getId()});
                     }
                 },
@@ -174,17 +175,18 @@ fn moveDir(comptime dir: Tiler.Dir) Trigger {
             const data = bindDatas.get(b).?;
             const seat_data = ctx.seats.getPtr(data.seat).?;
             const win = seat_data.focus orelse return;
+            // const win_data = ctx.wins.get(win).?;
             const ws_id = Window.getWorkspace(ctx, win) orelse return;
             const ws = ctx.workspaces.getPtr(ws_id).?;
 
             switch (event) {
                 .pressed => {
                     var tc: Tiler.TileContext = .{
-                        .focus = seat_data.focus,
+                        .focus = win,
                         .gpa = ctx.gpa,
                     };
                     ws.move(&tc, dir);
-                    seat_data.ignore_next = true;
+                    seat_data.warp_to_window = win;
                     ctx.wm.manageDirty();
                 },
                 .released => {},
@@ -303,14 +305,14 @@ fn moveToWorkspace(comptime target: Workspace.WS) Trigger {
 
                     const s = ctx.workspaces.getPtr(source).?;
                     var tc: Tiler.TileContext = .{
-                        .cursorPos =  seat_data.pointer_pos,
-                        .focus =  seat_data.focus,
+                        .cursorPos = seat_data.pointer_pos,
+                        .focus = seat_data.focus,
                         .gpa = ctx.gpa,
                     };
 
                     s.rmWindow(&tc, focus);
                     w.addWindow(&tc, focus) catch |e| {
-                        log.err("error adding window {} to workspace {}: {}", .{focus.getId(), target, e});
+                        log.err("error adding window {} to workspace {}: {}", .{ focus.getId(), target, e });
                     };
 
                     ctx.dirty = true;

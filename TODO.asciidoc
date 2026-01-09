@@ -1,10 +1,11 @@
 = TODO
-- pointer warp to focused client
-    - waiting for protocol
-- no allocations in render/manage step.
+- window rules
+    - match appid
+    - put on workspace
+    - make float
+
 - external config
 - special workspaces
-- window rules
 - libinput config
     - figure out how to deal with results
 - multi-touch gestures (also tiling specific)
