@@ -1,16 +1,22 @@
 = TODO
-- floating windows
-    - implement pop-up heuristics
-- external config
-- special workspaces
-- libinput config
-    - figure out how to deal with results
-- pointer gestures (also tiling specific)
-    - waiting for protocol
 - pointer warp to focused client
     - waiting for protocol
+- no allocations in render/manage step.
+- external config
+- special workspaces
+- window rules
+- libinput config
+    - figure out how to deal with results
+- multi-touch gestures (also tiling specific)
+    - waiting for protocol
+- floating windows
+    - improve pop-up heuristics
+    - gesture for resizing them
+    - float toggle bind
 
 = Ambitions
+- workspace switching animation
+- each tiler gets its own memory arena
 - C abi for tilers
     - we can override malloc, calloc, realloc and free for the shared object :D
 - maybe include a builtin bar
