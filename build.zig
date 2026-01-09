@@ -36,7 +36,7 @@ pub fn build(b: *Build) !void {
     scanner.generate("wl_seat", 4);
     // scanner.generate("xdg_wm_base", 3);
     // scanner.generate("ext_session_lock_manager_v1", 1);
-    scanner.generate("river_window_manager_v1", 2);
+    scanner.generate("river_window_manager_v1", 3);
     scanner.generate("river_layer_shell_v1", 1);
     scanner.generate("river_xkb_bindings_v1", 1);
     scanner.generate("river_input_manager_v1", 1);
@@ -90,6 +90,7 @@ pub fn build(b: *Build) !void {
 
     const screen = b.option(u32, "wayland", "sets the WAYLAND_DISPLAY env variable to wayland-[wayland]") orelse 1;
     run_cmd.setEnvironmentVariable("WAYLAND_DISPLAY", b.fmt("wayland-{}", .{screen}));
+
 
     if (b.args) |args| {
         run_cmd.addArgs(args);

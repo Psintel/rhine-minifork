@@ -33,12 +33,12 @@
     // internet connectivity.
     .dependencies = .{
         .wayland = .{
-            .url = "git+https://codeberg.org/ifreund/zig-wayland.git#52b54b71f1665b1b7ba61bf71a9319726e618fb6",
-            .hash = "wayland-0.5.0-dev-lQa1ki3YAQCEdP63PCLFnVQzfXAixkrXsPavlEl8UkPe",
+            .url = "git+https://codeberg.org/ifreund/zig-wayland.git#f2480d25764a50ed2fe29f49e4209c074a557f46",
+            .hash = "wayland-0.5.0-dev-lQa1kvTUAQCsD8AobfOXJA_-TVG-WTYXju68OZ8L85RM",
         },
         .river = .{
-            .url = "git+https://codeberg.org/river/river#f36231a3b9e46a1508d28a5cdee1341f735926c6",
-            .hash = "river-0.4.0-dev-_G6NjvveCgCoLEL1SmoZC8wOqRshd_dFn0eXNm7GpCr0",
+            .url = "git+https://codeberg.org/river/river#2c4953a3cba758ee51fd94e68155ab6f62d391e4",
+            .hash = "river-0.4.0-dev-_G6NjlKfCgAn0ho0UaK43BJmSEwp6uSBMGX_Hpod8LX6",
         },
     },
     .paths = .{
