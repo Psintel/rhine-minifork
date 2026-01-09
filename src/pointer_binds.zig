@@ -34,7 +34,7 @@ pub const PointerOp = struct {
     end: *const fn (?*anyopaque, *Context) void,
 
     state: State = .start,
-    delta: utils.Vec2 = .zero,
+    delta: utils.Vec2 = @splat(0),
 };
 
 pub const Bind = struct {
@@ -95,7 +95,7 @@ const move = struct {
         const ct: *Ctx = @alignCast(@ptrCast(ptr));
         const win_data = ctx.wins.getPtr(ct.win) orelse return;
 
-        win_data.pos = .{ .static = ct.start.add(delta) };
+        win_data.pos = .{ .static = ct.start + delta };
     }
 
     fn end(_win: ?*anyopaque, ctx: *Context) void {

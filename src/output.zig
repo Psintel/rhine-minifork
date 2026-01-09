@@ -42,16 +42,16 @@ pub fn listener(out: *rwm.OutputV1, e: rwm.OutputV1.Event, ctx: *Context) void {
     switch (e) {
         .dimensions => |dim| {
             data.size = .{
-                .x = dim.width,
-                .y = dim.height,
+                 dim.width,
+                 dim.height,
             };
             // since we are tiling screenspace, a resize dirties the manage state
             ctx.wm.manageDirty();
         },
         .position => |pos| {
             data.position = .{
-                .x = pos.x,
-                .y = pos.y,
+                 pos.x,
+                 pos.y,
             };
         },
         .removed => {
@@ -67,11 +67,11 @@ pub fn shellListener(_: *rwm.LayerShellOutputV1, event: rwm.LayerShellOutputV1.E
     switch (event) {
         .non_exclusive_area => |area| {
             data.exclusive_area = .{ .pos = .{
-                .x = area.x,
-                .y = area.y,
+                area.x,
+                area.y,
             }, .dim = .{
-                .x = area.width,
-                .y = area.height,
+                area.width,
+                area.height,
             } };
         },
     }

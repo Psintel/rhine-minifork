@@ -2,8 +2,8 @@ const std = @import("std");
 const math = std.math;
 const meta = std.meta;
 
-pub const Vec2 = TVec2(i32);
-pub const Vec2f = TVec2(f32);
+pub const Vec2 = @Vector(2, i32);
+pub const Vec2f = @Vector(2, f32);
 
 pub fn Lerp(comptime period: i64) type {
     return union(enum) {
@@ -53,96 +53,38 @@ pub fn Lerp(comptime period: i64) type {
 }
 
 pub fn int2Float(v: Vec2) Vec2f {
-    return .{
-        .x = @floatFromInt(v.x),
-        .y = @floatFromInt(v.y),
-    };
+    return @floatFromInt(v);
 }
 
 pub fn float2Int(v: Vec2f) Vec2 {
-    return .{
-        .x = @intFromFloat(v.x),
-        .y = @intFromFloat(v.y),
-    };
+    return @intFromFloat(v);
 }
 
 pub fn ilerp(fst: Vec2, snd: Vec2, prog: f32) Vec2 {
     return float2Int(flerp(int2Float(fst), int2Float(snd), prog));
 }
 
-pub fn flerp(fst: Vec2f, snd: Vec2f, prog: f32) Vec2f {
-    return .{
-        .x = math.lerp(fst.x, snd.x, prog),
-        .y = math.lerp(fst.y, snd.y, prog),
-    };
+pub fn flerp(fst: Vec2f, snd: Vec2f, _prog: f32) Vec2f {
+    const prog: Vec2f = @splat(_prog);
+    return math.lerp(fst, snd, prog);
 }
 
-pub fn TVec2(T: type) type {
-    return struct {
-        x: T,
-        y: T,
-
-        pub const zero: @This() = .{ .x = 0, .y = 0 };
-
-        pub fn add(self: @This(), other: @This()) @This() {
-            return .{
-                .x = self.x + other.x,
-                .y = self.y + other.y,
-            };
-        }
-
-        pub fn sub(self: @This(), other: @This()) @This() {
-            return .{
-                .x = self.x - other.x,
-                .y = self.y - other.y,
-            };
-        }
-
-        pub fn elmul(self: @This(), other: @This()) @This() {
-            return .{
-                .x = self.x * other.x,
-                .y = self.y * other.y,
-            };
-        }
-
-        pub fn eldivT(self: @This(), other: @This()) @This() {
-            return .{
-                .x = @divTrunc(self.x, other.x),
-                .y = @divTrunc(self.y, other.y),
-            };
-        }
-
-        pub fn fromScalar(s: T) @This() {
-            return .{
-                .x = s,
-                .y = s,
-            };
-        }
-
-        pub fn scale(self: @This(), scaler: T) @This() {
-            return .{
-                .x = self.x * scaler,
-                .y = self.y * scaler,
-            };
-        }
-    };
-}
 
 pub const Rect2 = struct {
     pos: Vec2,
     dim: Vec2,
 
     pub const unit: @This() = .{
-        .pos = .{ .x = 0, .y = 0 },
-        .dim = .{ .x = 1 << 16, .y = 1 << 16 },
+        .pos = @splat(0),
+        .dim = @splat(1 << 16),
     };
 
     pub fn inside(self: @This(), pos: Vec2) bool {
         const near = self.pos;
-        const far = self.pos.add(self.dim);
+        const far = self.pos + self.dim;
 
-        return near.x <= pos.x and pos.x < far.x and
-            near.y <= pos.y and pos.y < far.y;
+        return near[0] <= pos[0] and pos[0] < far[0] and
+            near[1] <= pos[1] and pos[1] < far[1];
     }
 };
 

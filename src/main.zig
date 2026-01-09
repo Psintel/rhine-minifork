@@ -195,7 +195,7 @@ fn manage(ctx: *Context) !void {
             .transit => win.informResizeStart(),
             .static => win.informResizeEnd(),
         }
-        win.proposeDimensions(ts.x, ts.y);
+        win.proposeDimensions(ts[0], ts[1]);
 
         if (!goal.done(curr_time)) {
             ctx.dirty = true;
@@ -297,7 +297,7 @@ fn render(ctx: *Context) !void {
         const pos = &w.value_ptr.pos;
         const tp = pos.get(curr_time);
 
-        w.value_ptr.node.setPosition(tp.x, tp.y);
+        w.value_ptr.node.setPosition(tp[0], tp[1]);
 
         if (!pos.done(curr_time)) {
             ctx.dirty = true;

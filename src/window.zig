@@ -27,8 +27,8 @@ float: bool = false, // is this window floating
 parent: ?*rwm.WindowV1 = null,
 
 // will we keep those?
-pos: utils.Lerp(100_000) = .{ .static = .{ .x = 0, .y = 0 } },
-goal_size: utils.Lerp(100_000) = .{ .static = .{ .x = 0, .y = 0 } },
+pos: utils.Lerp(100_000) = .{ .static = @splat(0) },
+goal_size: utils.Lerp(100_000) = .{ .static = @splat(0) },
 
 // initialize window
 pub fn init(_: *Context, win: *rwm.WindowV1) !@This() {
@@ -54,7 +54,7 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
 
             const out = Output.byPointer(ctx, pos) orelse break :ws null;
             const out_data = ctx.outs.get(out).?;
-            cursor = pos.sub(out_data.position.?).elmul(utils.Rect2.unit.dim).eldivT(out_data.size.?);
+            cursor = pos - out_data.position.? * utils.Rect2.unit.dim / out_data.size.?;
             break :ws out_data.workspace;
         }
 
@@ -67,6 +67,11 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
 
     if (self.float) {
         try ws_data.floating.put(ctx.gpa, win, {});
+        if (self.parent) |p| {
+            const mics = std.time.microTimestamp();
+            const paren = ctx.wins.getPtr(p).?;
+            self.setPos(paren.pos.get(mics) + paren.size / @as(utils.Vec2, @splat(2)), mics);
+        }
     } else {
         var tctx: Tiler.TileContext = .{
             .focus = if (seat) |s| s.focus else null,
@@ -112,8 +117,8 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
         },
         .dimensions => |d| {
             win_data.size = .{
-                .x = d.width,
-                .y = d.height,
+                d.width,
+                d.height,
             };
         },
         .parent => |p| {
@@ -151,11 +156,13 @@ pub fn setPos(self: *@This(), new: utils.Vec2, _now: ?i64) void {
 
     if (meta.eql(new, self.pos.end())) return;
 
-    self.pos = .{ .transit = .{
-        .from = self.pos.get(now),
-        .to = new,
-        .start = now,
-    }, };
+    self.pos = .{
+        .transit = .{
+            .from = self.pos.get(now),
+            .to = new,
+            .start = now,
+        },
+    };
 }
 
 pub fn getWorkspace(ctx: *Context, win: *rwm.WindowV1) ?Workspace.WS {

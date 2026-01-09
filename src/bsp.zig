@@ -23,7 +23,7 @@ const log = std.log.scoped(.bsp);
 
 const border = 2;
 const gap = 1;
-const pad = gap + border;
+const pad: utils.Vec2 = @splat(gap + border);
 
 pub const Commands = enum(u32) {
     ChangeSplit,
@@ -33,31 +33,25 @@ fn scale(i: i32, f: f32) i32 {
     return @intFromFloat(@as(f32, @floatFromInt(i)) * f);
 }
 
+fn vscale(i: utils.Vec2, f: utils.Vec2f) utils.Vec2 {
+    return @intFromFloat(@as(utils.Vec2f, @floatFromInt(i)) * f);
+}
+
 pub fn splitDim(v: utils.Vec2, OR: subTile.Mode, ratio: f32) utils.Vec2 {
-    return switch (OR) {
-        .V => .{
-            .x = scale(v.x, ratio),
-            .y = v.y,
-        },
-        .H => .{
-            .x = v.x,
-            .y = scale(v.y, ratio),
-        },
+    const fac: utils.Vec2f = switch (OR) {
+        .V => .{ ratio, 1 },
+        .H => .{ 1, ratio },
     };
+
+    return vscale(v, fac);
 }
 
 fn subDivide(r: utils.Rect2, OR: subTile.Mode, ratio: f32) meta.Tuple(&.{ utils.Rect2, utils.Rect2 }) {
     const split = splitDim(r.dim, OR, ratio);
     const lp = r.pos;
     const rp: utils.Vec2 = switch (OR) {
-        .V => .{
-            .x = r.pos.x + split.x,
-            .y = r.pos.y,
-        },
-        .H => .{
-            .x = r.pos.x,
-            .y = r.pos.y + split.y,
-        },
+        .V => .{ r.pos[0] + split[0], r.pos[1] },
+        .H => .{ r.pos[0], r.pos[1] + split[1] },
     };
 
     return .{ .{ .pos = lp, .dim = split }, .{ .pos = rp, .dim = split } };
@@ -101,25 +95,25 @@ const subTile = union(enum) {
 
     // get next tile in direction `dir`
     pub fn getDir(t: *subTile, bounds: utils.Rect2, descender: utils.Rect2, dir: Tiler.Dir) ?*subTile {
-        if (dir == .Left and bounds.pos.x + bounds.dim.x <= descender.pos.x) return null;
-        if (dir == .Right and descender.pos.x + descender.dim.x <= bounds.pos.x) return null;
-        if (dir == .Up and bounds.pos.y + bounds.dim.y <= descender.pos.y) return null;
-        if (dir == .Down and descender.pos.y + descender.dim.y <= bounds.pos.y) return null;
+        if (dir == .Left and bounds.pos[0] + bounds.dim[0] <= descender.pos[0]) return null;
+        if (dir == .Right and descender.pos[0] + descender.dim[0] <= bounds.pos[0]) return null;
+        if (dir == .Up and bounds.pos[1] + bounds.dim[1] <= descender.pos[1]) return null;
+        if (dir == .Down and descender.pos[1] + descender.dim[1] <= bounds.pos[1]) return null;
 
         if (dir == .Left or dir == .Right) {
-            if (descender.pos.y + descender.dim.y <= bounds.pos.y) return null;
-            if (descender.pos.y >= bounds.pos.y + bounds.dim.y) return null;
+            if (descender.pos[1] + descender.dim[1] <= bounds.pos[1]) return null;
+            if (descender.pos[1] >= bounds.pos[1] + bounds.dim[1]) return null;
         } else {
-            if (descender.pos.x + descender.dim.x <= bounds.pos.x) return null;
-            if (descender.pos.x >= bounds.pos.x + bounds.dim.x) return null;
+            if (descender.pos[0] + descender.dim[0] <= bounds.pos[0]) return null;
+            if (descender.pos[0] >= bounds.pos[0] + bounds.dim[0]) return null;
         }
 
         switch (t.*) {
             .Leaf => |_| {
-                if (dir == .Up and descender.pos.y + descender.dim.y > bounds.pos.y) return null;
-                if (dir == .Down and descender.pos.y < bounds.pos.y + bounds.dim.y) return null;
-                if (dir == .Right and descender.pos.x < bounds.pos.x + bounds.dim.x) return null;
-                if (dir == .Left and descender.pos.x + descender.dim.x > bounds.pos.x) return null;
+                if (dir == .Up and descender.pos[1] + descender.dim[1] > bounds.pos[1]) return null;
+                if (dir == .Down and descender.pos[1] < bounds.pos[1] + bounds.dim[1]) return null;
+                if (dir == .Right and descender.pos[0] < bounds.pos[0] + bounds.dim[0]) return null;
+                if (dir == .Left and descender.pos[0] + descender.dim[0] > bounds.pos[0]) return null;
                 return t;
             },
             .Branch => |b| {
@@ -218,7 +212,7 @@ const subTile = union(enum) {
         switch (self.*) {
             .Leaf => |w| {
                 out.put(ctx.gpa, w, .{
-                    .size = size.sub(.fromScalar(2 * pad)),
+                    .size = size - @as(utils.Vec2, @splat(2)) * pad,
                     .state = .normal,
                     .border = if (w == ctx.focus) .blue else .gray,
                 }) catch return error.OutOfMemory;
@@ -237,7 +231,7 @@ const subTile = union(enum) {
             .Leaf => |w| {
                 out.put(ctx.gpa, w, .{
                     .show = true,
-                    .position = rect.pos.add(.fromScalar(pad)),
+                    .position = rect.pos + pad,
                 }) catch return error.OutOfMemory;
             },
             .Branch => |b| {
@@ -305,8 +299,8 @@ pub fn add(self: *@This(), ctx: *Tiler.TileContext, win: WT) Tiler.Error!void {
     if (ctx.cursorPos) |cur| {
         log.info("adding with cursor pos {}", .{cur});
         if (switch (d) {
-            .V => cur.x < target.pos.x + @divTrunc(target.dim.x, 2),
-            .H => cur.y < target.pos.y + @divTrunc(target.dim.y, 2),
+            .V => cur[0] < target.pos[0] + @divTrunc(target.dim[0], 2),
+            .H => cur[1] < target.pos[1] + @divTrunc(target.dim[1], 2),
         }) {
             const t = n.Branch.left;
             n.Branch.left = n.Branch.right;
@@ -338,7 +332,7 @@ pub fn manage(self: *@This(), ctx: *Tiler.TileContext, bound: utils.Rect2) Tiler
     return out;
 }
 
-pub fn render(self: *@This(), ctx: *Tiler.TileContext, bound: utils.Rect2) Tiler.Error!RenderMap{
+pub fn render(self: *@This(), ctx: *Tiler.TileContext, bound: utils.Rect2) Tiler.Error!RenderMap {
     const tree = &(self.tree orelse return .empty);
     var out: RenderMap = .empty;
     errdefer out.clearAndFree(ctx.gpa);
@@ -352,7 +346,7 @@ pub fn render(self: *@This(), ctx: *Tiler.TileContext, bound: utils.Rect2) Tiler
 pub fn getWindow(self: *@This(), ctx: *Tiler.TileContext, dir: Tiler.Dir) ?WT {
     const tree = &(self.tree orelse return null);
     const win = ctx.focus orelse return null;
-    const origin: utils.Rect2 = .{ .pos = .{ .x = 0, .y = 0 }, .dim = .{ .x = 1 << 16, .y = 1 << 16 } };
+    const origin: utils.Rect2 = .unit;
     const wrec = tree.Wrect(origin, win) orelse return null;
 
     if (tree.getDir(wrec, origin, dir)) |res|
@@ -429,11 +423,11 @@ pub fn move(self: *@This(), ctx: *Tiler.TileContext, dir: Tiler.Dir) void {
 pub fn command(self: *@This(), ctx: *Tiler.TileContext, cmd: Tiler.Command) Tiler.Error!void {
     const tree = &(self.tree orelse return);
     const op: Commands = std.enums.fromInt(Commands, cmd.command) orelse return error.InvalidCommand;
-    switch(op) {
+    switch (op) {
         .ChangeSplit => {
             const f = ctx.focus orelse return;
             const n = tree.parent(f) orelse return;
             n.Branch.direction = n.Branch.direction.other();
-        }
+        },
     }
 }

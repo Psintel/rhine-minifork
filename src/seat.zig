@@ -13,7 +13,7 @@ const log = std.log.scoped(.seat);
 
 seat: ?u32, // unsure what this is supposed to be
 focus: ?*rwm.WindowV1 = null,
-pointer_pos: utils.Vec2 = .{ .x = 0, .y = 0 },
+pointer_pos: utils.Vec2 = @splat(0),
 
 binds: std.ArrayList(*rwm.XkbBindingV1) = .empty,
 pointer_binds: std.ArrayList(*rwm.PointerBindingV1) = .empty,
@@ -53,14 +53,14 @@ pub fn listener(seat: *rwm.SeatV1, e: rwm.SeatV1.Event, ctx: *Context) void {
         },
         .pointer_leave => {},
         .pointer_position => |pos| {
-            seat_data.pointer_pos = .{ .x = pos.x, .y = pos.y };
+            seat_data.pointer_pos = .{ pos.x, pos.y };
         },
         .removed => {
             seat_data.deinit(ctx, seat);
         },
         .op_delta => |d| {
             if (seat_data.pointer_op) |*op| {
-                op.delta = .{ .x = d.dx, .y = d.dy };
+                op.delta = .{ d.dx, d.dy };
             }
         },
         .op_release => {
