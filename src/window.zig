@@ -19,58 +19,81 @@ const log = std.log.scoped(.window);
 win: *rwm.WindowV1,
 node: *rwm.NodeV1,
 
-workspace: Workspace.WS,
+workspace: ?Workspace.WS = null,
 
 app_id: ?[:0]const u8 = null,
 size: utils.Vec2 = undefined,
+float: bool = false, // is this window floating
+parent: ?*rwm.WindowV1 = null,
 
 // will we keep those?
 pos: utils.Lerp(100_000) = .{ .static = .{ .x = 0, .y = 0 } },
 goal_size: utils.Lerp(100_000) = .{ .static = .{ .x = 0, .y = 0 } },
 
-pub fn init(ctx: *Context, win: *rwm.WindowV1) !@This() {
+// initialize window
+pub fn init(_: *Context, win: *rwm.WindowV1) !@This() {
+    return .{
+        .win = win,
+        .node = try win.getNode(),
+        .workspace = null,
+    };
+}
+
+// assign window to workspace and do other setup
+// window rules will go here in the future
+// assumes that a window context object already exists
+pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
+    const self = ctx.wins.getPtr(win).?;
+
     const seat = if (ctx.last_active) |s| ctx.seats.get(s) else null;
     var cursor: ?utils.Vec2 = null;
+
     const ws = ws: {
         if (seat) |s| {
             const pos = s.pointer_pos;
 
             const out = Output.byPointer(ctx, pos) orelse break :ws null;
             const out_data = ctx.outs.get(out).?;
-            cursor = pos.sub(out_data.position.?).elmul( utils.Rect2.unit.dim ).eldivT(out_data.size.?);
+            cursor = pos.sub(out_data.position.?).elmul(utils.Rect2.unit.dim).eldivT(out_data.size.?);
             break :ws out_data.workspace;
         }
 
         break :ws null;
     } orelse Workspace.getFirst(ctx);
 
+    const ws_data = ctx.workspaces.getPtr(ws).?;
 
-    var tctx: Tiler.TileContext = .{
-        .focus = if (seat) |s| s.focus else null,
-        .cursorPos = cursor,
-        .gpa = ctx.gpa,
-    };
+    self.workspace = ws;
 
-    try ctx.workspaces.getPtr(ws).?.addWindow(&tctx, win);
+    if (self.float) {
+        try ws_data.floating.put(ctx.gpa, win, {});
+    } else {
+        var tctx: Tiler.TileContext = .{
+            .focus = if (seat) |s| s.focus else null,
+            .cursorPos = cursor,
+            .gpa = ctx.gpa,
+        };
 
-    return .{
-        .win = win,
-        .node = try win.getNode(),
-        .workspace = ws,
-    };
+        try ws_data.addWindow(&tctx, win);
+    }
 }
 
 pub fn deinit(self: *const @This(), ctx: *Context, win: *rwm.WindowV1) void {
     self.node.destroy();
 
-    const ws = ctx.workspaces.getPtr(self.workspace).?;
+    const ws = self.workspace orelse return;
+    const ws_data = ctx.workspaces.getPtr(ws).?;
 
-    var tctx: Tiler.TileContext = .{
-        .focus = null, // TODO: fix this
-        .gpa = ctx.gpa,
-    };
+    if (self.float) {
+        _ = ws_data.floating.swapRemove(win);
+    } else {
+        var tctx: Tiler.TileContext = .{
+            .focus = null, // TODO: fix this
+            .gpa = ctx.gpa,
+        };
 
-    ws.rmWindow(&tctx, win);
+        ws_data.rmWindow(&tctx, win);
+    }
 }
 
 pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) void {
@@ -93,8 +116,17 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
                 .y = d.height,
             };
         },
-        .parent => {
-            @panic("parents are not allowed");
+        .parent => |p| {
+            win_data.parent = p.parent;
+            win_data.float = true;
+        },
+        .dimensions_hint => |_| {
+            // if (h.min_height == h.max_height and h.min_width == h.max_width) {
+            //     log.info("window {} set to floating", .{win.getId()});
+            //     // win_data.float = true;
+            // } else {
+            //     // win_data.float = false;
+            // }
         },
         else => {
             log.warn("lmao! can't actually handle event {s}", .{@tagName(event)});
@@ -102,33 +134,28 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
     }
 }
 
-pub fn setSize(self: *@This(), new: utils.Vec2) void {
-    switch (self.goal_size) {
-        .transit => return,
-        .static => |s| {
-            if (meta.eql(new, s)) return;
+pub fn setSize(self: *@This(), new: utils.Vec2, _now: ?i64) void {
+    const now = _now orelse time.microTimestamp();
 
-            self.goal_size = .{ .transit = .{
-                .from = s,
-                .to = new,
-                .start = time.microTimestamp(),
-            } };
-        },
-    }
+    if (meta.eql(new, self.goal_size.end())) return;
+
+    self.goal_size = .{ .transit = .{
+        .from = self.size,
+        .to = new,
+        .start = now,
+    } };
 }
 
-pub fn setPos(self: *@This(), new: utils.Vec2) void {
-    switch (self.pos) {
-        .transit => return,
-        .static => |s| {
-            if (meta.eql(s, new)) return;
-            self.pos = .{ .transit = .{
-                .from = s,
-                .to = new,
-                .start = time.microTimestamp(),
-            } };
-        },
-    }
+pub fn setPos(self: *@This(), new: utils.Vec2, _now: ?i64) void {
+    const now = _now orelse time.microTimestamp();
+
+    if (meta.eql(new, self.pos.end())) return;
+
+    self.pos = .{ .transit = .{
+        .from = self.pos.get(now),
+        .to = new,
+        .start = now,
+    }, };
 }
 
 pub fn getWorkspace(ctx: *Context, win: *rwm.WindowV1) ?Workspace.WS {

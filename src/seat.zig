@@ -7,6 +7,7 @@ const rwm = wayland.client.river;
 
 const Context = @import("context.zig");
 const Keybinds = @import("keybinds.zig");
+const Pointerbinds = @import("pointer_binds.zig");
 
 const log = std.log.scoped(.seat);
 
@@ -14,11 +15,13 @@ seat: ?u32, // unsure what this is supposed to be
 focus: ?*rwm.WindowV1 = null,
 pointer_pos: utils.Vec2 = .{ .x = 0, .y = 0 },
 
-
 binds: std.ArrayList(*rwm.XkbBindingV1) = .empty,
+pointer_binds: std.ArrayList(*rwm.PointerBindingV1) = .empty,
 
 // the following may be removed in the future
 ignore_next: bool = false,
+
+pointer_op: ?Pointerbinds.PointerOp = null,
 
 pub fn listener(seat: *rwm.SeatV1, e: rwm.SeatV1.Event, ctx: *Context) void {
     const seat_data = ctx.seats.getPtr(seat).?;
@@ -48,11 +51,22 @@ pub fn listener(seat: *rwm.SeatV1, e: rwm.SeatV1.Event, ctx: *Context) void {
                 seat_data.focus = w;
             }
         },
+        .pointer_leave => {},
         .pointer_position => |pos| {
             seat_data.pointer_pos = .{ .x = pos.x, .y = pos.y };
         },
         .removed => {
             seat_data.deinit(ctx, seat);
+        },
+        .op_delta => |d| {
+            if (seat_data.pointer_op) |*op| {
+                op.delta = .{ .x = d.dx, .y = d.dy };
+            }
+        },
+        .op_release => {
+            if (seat_data.pointer_op) |*op| {
+                op.state = .end;
+            }
         },
         else => {
             log.warn("lmao! can't actually handle event {s}", .{@tagName(e)});

@@ -36,6 +36,13 @@ pub fn Lerp(comptime period: i64) type {
             };
         }
 
+        pub fn end(self: @This()) Vec2 {
+            return switch (self) {
+                .static => |s| s,
+                .transit => |t| t.to,
+            };
+        }
+
         pub fn staticify(self: *@This()) void {
             switch (self.*) {
                 .static => {},
@@ -74,6 +81,8 @@ pub fn TVec2(T: type) type {
     return struct {
         x: T,
         y: T,
+
+        pub const zero: @This() = .{ .x = 0, .y = 0 };
 
         pub fn add(self: @This(), other: @This()) @This() {
             return .{

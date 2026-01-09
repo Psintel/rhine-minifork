@@ -7,6 +7,7 @@ const rwm = wayland.client.river;
 
 const utils = @import("utils.zig");
 const keybinds = @import("keybinds.zig");
+const point_binds = @import("pointer_binds.zig");
 
 pub const std_options: std.Options = .{
     .log_level = .info,
@@ -65,7 +66,17 @@ fn listen(iface: *rwm.WindowManagerV1, event: rwm.WindowManagerV1.Event, ctx: *C
         },
         .window => |args| {
             const win = args.id;
+            const data: Window = Window.init(ctx, win) catch return;
+
+            ctx.wins.put(ctx.gpa, win, data) catch |e| {
+                log.err("failed to create window context {}", .{e});
+                return;
+            };
+            win.setListener(*Context, Window.listener, ctx);
+
             ctx.should_open.append(ctx.gpa, win) catch return;
+
+            std.log.info("registered window with id {}", .{win.getId()});
         },
         .output => |args| {
             std.log.info("registerd output with id {}", .{args.id.getId()});
@@ -81,6 +92,8 @@ fn listen(iface: *rwm.WindowManagerV1, event: rwm.WindowManagerV1.Event, ctx: *C
             args.id.setListener(*Context, Seat.listener, ctx);
             keybinds.register(ctx, args.id) catch |err|
                 std.log.err("{} when trying to register keybinds for seat {}", .{ err, args.id.getId() });
+            point_binds.register(ctx, args.id) catch |err|
+                std.log.err("{} when trying to register pointbinds for seat {}", .{ err, args.id.getId() });
         },
         .session_locked => {
             ctx.locked = true;
@@ -106,16 +119,12 @@ fn listen(iface: *rwm.WindowManagerV1, event: rwm.WindowManagerV1.Event, ctx: *C
 fn manage(ctx: *Context) !void {
     // register new windows
     for (ctx.should_open.items) |win| {
-        std.log.info("registered window with id {}", .{win.getId()});
-        const data: Window = Window.init(ctx, win) catch return;
-        ctx.wins.put(ctx.gpa, win, data) catch return;
-        win.setListener(*Context, Window.listener, ctx);
+        try Window.assign(ctx, win);
     }
 
     ctx.should_open.clearAndFree(ctx.gpa);
 
     const curr_time = std.time.microTimestamp();
-
 
     // make sure out internal seat data is in-sync
     // with what the compositor knows
@@ -126,8 +135,28 @@ fn manage(ctx: *Context) !void {
 
         if (ctx.locked) {
             for (seat_data.binds.items) |b| b.disable();
+            for (seat_data.pointer_binds.items) |b| b.disable();
         } else {
             for (seat_data.binds.items) |b| b.enable();
+            for (seat_data.pointer_binds.items) |b| b.enable();
+        }
+
+        if (seat_data.pointer_op) |*op| {
+            switch(op.state) {
+                .start => {
+                    op.start(op.context, ctx);
+                    seat.opStartPointer();
+                    op.state = .during;
+                },
+                .during => {
+                    op.update(op.context, ctx, op.delta);
+                },
+                .end => {
+                    seat.opEnd();
+                    op.end(op.context, ctx);
+                    seat_data.pointer_op = null;
+                },
+            }
         }
 
         if (seat_data.focus) |w| {
@@ -162,7 +191,7 @@ fn manage(ctx: *Context) !void {
         const goal = &w.value_ptr.goal_size;
 
         const ts = goal.get(curr_time);
-        switch(goal.*){
+        switch (goal.*) {
             .transit => win.informResizeStart(),
             .static => win.informResizeEnd(),
         }
@@ -195,10 +224,17 @@ fn manage(ctx: *Context) !void {
                 continue;
             };
 
-            wd.setSize(manageState.size);
+            wd.setSize(manageState.size, curr_time);
 
             const col = manageState.border;
-            w.setBorders(.{ .top = true, .bottom = true, .left = true, .right = true }, 2, col.r, col.g, col.b, col.a);
+            w.setBorders(
+                .{ .top = true, .bottom = true, .left = true, .right = true },
+                2,
+                col.r,
+                col.g,
+                col.b,
+                col.a,
+            );
         }
     }
 
@@ -240,20 +276,29 @@ fn render(ctx: *Context) !void {
             if (renderState.show) {
                 w.show();
             } else {
-                continue;
+                w.hide();
             }
 
-            wd.setPos(renderState.position);
+            wd.setPos(renderState.position, curr_time);
+        }
+
+        if (focus) |f| ctx.wins.get(f).?.node.placeTop();
+
+        for (ws.floating.keys()) |w| {
+            const wd = ctx.wins.getPtr(w).?;
+
+            wd.node.placeTop();
+            w.show();
         }
     }
 
     var windows = ctx.wins.iterator();
-
     while (windows.next()) |w| {
         const pos = &w.value_ptr.pos;
         const tp = pos.get(curr_time);
 
         w.value_ptr.node.setPosition(tp.x, tp.y);
+
         if (!pos.done(curr_time)) {
             ctx.dirty = true;
         } else {
@@ -277,7 +322,12 @@ pub fn main() !void {
     var gpa = std.heap.DebugAllocator(.{
         .stack_trace_frames = 1000,
         .retain_metadata = true,
+        .safety = true,
+        .verbose_log = true,
+        .enable_memory_limit = true,
     }).init;
+
+    gpa.requested_memory_limit = 1_000_000;
 
     defer if (gpa.deinit() == .leak) std.log.err("got a memory leak", .{});
 
@@ -295,15 +345,14 @@ pub fn main() !void {
 
     var ctx: Context = .{
         .gpa = alloc,
-
         .wm = try unwrapIFace(reg.wm),
         .bind = try unwrapIFace(reg.bindings),
         .shell = try unwrapIFace(reg.shell),
-        .input_management =  .{
+        .input_management = .{
             .manager = try unwrapIFace(reg.input_manager),
             .libinput = try unwrapIFace(reg.input_config),
             .gpa = alloc,
-        }
+        },
     };
 
     try ctx.workspaces.put(ctx.gpa, 0, .{

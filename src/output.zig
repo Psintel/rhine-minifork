@@ -1,6 +1,7 @@
 const std = @import("std");
 const meta = std.meta;
 const wayland = @import("wayland");
+const log = std.log.scoped(.output);
 
 const wl = wayland.client.wl;
 const rwm = wayland.client.river;
@@ -14,6 +15,9 @@ position: ?utils.Vec2 = null,
 size: ?utils.Vec2 = null,
 exclusive_area: ?utils.Rect2 = null,
 workspace: Workspace.WS,
+
+// special overlay workspace
+overlay: ?Workspace.WS = null,
 
 shell_out: *rwm.LayerShellOutputV1,
 
@@ -33,7 +37,6 @@ pub fn init(ctx: *Context, out: *rwm.OutputV1) !void {
 }
 
 pub fn listener(out: *rwm.OutputV1, e: rwm.OutputV1.Event, ctx: *Context) void {
-    const log = std.log.scoped(.output);
     const data: *@This() = ctx.outs.getPtr(out).?;
 
     switch (e) {
@@ -82,7 +85,6 @@ pub fn getArea(self: @This()) utils.Rect2 {
 }
 
 pub fn byPointer(ctx: *Context, pos: utils.Vec2) ?*rwm.OutputV1 {
-
     var iter = ctx.outs.iterator();
     while (iter.next()) |o| {
         const r: utils.Rect2 = .{ .dim = o.value_ptr.size.?, .pos = o.value_ptr.position.? };
