@@ -49,6 +49,12 @@ pub fn getOutput(ctx: *Context, ws: WS) ?*rwm.OutputV1 {
     return null;
 }
 
+pub fn byPointer(ctx: *Context, pos: utils.Vec2) ?WS {
+    const out = Output.byPointer(ctx, pos) orelse return null;
+    const out_data = ctx.outs.get(out).?;
+    return out_data.workspace;
+}
+
 pub fn get(ctx: *Context, id: WS) !*Workspace {
     if (ctx.workspaces.getPtr(id)) |ws| {
         return ws;

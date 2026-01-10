@@ -13,6 +13,7 @@ const Workspace = @import("workspace.zig");
 const Tilable = @import("tilable.zig");
 const Tiler = @import("tiler.zig");
 const Output = @import("output.zig");
+const Window = @import("window.zig");
 
 const log = std.log.scoped(.window);
 
@@ -27,7 +28,7 @@ float: bool = false, // is this window floating
 parent: ?*rwm.WindowV1 = null,
 
 // will we keep those?
-pos:       utils.Lerp(100_000) = .{ .static = @splat(0) },
+pos: utils.Lerp(100_000) = .{ .static = @splat(0) },
 goal_size: utils.Lerp(100_000) = .{ .static = @splat(0) },
 
 // initialize window
@@ -46,32 +47,22 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
     const self = ctx.wins.getPtr(win).?;
 
     const seat = if (ctx.last_active) |s| ctx.seats.get(s) else null;
-    var cursor: ?utils.Vec2 = null;
-
-    const ws = ws: {
-        if (seat) |s| {
-            const pos = s.pointer_pos;
-
-            const out = Output.byPointer(ctx, pos) orelse break :ws null;
-            const out_data = ctx.outs.get(out).?;
-            cursor = pos - out_data.position.? * utils.Rect2.unit.dim / out_data.size.?;
-            break :ws out_data.workspace;
-        }
-
-        break :ws null;
-    } orelse Workspace.getFirst(ctx);
+    const ws = (if (seat) |s| Workspace.byPointer(ctx, s.pointer_pos) else null) orelse Workspace.getFirst(ctx);
+    const cursor = if (seat) |s| Output.relPos(ctx, s.pointer_pos) else null;
 
     const ws_data = ctx.workspaces.getPtr(ws).?;
 
     self.workspace = ws;
 
     if (self.float) {
-        try ws_data.floating.put(ctx.gpa, win, {});
         if (self.parent) |p| {
             const mics = std.time.microTimestamp();
             const paren = ctx.wins.getPtr(p).?;
-            self.setPos(paren.pos.get(mics) + paren.size / @as(utils.Vec2, @splat(2)), mics);
+            // self.setPos(paren.pos.get(mics) + (paren.size - self.size) / @as(utils.Vec2, @splat(2)), mics);
+            self.setPos(paren.pos.get(mics), mics);
         }
+
+        try ws_data.floating.put(ctx.gpa, win, {});
     } else {
         var tctx: Tiler.TileContext = .{
             .focus = if (seat) |s| s.focus else null,
@@ -116,17 +107,16 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
             log.info("{} has app_id {?s}", .{ win.getId(), win_data.app_id });
         },
         .dimensions => |d| {
-            win_data.size = .{
-                d.width,
-                d.height,
-            };
+            win_data.size = .{ d.width, d.height };
         },
         .parent => |p| {
+            log.info("window {} has parent {}", .{ win.getId(), p.parent.?.getId() });
             win_data.parent = p.parent;
             win_data.float = true;
         },
         .dimensions_hint => |_| {
             // if (h.min_height == h.max_height and h.min_width == h.max_width) {
+            //     win_data.size = .{h.max_width, h.max_height};
             //     log.info("window {} set to floating", .{win.getId()});
             //     // win_data.float = true;
             // } else {

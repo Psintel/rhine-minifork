@@ -3,7 +3,6 @@
     - match appid
     - put on workspace
     - make float
-
 - external config
 - special workspaces
 - libinput config
@@ -11,6 +10,7 @@
 - multi-touch gestures (also tiling specific)
     - waiting for protocol
 - floating windows
+    - maybe improve initial position
     - improve pop-up heuristics
     - gesture for resizing them
     - float toggle bind

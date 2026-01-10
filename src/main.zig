@@ -119,8 +119,6 @@ fn listen(iface: *rwm.WindowManagerV1, event: rwm.WindowManagerV1.Event, ctx: *C
 }
 
 fn apply_tiler(ctx: *Context) !void {
-    const curr_time = std.time.microTimestamp();
-
     var states = manage_states.iterator();
     while (states.next()) |rs| {
         rs.value_ptr.show = false;
@@ -128,8 +126,9 @@ fn apply_tiler(ctx: *Context) !void {
 
     // update workspace manage state from tiler
     var outs = ctx.outs.iterator();
-    while (outs.next()) |out| {
-        const ws = ctx.workspaces.getPtr(out.value_ptr.workspace).?;
+    while (outs.next()) |_out| {
+        const out_data = _out.value_ptr;
+        const ws = ctx.workspaces.getPtr(out_data.workspace).?;
         const seat = if (ctx.last_active) |s| ctx.seats.getPtr(s) else null;
         const focus = if (seat) |s| s.focus else null;
 
@@ -141,7 +140,12 @@ fn apply_tiler(ctx: *Context) !void {
             .focus = focus,
             .gpa = ctx.gpa,
         };
-        ws.manage(&tctx, out.value_ptr.getArea(), &manage_states);
+        ws.manage(&tctx, out_data.getArea(), &manage_states);
+
+        for (ws.floating.keys()) |w| {
+            const ms = manage_states.getPtr(w) orelse continue;
+            ms.show = true;
+        }
     }
 
     var wins = ctx.wins.iterator();
@@ -149,14 +153,15 @@ fn apply_tiler(ctx: *Context) !void {
         const w = _w.key_ptr.*;
         const wd = _w.value_ptr;
 
+        if (wd.float) continue;
+
         const man_state = manage_states.get(w) orelse {
             log.err("failed to manage window {}", .{w.getId()});
             continue;
         };
 
-
-        wd.setSize(man_state.size, curr_time);
-        wd.setPos(man_state.position, curr_time);
+        wd.setPos(man_state.position, null);
+        wd.setSize(man_state.size, null);
     }
 }
 
@@ -237,59 +242,108 @@ fn manage(ctx: *Context) !void {
     }
 
     // apply window management
-    var it = ctx.wins.iterator();
-    while (it.next()) |w| {
-        const win = w.key_ptr.*;
-        const wd = w.value_ptr;
-        const man_state = manage_states.get(win) orelse continue;
 
-        if (!man_state.show) continue;
+    var outs = ctx.outs.iterator();
+    while (outs.next()) |_out| {
+        const out_data = _out.value_ptr;
 
-        const col = man_state.border;
+        const ws = ctx.workspaces.get(out_data.workspace).?;
 
-        win.setBorders(
-            .{ .top = true, .bottom = true, .left = true, .right = true },
-            2,
-            col.r,
-            col.g,
-            col.b,
-            col.a,
-        );
+        for (ws.windows.keys()) |win| {
+            const wd = ctx.wins.getPtr(win).?;
+            const man_state = manage_states.get(win) orelse continue;
 
-        win.setCapabilities(.{
-            .window_menu = false,
-            .maximize = false,
-            .minimize = false,
-            .fullscreen = false,
-        });
-        win.useSsd();
-        win.setTiled(.{
-            .top = true,
-            .left = true,
-            .right = true,
-            .bottom = true,
-        });
+            if (!man_state.show) continue;
 
-        const goal = &wd.goal_size;
-        const ts = goal.get(curr_time);
-        switch (goal.*) {
-            .transit => win.informResizeStart(),
-            .static => win.informResizeEnd(),
+            const col = man_state.border;
+
+            win.setBorders(
+                .{ .top = true, .bottom = true, .left = true, .right = true },
+                2,
+                col.r,
+                col.g,
+                col.b,
+                col.a,
+            );
+
+            win.setCapabilities(.{
+                .window_menu = false,
+                .maximize = false,
+                .minimize = false,
+                .fullscreen = false,
+            });
+            win.useSsd();
+            win.setTiled(.{
+                .top = true,
+                .left = true,
+                .right = true,
+                .bottom = true,
+            });
+
+            const goal = &wd.goal_size;
+            const ts = goal.get(curr_time);
+            switch (goal.*) {
+                .transit => win.informResizeStart(),
+                .static => win.informResizeEnd(),
+            }
+
+            win.proposeDimensions(ts[0], ts[1]);
+
+            if (!goal.done(curr_time)) {
+                ctx.dirty = true;
+            } else {
+                goal.staticify();
+            }
         }
 
-        win.proposeDimensions(ts[0], ts[1]);
+        for (ws.floating.keys()) |win| {
 
-        if (!goal.done(curr_time)) {
-            ctx.dirty = true;
-        } else {
-            goal.staticify();
+            const wd = ctx.wins.getPtr(win).?;
+            const col: utils.Color = .gray;
+
+            win.setBorders(
+                .{ .top = true, .bottom = true, .left = true, .right = true },
+                2,
+                col.r,
+                col.g,
+                col.b,
+                col.a,
+            );
+
+            win.setCapabilities(.{
+                .window_menu = false,
+                .maximize = false,
+                .minimize = false,
+                .fullscreen = false,
+            });
+            win.useSsd();
+            win.setTiled(.{
+                .top = true,
+                .left = true,
+                .right = true,
+                .bottom = true,
+            });
+
+            const goal = &wd.goal_size;
+            const ts = goal.get(curr_time);
+            switch (goal.*) {
+                .transit => win.informResizeStart(),
+                .static => win.informResizeEnd(),
+            }
+
+            win.proposeDimensions(ts[0], ts[1]);
+
+            if (!goal.done(curr_time)) {
+                ctx.dirty = true;
+            } else {
+                goal.staticify();
+            }
         }
     }
 
     for (ctx.shouldClose.items) |w| {
         w.close();
     }
-
     ctx.shouldClose.clearAndFree(ctx.gpa);
 }
 
@@ -298,13 +352,10 @@ fn render(ctx: *Context) !void {
     if (wins == 0) return;
     const curr_time = std.time.microTimestamp();
 
-
     var windows = ctx.wins.iterator();
     while (windows.next()) |_w| {
         const w = _w.key_ptr.*;
         const wd = _w.value_ptr;
-
-        const tp = wd.pos.get(curr_time);
 
         const man_state = manage_states.get(w).?;
 
@@ -312,8 +363,10 @@ fn render(ctx: *Context) !void {
             w.show();
         } else {
             w.hide();
+            continue;
         }
 
+        const tp = wd.pos.get(curr_time);
         wd.node.setPosition(tp[0], tp[1]);
 
         if (!wd.pos.done(curr_time)) {
@@ -343,9 +396,7 @@ fn render(ctx: *Context) !void {
 
         for (wsd.floating.keys()) |w| {
             const wd = ctx.wins.getPtr(w).?;
-
             wd.node.placeTop();
-            w.show();
         }
     }
 }
