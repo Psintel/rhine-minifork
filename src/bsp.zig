@@ -15,6 +15,7 @@ const Workspace = @import("workspace.zig");
 const Tiler = @import("tiler.zig");
 const Context = @import("context.zig");
 
+
 const WT = Tiler.WT;
 const ManageMap = Tiler.ManageMap;
 const RenderMap = Tiler.RenderMap;
@@ -24,6 +25,9 @@ const log = std.log.scoped(.bsp);
 const border = 2;
 const gap = 1;
 const pad: utils.Vec2 = @splat(gap + border);
+
+tree: ?subTile = null,
+tiler: Tiler.tiler(@This()) = .{},
 
 pub const Commands = enum(u32) {
     ChangeSplit,
@@ -231,9 +235,6 @@ const subTile = union(enum) {
         }
     }
 };
-
-tree: ?subTile = null,
-tiler: Tiler.tiler(@This()) = .{},
 
 pub fn add(self: *@This(), ctx: *Tiler.TileContext, win: WT) Tiler.Error!void {
     log.info("adding window {} to the tree", .{win.getId()});

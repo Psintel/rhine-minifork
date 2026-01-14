@@ -14,6 +14,7 @@ const Tilable = @import("tilable.zig");
 const Tiler = @import("tiler.zig");
 const Output = @import("output.zig");
 const Window = @import("window.zig");
+const Rules = @import("rules.zig");
 
 const log = std.log.scoped(.window);
 
@@ -47,10 +48,28 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
     const self = ctx.wins.getPtr(win).?;
 
     const seat = if (ctx.last_active) |s| ctx.seats.get(s) else null;
-    const ws = (if (seat) |s| Workspace.byPointer(ctx, s.pointer_pos) else null) orelse Workspace.getFirst(ctx);
+    var ws: ?Workspace.WS = null;
+
+
+    const rules = try ctx.config.getList("windowrules");
+
+    for (rules) |rule| {
+        const wr: Rules.WindowRule = try .fromEntry(rule);
+        if (!wr.match.match(self.app_id orelse "")) continue;
+        switch(wr.rule) {
+            .float => self.float =true,
+            .workspace => |_ws| ws = _ws,
+        }
+    }
+
+
+    if (ws == null)
+        ws = (if (seat) |s| Workspace.byPointer(ctx, s.pointer_pos) else null) orelse Workspace.getFirst(ctx);
+
     const cursor = if (seat) |s| Output.relPos(ctx, s.pointer_pos) else null;
 
-    const ws_data = ctx.workspaces.getPtr(ws).?;
+
+    const ws_data: *Workspace = try .get(ctx, ws.?);
 
     self.workspace = ws;
 

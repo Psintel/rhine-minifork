@@ -11,6 +11,8 @@ const Output = @import("output.zig");
 const Seat = @import("seat.zig");
 const Workspace = @import("workspace.zig");
 const InputManager = @import("input/management.zig");
+const Rules = @import("rules.zig");
+const Config = @import("config.zig");
 
 // base allocator
 gpa: mem.Allocator,
@@ -30,6 +32,8 @@ wins: utils.WLHashMap(rwm.WindowV1, Window) = .empty,
 outs: utils.WLHashMap(rwm.OutputV1, Output) = .empty,
 seats: utils.WLHashMap(rwm.SeatV1, Seat) = .empty,
 workspaces: std.AutoArrayHashMapUnmanaged(Workspace.WS, Workspace)  = .empty,
+config: Config,
+rules: std.ArrayList(Rules) = .empty,
 
 // short-lived state
 last_active: ?*rwm.SeatV1 = null, // last seat with activity
@@ -62,4 +66,5 @@ pub fn deinit(self: *@This()) void {
     self.wins.deinit(self.gpa);
     self.outs.deinit(self.gpa);
     self.seats.deinit(self.gpa);
+    self.config.deinit(self.gpa);
 }

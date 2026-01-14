@@ -13,6 +13,7 @@ const Tiler = @import("tiler.zig");
 const Window = @import("window.zig");
 const Workspace = @import("workspace.zig");
 const Output = @import("output.zig");
+const Config = @import("config.zig");
 
 const bsp = @import("bsp.zig");
 
@@ -27,12 +28,41 @@ const BindData = struct {
     seat: *rwm.SeatV1,
 };
 
-pub var bindDatas: utils.WLHashMap(rwm.XkbBindingV1, BindData) = .empty;
+var bindDatas: utils.WLHashMap(rwm.XkbBindingV1, BindData) = .empty;
 
 pub const Bind = struct {
     mods: rwm.SeatV1.Modifiers,
     key: Sym,
     trigger: *const Trigger,
+
+    pub fn fromEntry(entry: Config.Entry) !@This() {
+        var iter = std.mem.tokenizeScalar(u8, entry.args[0], '+');
+        var mods = rwm.SeatV1.Modifiers{};
+
+        while(iter.next()) |m| {
+            if (mem.eql(u8, m, "alt") ) {
+                mods.mod1 = true;
+            } else if (mem.eql(u8, m, "super")) {
+                mods.mod4 = true;
+            } else if (mem.eql(u8, m, "ctrl")) {
+                mods.ctrl = true;
+            } else if (mem.eql(u8, m, "shift")) {
+                mods.shift = true;
+            } else {
+                return error.ParseError;
+            }
+        }
+
+        var buf:[20]u8 = @splat(0);
+        const key = try std.fmt.bufPrint(&buf, "XKB_KEY_{s}", .{entry.args[1]});
+
+
+
+        return .{
+            .key = key,
+            .mods = mods,
+        };
+    }
 };
 
 const binds = [_]Bind{
@@ -81,7 +111,11 @@ const binds = [_]Bind{
 );
 
 pub fn register(ctx: *Context, seat: *rwm.SeatV1) !void {
+
     const sc = ctx.seats.getPtr(seat).?;
+    // const conf = try ctx.config.getList("keybinds");
+    // _ = conf;
+
     log.info("registering keybinds for seat {}", .{seat.getId()});
 
     for (binds) |b| {

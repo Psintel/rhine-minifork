@@ -1,10 +1,22 @@
-= TODO
-- window rules
-    - match appid
-    - put on workspace
-    - make float
+= blockers
+- hypr IPC
+    - export HYPRLAND_INSTANCE_SIGNATURE env var
 - external config
+    - use for keybinds
+    - source from .config
+- fullscreen
+
+= TODO
+- implement a bar ipc
+    - hyrpland!
+    - my own?
+    - sway?
+- external config
+    - use for cursor getstures
+- window rules
+    - improve matching
 - special workspaces
+- fullscreen
 - libinput config
     - figure out how to deal with results
 - multi-touch gestures (also tiling specific)

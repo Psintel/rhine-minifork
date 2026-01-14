@@ -42,16 +42,16 @@ pub fn listener(out: *rwm.OutputV1, e: rwm.OutputV1.Event, ctx: *Context) void {
     switch (e) {
         .dimensions => |dim| {
             data.size = .{
-                 dim.width,
-                 dim.height,
+                dim.width,
+                dim.height,
             };
             // since we are tiling screenspace, a resize dirties the manage state
             ctx.wm.manageDirty();
         },
         .position => |pos| {
             data.position = .{
-                 pos.x,
-                 pos.y,
+                pos.x,
+                pos.y,
             };
         },
         .removed => {
@@ -91,6 +91,19 @@ pub fn byPointer(ctx: *Context, pos: utils.Vec2) ?*rwm.OutputV1 {
         if (r.inside(pos)) {
             return o.key_ptr.*;
         }
+    }
+
+    return null;
+}
+
+pub fn byWorkspace(ctx: *Context, ws: Workspace.WS) ?*rwm.OutputV1 {
+    var iter = ctx.outs.iterator();
+
+    while (iter.next()) |_out| {
+        const out = _out.key_ptr.*;
+        const out_data = _out.value_ptr;
+
+        if (out_data.workspace == ws) return out;
     }
 
     return null;

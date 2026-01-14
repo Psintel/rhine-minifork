@@ -24,6 +24,10 @@ const Layouts = @import("layouts.zig");
 const InputManager = @import("input/management.zig");
 const LibInput = @import("input/libinput.zig");
 
+const Config = @import("config.zig");
+
+const HyprIPC = @import("hyprIPC.zig");
+
 const log = std.log;
 
 var manage_states: Tiler.ManageMap = .empty;
@@ -53,6 +57,8 @@ const Registry = struct {
                 } else if (mem.orderZ(u8, global.interface, rwm.LibinputConfigV1.interface.name) == .eq) {
                     context.input_config = registry.bind(global.name, rwm.LibinputConfigV1, 1) catch return;
                     std.log.info("registered libinput config interface with version {}", .{global.version});
+                } else {
+                    log.info("not registering interface {s}", .{global.interface});
                 }
             },
             .global_remove => {},
@@ -297,7 +303,6 @@ fn manage(ctx: *Context) !void {
         }
 
         for (ws.floating.keys()) |win| {
-
             const wd = ctx.wins.getPtr(win).?;
             const col: utils.Color = .gray;
 
@@ -427,6 +432,11 @@ pub fn main() !void {
 
     const alloc = gpa.allocator();
 
+    const config = try std.fs.cwd().openFile("config.rh", .{});
+    var buffer: [0x100]u8 = undefined;
+    var reader_object = config.reader(&buffer);
+    var writer = std.fs.File.stdout().writer(&.{});
+
     const display = try wl.Display.connect(null);
     defer display.disconnect();
     const registry = try display.getRegistry();
@@ -442,12 +452,19 @@ pub fn main() !void {
         .wm = try unwrapIFace(reg.wm),
         .bind = try unwrapIFace(reg.bindings),
         .shell = try unwrapIFace(reg.shell),
+        .config = try Config.parse(alloc, &reader_object.interface),
         .input_management = .{
             .manager = try unwrapIFace(reg.input_manager),
             .libinput = try unwrapIFace(reg.input_config),
             .gpa = alloc,
         },
     };
+
+    const ipc = try HyprIPC.init(&ctx);
+    const t = try std.Thread.spawn(.{}, HyprIPC.run, .{ipc, &ctx});
+    t.detach();
+
+    try ctx.config.serialize(&writer.interface);
 
     try ctx.workspaces.put(ctx.gpa, 0, .{
         .tiler = try Layouts.new(ctx.gpa, .bsp),

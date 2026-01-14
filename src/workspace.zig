@@ -56,11 +56,26 @@ pub fn byPointer(ctx: *Context, pos: utils.Vec2) ?WS {
 }
 
 pub fn get(ctx: *Context, id: WS) !*Workspace {
+    var buf: [20]u8 = undefined;
     if (ctx.workspaces.getPtr(id)) |ws| {
         return ws;
     }
 
-    try ctx.workspaces.put(ctx.gpa, id, .{ .tiler = try Layouts.new(ctx.gpa, .bsp) });
+    const layoutcfg = try ctx.config.sub("layout");
+    const wskey = try std.fmt.bufPrint(&buf, "{}", .{id});
+    const layout = try layoutcfg.getSole(wskey) orelse try layoutcfg.getSole("*");
+
+    const layt: ?Layouts.LayoutTypes = if (layout) |l|
+        std.meta.stringToEnum(Layouts.LayoutTypes, l)
+    else
+        null;
+
+    if (layt == null) log.err("invalid layout {?s} for workspace {}", .{layout, id});
+
+    try ctx.workspaces.put(ctx.gpa, id, .{ .tiler = try Layouts.new(
+        ctx.gpa,
+        layt orelse .bsp,
+    ) });
 
     return ctx.workspaces.getPtr(id).?;
 }

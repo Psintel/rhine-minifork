@@ -91,6 +91,7 @@ pub fn tiler(T: type) type {
             const parent: *T = @ptrCast(@alignCast(data.?));
             return parent.add(ctx, win);
         }
+
         fn remove_impl(data: ?*anyopaque, ctx: *TileContext, win: WT) void {
             const parent: *T = @ptrCast(@alignCast(data.?));
             return parent.remove(ctx, win);
