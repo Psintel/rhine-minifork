@@ -16,6 +16,7 @@ pub fn build(b: *Build) !void {
         .root_source_file = scanner.result,
         .target = target,
         .optimize = optimize,
+        .strip = b.option(bool, "strip", "strip executable"),
     });
 
     // scanner.addSystemProtocol("stable/xdg-shell/xdg-shell.xml");
@@ -34,6 +35,7 @@ pub fn build(b: *Build) !void {
     // global interface, in this example wl_keyboard, wl_pointer, xdg_surface,
     // xdg_toplevel, etc. would be generated as well.
     scanner.generate("wl_seat", 4);
+    scanner.generate("wl_output", 4);
     // scanner.generate("xdg_wm_base", 3);
     // scanner.generate("ext_session_lock_manager_v1", 1);
     scanner.generate("river_window_manager_v1", 3);
@@ -90,7 +92,6 @@ pub fn build(b: *Build) !void {
 
     const screen = b.option(u32, "wayland", "sets the WAYLAND_DISPLAY env variable to wayland-[wayland]") orelse 1;
     run_cmd.setEnvironmentVariable("WAYLAND_DISPLAY", b.fmt("wayland-{}", .{screen}));
-
 
     if (b.args) |args| {
         run_cmd.addArgs(args);

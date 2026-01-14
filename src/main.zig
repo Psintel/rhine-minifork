@@ -432,7 +432,18 @@ pub fn main() !void {
 
     const alloc = gpa.allocator();
 
-    const config = try std.fs.cwd().openFile("config.rh", .{});
+    const config = conf: {
+        var pathbuf: [std.posix.PATH_MAX]u8 = @splat(0);
+        const home = std.posix.getenv("HOME").?;
+        const xdg_config_home = std.posix.getenv("XDG_CONFIG_HOME");
+        const cfile = try if (xdg_config_home) |xdg|
+            std.fmt.bufPrint(&pathbuf, "{s}/river/config.rh", .{xdg})
+        else
+            std.fmt.bufPrint(&pathbuf, "{s}/.config/river/config.rh", .{home});
+
+        break :conf try std.fs.cwd().openFile(cfile, .{});
+    };
+
     var buffer: [0x100]u8 = undefined;
     var reader_object = config.reader(&buffer);
     var writer = std.fs.File.stdout().writer(&.{});
@@ -461,7 +472,7 @@ pub fn main() !void {
     };
 
     const ipc = try HyprIPC.init(&ctx);
-    const t = try std.Thread.spawn(.{}, HyprIPC.run, .{ipc, &ctx});
+    const t = try std.Thread.spawn(.{}, HyprIPC.run, .{ ipc, &ctx });
     t.detach();
 
     try ctx.config.serialize(&writer.interface);
