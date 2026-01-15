@@ -1,9 +1,6 @@
 = blockers
-- hypr IPC
-    - export HYPRLAND_INSTANCE_SIGNATURE env var
 - external config
     - use for keybinds
-    - source from .config
 - fullscreen
 
 = TODO

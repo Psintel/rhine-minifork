@@ -460,6 +460,7 @@ pub fn main() !void {
 
     var ctx: Context = .{
         .gpa = alloc,
+        .child_env = try std.process.getEnvMap(alloc),
         .wm = try unwrapIFace(reg.wm),
         .bind = try unwrapIFace(reg.bindings),
         .shell = try unwrapIFace(reg.shell),

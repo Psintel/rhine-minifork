@@ -25,6 +25,7 @@ bind: *rwm.XkbBindingsV1,
 // state info
 running: bool = true,
 locked: bool = false,
+child_env: std.process.EnvMap,
 
 // global state
 input_management: InputManager,

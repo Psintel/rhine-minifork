@@ -5,7 +5,18 @@
 
 Rhine is a window manager for the river wayland compositor (using the river_compositor_V1 protocol).
 The aim is to allow for a modular system of tiling algorithms (maybe even ones loaded from shared object files).
-if one desires to mess around nonetheless then use alt (+shift) and arrow keys for navigation. alt+d opens fuzzel
+
+rhine has a custom config file called `config.rh` which is to be placed in the river config directory.
+rhine supports parts of the Hyprland IPC protocol (only socket 1 so far) in order to enable external bars.
+(gBar by scorpion-26 runs for the most part.) This works by spoofing the `HYPRLAND_INSTANCE_SIGNATURE`
+environment variable. This spoofing will only affect processes spawned by the wm.
+this repo also contains an example config.
+the config (so far) supports:
+
+- setting per workspace layout (there is only the bsp layout available so far).
+- setting window rules: requires an exact match of the appid and supports
+    - workspace assignment
+    - making a window float
 
 
 What will rhine _not_ do (for now):

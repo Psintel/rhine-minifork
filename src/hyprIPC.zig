@@ -23,9 +23,10 @@ const log = std.log;
 signature: []u8,
 
 pub fn init(ctx: *Context) !@This() {
-    const uid = std.posix.getuid();
+    const uid = std.os.linux.getpid();
 
     const name = try std.fmt.allocPrint(ctx.gpa, "rhine-{}", .{uid});
+    try ctx.child_env.put("HYPRLAND_INSTANCE_SIGNATURE", name);
     log.info("HYPRLAND_INSTANCE_SIGNATURE: {s}", .{name});
 
     const sockdirpath = try std.fmt.allocPrint(ctx.gpa, "hypr/{s}", .{name});

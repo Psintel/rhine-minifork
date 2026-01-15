@@ -1,0 +1,18 @@
+
+# layouts :3
+layout {
+    0 bsp
+    1 bsp
+    2 bsp
+    * bsp
+}
+
+# keybinds [
+#     alt, s, bsp:togglesplit
+#     alt, return, spawn foot
+# ]
+
+windowrules [
+    com.mitchellh.ghostty, workspace 1
+    zenity, float
+]

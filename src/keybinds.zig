@@ -39,8 +39,8 @@ pub const Bind = struct {
         var iter = std.mem.tokenizeScalar(u8, entry.args[0], '+');
         var mods = rwm.SeatV1.Modifiers{};
 
-        while(iter.next()) |m| {
-            if (mem.eql(u8, m, "alt") ) {
+        while (iter.next()) |m| {
+            if (mem.eql(u8, m, "alt")) {
                 mods.mod1 = true;
             } else if (mem.eql(u8, m, "super")) {
                 mods.mod4 = true;
@@ -53,10 +53,8 @@ pub const Bind = struct {
             }
         }
 
-        var buf:[20]u8 = @splat(0);
+        var buf: [20]u8 = @splat(0);
         const key = try std.fmt.bufPrint(&buf, "XKB_KEY_{s}", .{entry.args[1]});
-
-
 
         return .{
             .key = key,
@@ -111,7 +109,6 @@ const binds = [_]Bind{
 );
 
 pub fn register(ctx: *Context, seat: *rwm.SeatV1) !void {
-
     const sc = ctx.seats.getPtr(seat).?;
     // const conf = try ctx.config.getList("keybinds");
     // _ = conf;
@@ -231,9 +228,16 @@ fn moveDir(comptime dir: Tiler.Dir) Trigger {
 
 fn launch(comptime command: [:null]const ?[*:0]const u8) Trigger {
     return struct {
-        pub fn launch(_: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, _: *Context) void {
+        pub fn launch(_: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
             switch (event) {
                 .pressed => {
+                    var buf: [0x8000]u8 = @splat(0); // look if your env is more than 8 KiB I cannot help you
+                    var fb: std.heap.FixedBufferAllocator = .init(&buf);
+                    const alloc = fb.allocator();
+                    const env = std.process.createEnvironFromMap(alloc, &ctx.child_env, .{}) catch |e| {
+                        log.err("failed to spawn {?s}: {}", .{ command[0], e });
+                        return;
+                    };
                     const pid = std.posix.fork() catch {
                         log.err("fork failed for command {*}", .{command});
                         return;
@@ -247,7 +251,7 @@ fn launch(comptime command: [:null]const ?[*:0]const u8) Trigger {
                             .flags = 0,
                         };
                         posix.sigaction(posix.SIG.PIPE, &sig_dfl, null);
-                        posix.execveZ("/bin/sh", args, std.c.environ) catch posix.exit(1);
+                        posix.execveZ("/bin/sh", args, env) catch posix.exit(1);
                     }
                 },
                 .released => {},
