@@ -3,7 +3,7 @@
 
 = Rhine: a modular window manager for river
 
-Rhine is a window manager for the river wayland compositor (using the river_compositor_V1 protocol).
+Rhine is a window manager for the river wayland compositor (using the river-window-manager-v1 protocol).
 The aim is to allow for a modular system of tiling algorithms (maybe even ones loaded from shared object files).
 Rhine is meant to be both capable and hackable.
 
@@ -53,3 +53,21 @@ keybinds (hardcoded for now):
 1. run current `main` branch version of `river`
 2. build and run `rhine`
 3. win
+
+== technical details
+
+=== protocols bound
+rhine binds the following protocols:
+
+- river-window-management-v1
+- river-layer-shell-v1
+- river-xkb-bindings-v1
+- river-input-management-v1
+- river-libinput-config-v1
+
+
+=== shared libraries
+rhine links the following shared libraries:
+
+- libwayland-client
+- libc
