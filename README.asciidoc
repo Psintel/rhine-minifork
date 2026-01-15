@@ -36,17 +36,18 @@ What will rhine _not_ do (for now):
 
 === keybinds
 
-keybinds (hardcoded for now):
+the keybinds are hardcoded (for now), feel free to edit `src/keybinds.zig`
 
 - alt+d                      : open fuzzel
 - alt+enter                  : open foot
+- alt+f                      : toggle fullscreen
 - alt+arrows                 : move focus
 - alt+{h,j,k,l}              : move focus
-- shift+alt+arrows           : move focus window
-- shift+alt+{h,j,k,l}        : move focus window
-- alt+s                      : change the direction of the innermost split
+- shift+alt+arrows           : move focused window
+- shift+alt+{h,j,k,l}        : move focused window
+- alt+s                      : bsp layout: change the direction of the innermost split
 - alt+{1,2,3,4,5,6,7,8,9,0,} : show workspace {1,2,3,4,5,6,7,8,9,10} on the current monitor
-- ctrl+alt+delete            : quit river (this is a river-internal keybind)
+- ctrl+alt+delete            : quit river (this hardcoded by river itself)
 
 == running rhine
 

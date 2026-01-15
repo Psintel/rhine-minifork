@@ -16,7 +16,7 @@ size: ?utils.Vec2 = null,
 exclusive_area: ?utils.Rect2 = null,
 workspace: Workspace.WS,
 
-// special overlay workspace
+// special overlay workspace TODO:implement
 overlay: ?Workspace.WS = null,
 
 shell_out: *rwm.LayerShellOutputV1,
@@ -46,7 +46,7 @@ pub fn listener(out: *rwm.OutputV1, e: rwm.OutputV1.Event, ctx: *Context) void {
                 dim.height,
             };
             // since we are tiling screenspace, a resize dirties the manage state
-            ctx.wm.manageDirty();
+            ctx.dirty = true;
         },
         .position => |pos| {
             data.position = .{

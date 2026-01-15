@@ -4,16 +4,12 @@
 - fullscreen
 
 = TODO
-- implement a bar ipc
-    - hyrpland!
-    - my own?
-    - sway?
 - external config
     - use for cursor getstures
+    - hot-reloading
 - window rules
     - improve matching
 - special workspaces
-- fullscreen
 - libinput config
     - figure out how to deal with results
 - multi-touch gestures (also tiling specific)
@@ -23,6 +19,11 @@
     - improve pop-up heuristics
     - gesture for resizing them
     - float toggle bind
+- implement a bar ipc
+    - hyrpland!
+        - do some sort of RCU thingy to prevent errors
+    - my own?
+    - sway?
 
 = Ambitions
 - workspace switching animation

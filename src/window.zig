@@ -27,6 +27,20 @@ app_id: ?[:0]const u8 = null,
 size: utils.Vec2 = @splat(0),
 float: bool = false, // is this window floating
 parent: ?*rwm.WindowV1 = null,
+fullscreen: enum {
+    no,
+    soon,
+    yes,
+    was,
+
+    pub fn toggle(self: *@This()) void {
+        switch (self.*) {
+            .no => self.* = .soon,
+            .yes => self.* = .was,
+            .soon, .was => {},
+        }
+    }
+} = .no,
 
 // will we keep those?
 pos: utils.Lerp(100_000) = .{ .static = @splat(0) },
@@ -50,24 +64,21 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
     const seat = if (ctx.last_active) |s| ctx.seats.get(s) else null;
     var ws: ?Workspace.WS = null;
 
-
     const rules = try ctx.config.getList("windowrules");
 
     for (rules) |rule| {
         const wr: Rules.WindowRule = try .fromEntry(rule);
         if (!wr.match.match(self.app_id orelse "")) continue;
-        switch(wr.rule) {
-            .float => self.float =true,
+        switch (wr.rule) {
+            .float => self.float = true,
             .workspace => |_ws| ws = _ws,
         }
     }
-
 
     if (ws == null)
         ws = (if (seat) |s| Workspace.byPointer(ctx, s.pointer_pos) else null) orelse Workspace.getFirst(ctx);
 
     const cursor = if (seat) |s| Output.relPos(ctx, s.pointer_pos) else null;
-
 
     const ws_data: *Workspace = try .get(ctx, ws.?);
 

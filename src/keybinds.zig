@@ -84,6 +84,11 @@ const binds = [_]Bind{
         .key = xkb.XKB_KEY_s,
         .trigger = changeSplit,
     },
+    .{
+        .mods = .{ .mod1 = true },
+        .key = xkb.XKB_KEY_f,
+        .trigger = toggleFullscreen ,
+    },
 } ++ directionals(
     .{ .mod1 = true },
     .{ xkb.XKB_KEY_h, xkb.XKB_KEY_j, xkb.XKB_KEY_k, xkb.XKB_KEY_l },
@@ -231,7 +236,7 @@ fn launch(comptime command: [:null]const ?[*:0]const u8) Trigger {
         pub fn launch(_: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
             switch (event) {
                 .pressed => {
-                    var buf: [0x8000]u8 = @splat(0); // look if your env is more than 8 KiB I cannot help you
+                    var buf: [0x80000]u8 = @splat(0); // look if your env is more than 80 KiB I cannot help you
                     var fb: std.heap.FixedBufferAllocator = .init(&buf);
                     const alloc = fb.allocator();
                     const env = std.process.createEnvironFromMap(alloc, &ctx.child_env, .{}) catch |e| {
@@ -359,4 +364,22 @@ fn moveToWorkspace(comptime target: Workspace.WS) Trigger {
             }
         }
     }.change;
+}
+
+pub fn toggleFullscreen(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
+    switch (event) {
+        .pressed => {
+            const data = bindDatas.get(b).?;
+            const seat_data = ctx.seats.getPtr(data.seat).?;
+
+            const focus = seat_data.focus orelse return;
+
+            const win_data = ctx.wins.getPtr(focus) orelse return;
+
+            win_data.fullscreen.toggle();
+
+            ctx.dirty = true;
+        },
+        .released => {},
+    }
 }

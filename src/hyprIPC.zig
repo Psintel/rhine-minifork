@@ -23,9 +23,9 @@ const log = std.log;
 signature: []u8,
 
 pub fn init(ctx: *Context) !@This() {
-    const uid = std.os.linux.getpid();
+    const display = ctx.child_env.get("WAYLAND_DISPLAY").?;
 
-    const name = try std.fmt.allocPrint(ctx.gpa, "rhine-{}", .{uid});
+    const name = try std.fmt.allocPrint(ctx.gpa, "rhine-{s}", .{display});
     try ctx.child_env.put("HYPRLAND_INSTANCE_SIGNATURE", name);
     log.info("HYPRLAND_INSTANCE_SIGNATURE: {s}", .{name});
 
@@ -115,9 +115,8 @@ fn handleCon(serv: *net.Server, ctx: *Context) !void {
             _ = id;
             try writer.print("ok", .{});
         }
-
-        
     }else {
+        try writer.print("don't know how to respond :(\n\n", .{});
         log.info("unknown ipc request {s}", .{reader.buffered()});
     }
     try writer.flush();
@@ -140,7 +139,9 @@ pub fn run(self: @This(), ctx: *Context) !void {
     defer serv.deinit();
 
     while (true) {
-        try handleCon(&serv, ctx);
+        handleCon(&serv, ctx) catch |e| {
+            log.err("HyprIPC error: {}", .{e});
+        };
         std.Thread.sleep(1000_000);
     }
 }

@@ -16,3 +16,15 @@ windowrules [
     com.mitchellh.ghostty, workspace 1
     zenity, float
 ]
+
+keyboard {
+    # layout en
+    # variant
+    # options grp:ctrl_space_toggle
+    repeat {
+        rate 25
+        delay 550
+    }
+    
+
+}

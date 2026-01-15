@@ -227,8 +227,8 @@ pub fn get(self: Config, key: []const u8) ?Value {
     return self.values.get(key);
 }
 
-pub fn getArgs(self: Config, key: []const u8) !Entry {
-    const val = self.values.get(key) orelse return &.{};
+pub fn getArgs(self: Config, key: []const u8) !?Entry {
+    const val = self.values.get(key) orelse return null;
 
     if (std.meta.activeTag(val) != .args) return error.NotArg;
 

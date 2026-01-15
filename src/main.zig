@@ -172,6 +172,11 @@ fn apply_tiler(ctx: *Context) !void {
 }
 
 fn manage(ctx: *Context) !void {
+    if (ctx.input_management.dirty) {
+        try ctx.input_management.applyConfig(ctx.config);
+        ctx.input_management.dirty = false;
+    }
+    
     // register new windows
     for (ctx.should_open.items) |win| {
         try Window.assign(ctx, win);
@@ -251,6 +256,7 @@ fn manage(ctx: *Context) !void {
 
     var outs = ctx.outs.iterator();
     while (outs.next()) |_out| {
+        const out = _out.key_ptr.*;
         const out_data = _out.value_ptr;
 
         const ws = ctx.workspaces.get(out_data.workspace).?;
@@ -260,6 +266,20 @@ fn manage(ctx: *Context) !void {
             const man_state = manage_states.get(win) orelse continue;
 
             if (!man_state.show) continue;
+
+            switch(wd.fullscreen) {
+                .no, .yes => {},
+                .soon => {
+                    win.fullscreen(out);
+                    win.informFullscreen();
+                    wd.fullscreen = .yes;
+                },
+                .was => {
+                    win.exitFullscreen();
+                    win.informNotFullscreen();
+                    wd.fullscreen = .no;
+                },
+            }
 
             const col = man_state.border;
 
