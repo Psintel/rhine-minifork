@@ -30,3 +30,9 @@ pub fn listener(dev: *rwm.InputDeviceV1, event: rwm.InputDeviceV1.Event, man: *M
         }
     }
 }
+
+pub fn deinit(self: @This(), man: *Manager) void {
+    _ = self;
+    _ = man;
+
+}

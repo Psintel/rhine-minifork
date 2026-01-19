@@ -116,5 +116,7 @@ pub fn deinit(self: *@This(), ctx: *Context) void {
         self.tiler.vtable.remove(self.tiler.context, &tctx, w);
     }
 
+    Layouts.delete(ctx.gpa, self.tiler);
+
     self.windows.deinit(ctx.gpa);
 }

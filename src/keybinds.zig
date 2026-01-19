@@ -170,7 +170,7 @@ fn kill(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void
     switch (event) {
         .pressed => {
             if (ctx.seats.get(dat.seat).?.focus) |w| {
-                ctx.shouldClose.append(ctx.gpa, w) catch return;
+                ctx.should_close.append(ctx.gpa, w) catch return;
                 log.info("marked window {} for closure", .{w.getId()});
             }
         },
@@ -311,6 +311,8 @@ fn changeWorkspace(comptime target: Workspace.WS) Trigger {
                     }
 
                     seat_data.focus = if (w.windows.entries.len > 0) w.windows.keys()[0] else null;
+                    seat_data.warp_to_window = seat_data.focus;
+
                     ctx.dirty = true;
                 },
                 .released => {},

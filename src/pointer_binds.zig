@@ -121,3 +121,13 @@ pub fn register(ctx: *Context, seat: *rwm.SeatV1) !void {
         nb.setListener(*Context, b.trigger, ctx);
     }
 }
+
+pub fn unregister(ctx: *Context, seat: *rwm.SeatV1) void {
+    const seat_data = ctx.seats.get(seat).?;
+    for (seat_data.pointer_binds.items) |bind| {
+        _ = bindDatas.swapRemove(bind);
+        bind.destroy();
+    }
+
+    if (bindDatas.entries.len == 0) bindDatas.clearAndFree(ctx.gpa);
+}

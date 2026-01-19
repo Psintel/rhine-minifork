@@ -71,4 +71,7 @@ pub fn listener(seat: *rwm.SeatV1, e: rwm.SeatV1.Event, ctx: *Context) void {
 pub fn deinit(self: *@This(), ctx: *Context, seat: *rwm.SeatV1) void {
     Keybinds.unregister(ctx, seat);
     self.binds.clearAndFree(ctx.gpa);
+
+    Pointerbinds.unregister(ctx, seat);
+    self.pointer_binds.clearAndFree(ctx.gpa);
 }

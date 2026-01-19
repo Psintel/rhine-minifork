@@ -70,3 +70,19 @@ pub fn applyConfig(self: *Manager, cfg: Config) !void {
         }
     }
 }
+
+pub fn deinit(self: *@This()) void {
+
+    for (self.devices.values()) |dev| {
+        dev.deinit(self);
+    }
+    self.devices.clearAndFree(self.gpa);
+
+    // for (self.libinput_devs.values()) |dev| {
+    //     dev.deinit(self);
+    // }
+    self.libinput_devs.clearAndFree(self.gpa);
+
+    self.input_results.clearAndFree(self.gpa);
+
+}

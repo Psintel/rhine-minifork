@@ -79,6 +79,7 @@ pub fn delete(gpa: mem.Allocator, tile: Tiler) void {
             }
         },
     }
-    storageMap.remove(tile);
+    _ = storageMap.remove(tile);
+    if (storageMap.size == 0) storageMap.clearAndFree(gpa);
     gpa.destroy(ptr);
 }

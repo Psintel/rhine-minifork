@@ -1,11 +1,10 @@
 = blockers
 - external config
     - use for keybinds
-- fullscreen
 
 = TODO
 - external config
-    - use for cursor getstures
+    - use for cursor gestures
     - hot-reloading
 - window rules
     - improve matching
@@ -21,9 +20,20 @@
     - float toggle bind
 - implement a bar ipc
     - hyrpland!
-        - do some sort of RCU thingy to prevent errors
+        - do some sort of RCU thingy to prevent races
     - my own?
     - sway?
+
+= issues
+
+- do better window deinit checks, sometimes we panic
+- fix ouput placement logic on rescale
+- moveDir and focusDir should work across outputs
+- keybinds via config
+    - some sort of closure system?
+    - more context?
+        - I don't really want more heap allocation
+- pipe child window stdout/stderr elsewhere
 
 = Ambitions
 - workspace switching animation

@@ -38,9 +38,9 @@ rules: std.ArrayList(Rules) = .empty,
 
 // short-lived state
 last_active: ?*rwm.SeatV1 = null, // last seat with activity
-shouldClose: std.ArrayList(*rwm.WindowV1) = .empty,
 dirty: bool = false,
 
+should_close: std.ArrayList(*rwm.WindowV1) = .empty,
 should_open: std.ArrayList(*rwm.WindowV1) = .empty, // uninitalized windows
 orphans: std.ArrayList(*rwm.WindowV1) = .empty, // initialized windows that need to be reassigned
 
@@ -49,23 +49,35 @@ pub fn deinit(self: *@This()) void {
     while (wins.next()) |w| {
         w.value_ptr.deinit(self, w.key_ptr.*);
     }
+    self.wins.clearAndFree(self.gpa);
 
     var outs = self.outs.iterator();
     while (outs.next()) |o| {
         Output.deinit(self, o.key_ptr.*);
     }
+    self.outs.clearAndFree(self.gpa);
 
     var seats = self.seats.iterator();
     while (seats.next()) |s| {
         s.value_ptr.deinit(self, s.key_ptr.*);
     }
+    self.seats.clearAndFree(self.gpa);
 
     for (self.workspaces.values()) |*w| {
         w.deinit(self);
     }
+    self.workspaces.clearAndFree(self.gpa);
 
     self.wins.deinit(self.gpa);
     self.outs.deinit(self.gpa);
     self.seats.deinit(self.gpa);
     self.config.deinit(self.gpa);
+
+    self.should_close.deinit(self.gpa);
+    self.should_open.deinit(self.gpa);
+
+    self.child_env.deinit();
+
+    self.input_management.deinit();
+
 }

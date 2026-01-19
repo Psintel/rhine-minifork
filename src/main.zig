@@ -366,10 +366,10 @@ fn manage(ctx: *Context) !void {
         }
     }
 
-    for (ctx.shouldClose.items) |w| {
+    for (ctx.should_close.items) |w| {
         w.close();
     }
-    ctx.shouldClose.clearAndFree(ctx.gpa);
+    ctx.should_close.clearAndFree(ctx.gpa);
 }
 
 fn render(ctx: *Context) !void {
@@ -493,6 +493,7 @@ pub fn main() !void {
     };
 
     const ipc = try HyprIPC.init(&ctx);
+    defer ipc.deinit(&ctx);
     const t = try std.Thread.spawn(.{}, HyprIPC.run, .{ ipc, &ctx });
     t.detach();
 

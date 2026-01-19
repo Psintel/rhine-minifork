@@ -145,3 +145,7 @@ pub fn run(self: @This(), ctx: *Context) !void {
         std.Thread.sleep(1000_000);
     }
 }
+
+pub fn deinit(self: @This(), ctx: *Context) void {
+    ctx.gpa.free(self.signature);
+}
