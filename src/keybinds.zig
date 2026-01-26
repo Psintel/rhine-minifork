@@ -87,7 +87,7 @@ const binds = [_]Bind{
     .{
         .mods = .{ .mod1 = true },
         .key = xkb.XKB_KEY_f,
-        .trigger = toggleFullscreen ,
+        .trigger = toggleFullscreen,
     },
 } ++ directionals(
     .{ .mod1 = true },
@@ -175,6 +175,7 @@ fn kill(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void
             }
         },
         .released => {},
+        .stop_repeat => {},
     }
 }
 
@@ -200,6 +201,7 @@ fn focusDir(comptime dir: Tiler.Dir) Trigger {
                     }
                 },
                 .released => {},
+                .stop_repeat => {},
             }
         }
     }.focus;
@@ -226,6 +228,7 @@ fn moveDir(comptime dir: Tiler.Dir) Trigger {
                     ctx.wm.manageDirty();
                 },
                 .released => {},
+                .stop_repeat => {},
             }
         }
     }.move;
@@ -260,6 +263,7 @@ fn launch(comptime command: [:null]const ?[*:0]const u8) Trigger {
                     }
                 },
                 .released => {},
+                .stop_repeat => {},
             }
         }
     }.launch;
@@ -285,6 +289,7 @@ fn changeSplit(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Contex
             };
         },
         .released => {},
+        .stop_repeat => {},
     }
 }
 
@@ -316,6 +321,7 @@ fn changeWorkspace(comptime target: Workspace.WS) Trigger {
                     ctx.dirty = true;
                 },
                 .released => {},
+                .stop_repeat => {},
             }
         }
     }.change;
@@ -363,6 +369,7 @@ fn moveToWorkspace(comptime target: Workspace.WS) Trigger {
                     ctx.dirty = true;
                 },
                 .released => {},
+                .stop_repeat => {},
             }
         }
     }.change;
@@ -383,5 +390,6 @@ pub fn toggleFullscreen(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx
             ctx.dirty = true;
         },
         .released => {},
+        .stop_repeat => {},
     }
 }

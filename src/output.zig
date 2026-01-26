@@ -112,7 +112,7 @@ pub fn byWorkspace(ctx: *Context, ws: Workspace.WS) ?*rwm.OutputV1 {
 pub fn relPos(ctx: *Context, pos: utils.Vec2) ?utils.Vec2 {
     const out = byPointer(ctx, pos) orelse return null;
     const out_data = ctx.outs.get(out) orelse return null;
-    const cursor = pos - out_data.position.? * utils.Rect2.unit.dim / out_data.size.?;
+    const cursor = (pos - out_data.position.?) * utils.Rect2.unit.dim / out_data.size.?;
     return cursor;
 }
 

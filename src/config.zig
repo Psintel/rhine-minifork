@@ -167,7 +167,7 @@ pub fn parse(allocator: mem.Allocator, reader: *std.io.Reader) !Config {
             '{' => {
                 _ = try consume(reader, '{');
                 const c = try allocator.create(Config);
-                errdefer allocator.destroy(c);
+                errdefer c.deinit(allocator);
                 c.* = try parse(allocator, reader);
                 if (!try consume(reader, '}')) return error.ParseError;
                 val = .{ .config = c };

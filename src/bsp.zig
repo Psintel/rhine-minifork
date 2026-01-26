@@ -287,9 +287,11 @@ pub fn add(self: *@This(), ctx: *Tiler.TileContext, win: WT) Tiler.Error!void {
     // smart splitting (as seen in hyprland for example)
     if (ctx.cursorPos) |cur| {
         log.info("adding with cursor pos {}", .{cur});
+        log.info("target: {}, {}", .{target.pos, target.dim});
+        const cond = cur < target.pos + (target.dim / @as(utils.Vec2, @splat(2)));
         if (switch (d) {
-            .V => cur[0] < target.pos[0] + @divTrunc(target.dim[0], 2),
-            .H => cur[1] < target.pos[1] + @divTrunc(target.dim[1], 2),
+            .V => cond[0],
+            .H => cond[1],
         }) {
             const t = n.Branch.left;
             n.Branch.left = n.Branch.right;

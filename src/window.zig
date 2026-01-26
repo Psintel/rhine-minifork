@@ -24,7 +24,7 @@ node: *rwm.NodeV1,
 workspace: ?Workspace.WS = null,
 
 app_id: ?[:0]const u8 = null,
-size: utils.Vec2 = @splat(0),
+size: utils.Vec2 = @splat(1),
 float: bool = false, // is this window floating
 parent: ?*rwm.WindowV1 = null,
 fullscreen: enum {

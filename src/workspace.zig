@@ -72,10 +72,14 @@ pub fn get(ctx: *Context, id: WS) !*Workspace {
 
     if (layt == null) log.err("invalid layout {?s} for workspace {}", .{layout, id});
 
-    try ctx.workspaces.put(ctx.gpa, id, .{ .tiler = try Layouts.new(
+    const tiler = try Layouts.new(
         ctx.gpa,
         layt orelse .bsp,
-    ) });
+    );
+
+    errdefer Layouts.delete(ctx.gpa, tiler);
+
+    try ctx.workspaces.put(ctx.gpa, id, .{ .tiler = tiler });
 
     return ctx.workspaces.getPtr(id).?;
 }
