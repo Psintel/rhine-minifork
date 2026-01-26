@@ -3,6 +3,15 @@
     - use for keybinds
 
 = TODO
+- split out input config
+- smarter window rule globbing
+- layouts
+    - scroller
+    - single window
+- clip windows when they leave workspace bounds
+    - tilers can fuck up but that's a them-problem
+    - allows for scrollers
+    - should I have a more flexible solution?
 - external config
     - use for cursor gestures
     - hot-reloading
