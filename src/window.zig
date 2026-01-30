@@ -21,8 +21,6 @@ const log = std.log.scoped(.window);
 win: *rwm.WindowV1,
 node: *rwm.NodeV1,
 
-workspace: ?Workspace.WS = null,
-
 app_id: ?[:0]const u8 = null,
 size: utils.Vec2 = @splat(1),
 float: bool = false, // is this window floating
@@ -51,7 +49,6 @@ pub fn init(_: *Context, win: *rwm.WindowV1) !@This() {
     return .{
         .win = win,
         .node = try win.getNode(),
-        .workspace = null,
     };
 }
 
@@ -82,8 +79,6 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
 
     const ws_data: *Workspace = try .get(ctx, ws.?);
 
-    self.workspace = ws;
-
     if (self.float) {
         if (self.parent) |p| {
             const mics = std.time.microTimestamp();
@@ -107,7 +102,7 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
 pub fn deinit(self: *const @This(), ctx: *Context, win: *rwm.WindowV1) void {
     self.node.destroy();
 
-    const ws = self.workspace orelse return;
+    const ws = Workspace.byWindow(ctx, win) orelse return;
     const ws_data = ctx.workspaces.getPtr(ws).?;
 
     if (self.float) {

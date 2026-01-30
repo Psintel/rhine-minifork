@@ -15,6 +15,7 @@ position: ?utils.Vec2 = null,
 size: ?utils.Vec2 = null,
 exclusive_area: ?utils.Rect2 = null,
 workspace: Workspace.WS,
+last_workspace: ?Workspace.WS = null,
 
 // special overlay workspace TODO:implement
 overlay: ?Workspace.WS = null,
@@ -114,6 +115,16 @@ pub fn relPos(ctx: *Context, pos: utils.Vec2) ?utils.Vec2 {
     const out_data = ctx.outs.get(out) orelse return null;
     const cursor = (pos - out_data.position.?) * utils.Rect2.unit.dim / out_data.size.?;
     return cursor;
+}
+
+// may fail or succeed
+pub fn setWorkspace(self: *Output, ctx: *Context, ws: Workspace.WS) void {
+    log.info("switching to workspace {}", .{ws});
+
+    if (Workspace.getOutput(ctx, ws)) |_| return;
+
+    self.last_workspace = self.workspace;
+    self.workspace = ws;
 }
 
 pub fn deinit(ctx: *Context, out: *rwm.OutputV1) void {

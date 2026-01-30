@@ -1,10 +1,6 @@
-= blockers
-- external config
-    - use for keybinds
-
 = TODO
+- special workspaces
 - split out input config
-- smarter window rule globbing
 - layouts
     - scroller
     - single window
@@ -12,14 +8,13 @@
     - tilers can fuck up but that's a them-problem
     - allows for scrollers
     - should I have a more flexible solution?
-- external config
-    - use for cursor gestures
+- config
+    - keybinds
+    - cursor gestures
     - hot-reloading
-- window rules
-    - improve matching
-- special workspaces
-- libinput config
-    - figure out how to deal with results
+    - window rules
+        - improve matching and globbing
+            - regex?
 - multi-touch gestures (also tiling specific)
     - waiting for protocol
 - floating windows
@@ -52,6 +47,3 @@
 - maybe include a builtin bar
 - make all interface references just the id.
     - serialize wm state to disk
-
-= maybe
-- output config

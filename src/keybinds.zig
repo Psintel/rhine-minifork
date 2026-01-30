@@ -65,51 +65,56 @@ pub const Bind = struct {
 
 const binds = [_]Bind{
     .{
-        .mods = .{ .mod1 = true },
+        .mods = .{ .mod4 = true },
         .key = xkb.XKB_KEY_q,
         .trigger = kill,
     },
     .{
-        .mods = .{ .mod1 = true },
+        .mods = .{ .mod4 = true },
         .key = xkb.XKB_KEY_d,
         .trigger = launch(&.{"fuzzel"}),
     },
     .{
-        .mods = .{ .mod1 = true },
+        .mods = .{ .mod4 = true },
         .key = xkb.XKB_KEY_Return,
         .trigger = launch(&.{"foot"}),
     },
     .{
-        .mods = .{ .mod1 = true },
+        .mods = .{ .mod4 = true },
         .key = xkb.XKB_KEY_s,
         .trigger = changeSplit,
     },
     .{
-        .mods = .{ .mod1 = true },
+        .mods = .{ .mod4 = true },
         .key = xkb.XKB_KEY_f,
         .trigger = toggleFullscreen,
     },
+    .{
+        .mods = .{ .mod4 = true },
+        .key = xkb.XKB_KEY_Tab,
+        .trigger = toggleWorkspace,
+    },
 } ++ directionals(
-    .{ .mod1 = true },
+    .{ .mod4 = true },
     .{ xkb.XKB_KEY_h, xkb.XKB_KEY_j, xkb.XKB_KEY_k, xkb.XKB_KEY_l },
     focusDir,
 ) ++ directionals(
-    .{ .mod1 = true, .shift = true },
+    .{ .mod4 = true, .shift = true },
     .{ xkb.XKB_KEY_h, xkb.XKB_KEY_j, xkb.XKB_KEY_k, xkb.XKB_KEY_l },
     moveDir,
 ) ++ directionals(
-    .{ .mod1 = true },
+    .{ .mod4 = true },
     .{ xkb.XKB_KEY_Left, xkb.XKB_KEY_Down, xkb.XKB_KEY_Up, xkb.XKB_KEY_Right },
     focusDir,
 ) ++ directionals(
-    .{ .mod1 = true, .shift = true },
+    .{ .mod4 = true, .shift = true },
     .{ xkb.XKB_KEY_Left, xkb.XKB_KEY_Down, xkb.XKB_KEY_Up, xkb.XKB_KEY_Right },
     moveDir,
 ) ++ numbers(
-    .{ .mod1 = true },
+    .{ .mod4 = true },
     changeWorkspace,
 ) ++ numbers(
-    .{ .mod1 = true, .shift = true },
+    .{ .mod4 = true, .shift = true },
     moveToWorkspace,
 );
 
@@ -312,7 +317,7 @@ fn changeWorkspace(comptime target: Workspace.WS) Trigger {
                     log.info("switching to workspace {}", .{target});
 
                     if (Workspace.getOutput(ctx, target) == null) {
-                        out_data.workspace = target;
+                        out_data.setWorkspace(ctx, target);
                     }
 
                     seat_data.focus = if (w.windows.entries.len > 0) w.windows.keys()[0] else null;
@@ -351,7 +356,7 @@ fn moveToWorkspace(comptime target: Workspace.WS) Trigger {
                     log.info("switching to workspace {}", .{target});
 
                     if (Workspace.getOutput(ctx, target) == null) {
-                        out_data.workspace = target;
+                        out_data.setWorkspace(ctx, target);
                     }
 
                     const s = ctx.workspaces.getPtr(source).?;
@@ -386,6 +391,31 @@ pub fn toggleFullscreen(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx
             const win_data = ctx.wins.getPtr(focus) orelse return;
 
             win_data.fullscreen.toggle();
+
+            ctx.dirty = true;
+        },
+        .released => {},
+        .stop_repeat => {},
+    }
+}
+
+pub fn toggleWorkspace(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
+    switch (event) {
+        .pressed => {
+            log.info("toggle keybinds", .{});
+            const data = bindDatas.get(b).?;
+            const seat_data = ctx.seats.getPtr(data.seat).?;
+
+            const out = if (seat_data.focus) |w| focus: {
+                const ws = Workspace.byWindow(ctx, w) orelse return;
+
+                break :focus Output.byWorkspace(ctx, ws) orelse return;
+            } else Output.byPointer(ctx, seat_data.pointer_pos) orelse return;
+
+            const out_data = ctx.outs.getPtr(out) orelse return;
+
+            const old = out_data.last_workspace orelse return;
+            out_data.setWorkspace(ctx, old);
 
             ctx.dirty = true;
         },

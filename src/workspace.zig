@@ -124,3 +124,13 @@ pub fn deinit(self: *@This(), ctx: *Context) void {
 
     self.windows.deinit(ctx.gpa);
 }
+
+pub fn byWindow(ctx: *Context, win: *rwm.WindowV1) ?WS {
+    var iter = ctx.workspaces.iterator();
+    while(iter.next()) |_ws| {
+        const ws = _ws.key_ptr.*;
+        const ws_data = _ws.value_ptr;
+        if (ws_data.windows.contains(win) or ws_data.floating.contains(win)) return ws;
+    }
+    return null;
+}
