@@ -15,8 +15,6 @@
     - window rules
         - improve matching and globbing
             - regex?
-- multi-touch gestures (also tiling specific)
-    - waiting for protocol
 - floating windows
     - maybe improve initial position
     - improve pop-up heuristics
@@ -40,6 +38,8 @@
 - pipe child window stdout/stderr elsewhere
 
 = Ambitions
+- multi-touch gestures (also tiling specific)
+    - waiting for protocol
 - workspace switching animation
 - each tiler gets its own memory arena
 - C abi for tilers
@@ -47,3 +47,4 @@
 - maybe include a builtin bar
 - make all interface references just the id.
     - serialize wm state to disk
+    - waiting for protocol

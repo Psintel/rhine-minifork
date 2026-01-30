@@ -1,5 +1,5 @@
-    ATTENTION: this is still in heavy development, I myself am not daily driving it yet.
-    I suppose we've reached the bare minimum functionality in order to start using this.
+    ATTENTION: I'm still developing this, I plan to daily-drive this going forward
+    but there will be things missing
 
 = Rhine: a modular window manager for river
 
@@ -38,15 +38,17 @@ What will rhine _not_ do (for now):
 
 the keybinds are hardcoded (for now), feel free to edit `src/keybinds.zig`
 
-- alt+d                      : open fuzzel
-- alt+enter                  : open foot
-- alt+f                      : toggle fullscreen
-- alt+arrows                 : move focus
-- alt+{h,j,k,l}              : move focus
-- shift+alt+arrows           : move focused window
-- shift+alt+{h,j,k,l}        : move focused window
-- alt+s                      : bsp layout: change the direction of the innermost split
-- alt+{1,2,3,4,5,6,7,8,9,0,} : show workspace {1,2,3,4,5,6,7,8,9,10} on the current monitor
+- super+d                      : open fuzzel
+- super+enter                  : open foot
+- super+f                      : toggle fullscreen
+- super+arrows                 : move focus
+- super+{h,j,k,l}              : move focus
+- shift+super+arrows           : move focused window
+- shift+super+{h,j,k,l}        : move focused window
+- super+s                      : bsp layout: change the direction of the innermost split
+- super+f                      : toggle fullscreen state of the current window
+- super+tab                    : switch to previous workspace
+- super+{1,2,3,4,5,6,7,8,9,0,} : show workspace {1,2,3,4,5,6,7,8,9,10} on the current monitor
 - ctrl+alt+delete            : quit river (this hardcoded by river itself)
 
 == running rhine
