@@ -9,6 +9,10 @@ pub fn build(b: *Build) !void {
 
     const river = b.dependency("river", .{});
     const protos = river.path("protocol");
+    const tween = b.dependency("mr_tween", .{
+        .optimize = optimize,
+        .target = target,
+    });
 
     const scanner = Scanner.create(b, .{});
 
@@ -80,6 +84,7 @@ pub fn build(b: *Build) !void {
         }),
     });
 
+    exe.root_module.addImport("tween", tween.module("mr_tween"));
     exe.root_module.addImport("wayland", wayland);
     exe.linkLibC();
     exe.linkSystemLibrary("wayland-client");

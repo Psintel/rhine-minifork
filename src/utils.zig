@@ -1,6 +1,9 @@
 const std = @import("std");
 const math = std.math;
 const meta = std.meta;
+const tween = @import("tween");
+const interp = tween.interp;
+const ease = tween.ease;
 
 pub const Vec2 = @Vector(2, i32);
 pub const Vec2f = @Vector(2, f32);
@@ -66,8 +69,9 @@ pub fn ilerp(fst: Vec2, snd: Vec2, prog: f32) Vec2 {
 }
 
 pub fn flerp(fst: Vec2f, snd: Vec2f, _prog: f32) Vec2f {
-    const prog: Vec2f = @splat(_prog);
-    return math.lerp(fst, snd, prog);
+    return interp.lerp(fst, snd, ease.circInOut(_prog));
+    // const prog: Vec2f = @splat(_prog);
+    // return math.lerp(fst, snd, prog);
 }
 
 

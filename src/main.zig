@@ -382,7 +382,7 @@ fn render(ctx: *Context) !void {
         const w = _w.key_ptr.*;
         const wd = _w.value_ptr;
 
-        const man_state = manage_states.get(w).?;
+        const man_state = manage_states.get(w) orelse continue;
 
         if (man_state.show) {
             w.show();

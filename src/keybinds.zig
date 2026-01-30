@@ -230,7 +230,7 @@ fn moveDir(comptime dir: Tiler.Dir) Trigger {
                     };
                     ws.move(&tc, dir);
                     seat_data.warp_to_window = win;
-                    ctx.wm.manageDirty();
+                    ctx.dirty = true;
                 },
                 .released => {},
                 .stop_repeat => {},

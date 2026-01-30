@@ -64,7 +64,10 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
     const rules = try ctx.config.getList("windowrules");
 
     for (rules) |rule| {
-        const wr: Rules.WindowRule = try .fromEntry(rule);
+        const wr = Rules.WindowRule.fromEntry(rule) catch |err| {
+            log.err("failed to apply window rule {} with {}", .{rule, err});
+            continue;
+        };
         if (!wr.match.match(self.app_id orelse "")) continue;
         switch (wr.rule) {
             .float => self.float = true,

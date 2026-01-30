@@ -40,6 +40,10 @@
             .url = "git+https://codeberg.org/river/river#e595425c4a2a4a13c23d4e09c3dc2386436b4e99",
             .hash = "river-0.4.0-dev-_G6Njuw5CwDKnBflrAA8ft0l30TgMyXHAdmxVCjZrd3V",
         },
+        .mr_tween = .{
+            .url = "git+https://codeberg.org/Games-by-Mason/mr_tween.git#bdff54a786ec1b72649069273975cfb987079938",
+            .hash = "mr_tween-0.0.0-WbH78eHFAAA5m_ywEaHnFRI0pjcz_LC1pxet7W4rWa8o",
+        },
     },
     .paths = .{
         "build.zig",
