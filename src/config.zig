@@ -51,8 +51,11 @@ pub const Value = union(enum) {
 };
 
 pub fn deinit(self: *Config, allocator: mem.Allocator) void {
-    var iter = self.values.valueIterator();
-    while (iter.next()) |val| {
+    var iter = self.values.iterator();
+    while (iter.next()) |pair| {
+        const key = pair.key_ptr.*;
+        const val = pair.value_ptr;
+        allocator.free(key);
         val.deinit(allocator);
     }
 
@@ -148,7 +151,8 @@ pub fn parse(allocator: mem.Allocator, reader: *std.io.Reader) !Config {
             else => {},
         }
 
-        const key = try reader.takeDelimiterExclusive(' ');
+        const _key = try reader.takeDelimiterExclusive(' ');
+        const key = try allocator.dupe(u8, _key);
 
         try discardWS(reader);
 
