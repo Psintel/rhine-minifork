@@ -23,30 +23,29 @@ pub fn build(b: *Build) !void {
         .strip = b.option(bool, "strip", "strip executable"),
     });
 
-    // scanner.addSystemProtocol("stable/xdg-shell/xdg-shell.xml");
-    // scanner.addSystemProtocol("staging/ext-session-lock/ext-session-lock-v1.xml");
+
+    // window management
     scanner.addCustomProtocol(protos.path(b, "river-window-management-v1.xml"));
     scanner.addCustomProtocol(protos.path(b, "river-layer-shell-v1.xml"));
     scanner.addCustomProtocol(protos.path(b, "river-xkb-bindings-v1.xml"));
+
+    // input stuff
     scanner.addCustomProtocol(protos.path(b, "river-input-management-v1.xml"));
     scanner.addCustomProtocol(protos.path(b, "river-libinput-config-v1.xml"));
-    // scanner.addCustomProtocol(protos.path(b, "river-window-management-v1.xml"));
+    scanner.addCustomProtocol(protos.path(b, "river-xkb-config-v1.xml"));
 
-    // Pass the maximum version implemented by your wayland server or client.
-    // Requests, events, enums, etc. from newer versions will not be generated,
-    // ensuring forwards compatibility with newer protocol xml.
-    // This will also generate code for interfaces created using the provided
-    // global interface, in this example wl_keyboard, wl_pointer, xdg_surface,
-    // xdg_toplevel, etc. would be generated as well.
     scanner.generate("wl_seat", 4);
     scanner.generate("wl_output", 4);
     // scanner.generate("xdg_wm_base", 3);
     // scanner.generate("ext_session_lock_manager_v1", 1);
+
     scanner.generate("river_window_manager_v1", 3);
     scanner.generate("river_layer_shell_v1", 1);
     scanner.generate("river_xkb_bindings_v1", 2);
+
     scanner.generate("river_input_manager_v1", 1);
     scanner.generate("river_libinput_config_v1", 1);
+    scanner.generate("river_xkb_config_v1", 1);
 
     const docs_obj = b.addObject(.{
         .name = "wayland",

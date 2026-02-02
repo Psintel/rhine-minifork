@@ -90,6 +90,8 @@ fn handleCon(serv: *net.Server, ctx: *Context) !void {
                 \\     monitorID: {?}
                 \\     windows: {}
                 \\     hasfullscreen: 0
+                \\
+                \\
             ,
                 .{ id, win_count },
             );
@@ -103,6 +105,8 @@ fn handleCon(serv: *net.Server, ctx: *Context) !void {
             try writer.print(
                 \\     active workspace: {0} ({0})
                 \\     focused: yes
+                \\
+                \\
             ,
                 .{out_data.workspace + 1},
             );
@@ -110,12 +114,12 @@ fn handleCon(serv: *net.Server, ctx: *Context) !void {
     } else if (mem.eql(u8, try reader.takeDelimiter(' ') orelse return, "/dispatch")) {
         const word = try reader.takeDelimiter(' ') orelse return;
         if (mem.eql(u8, word, "workspace")) {
-            const id_s = try reader.takeDelimiter(' ') orelse return;
+            const id_s = reader.buffered();
             const id = try std.fmt.parseInt(Workspace.WS, id_s, 0);
             _ = id;
             try writer.print("ok", .{});
         }
-    }else {
+    } else {
         try writer.print("don't know how to respond :(\n\n", .{});
         log.info("unknown ipc request {s}", .{reader.buffered()});
     }
@@ -128,11 +132,6 @@ pub fn run(self: @This(), ctx: *Context) !void {
     const alloc = bufalloc.allocator();
 
     const sockpath = try path(self, alloc);
-
-    std.fs.deleteFileAbsolute(sockpath) catch |e| switch (e) {
-        error.FileNotFound => {},
-        else => return e,
-    };
 
     const addr = try net.Address.initUnix(sockpath);
     var serv = try addr.listen(.{});
@@ -147,5 +146,17 @@ pub fn run(self: @This(), ctx: *Context) !void {
 }
 
 pub fn deinit(self: @This(), ctx: *Context) void {
-    ctx.gpa.free(self.signature);
+    defer ctx.gpa.free(self.signature);
+
+    var pathbuf: [std.posix.PATH_MAX]u8 = @splat(0);
+    var bufalloc: std.heap.FixedBufferAllocator = .init(&pathbuf);
+    const alloc = bufalloc.allocator();
+
+    const sockpath = path(self, alloc) catch return;
+
+    std.fs.deleteFileAbsolute(sockpath) catch |e| switch (e) {
+        error.FileNotFound => {},
+        else => return,
+    };
+
 }

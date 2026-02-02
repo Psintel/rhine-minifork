@@ -51,7 +51,7 @@ pub var bindDatas: utils.WLHashMap(rwm.PointerBindingV1, BindData) = .empty;
 
 const binds = [_]Bind{
     .{
-        .mods = .{ .mod1 = true },
+        .mods = .{ .mod4 = true },
         .button = BTNs.BTN_LEFT,
         .trigger = move.listener,
     },

@@ -1,4 +1,3 @@
-
 # layouts :3
 layout {
     0 bsp
@@ -25,6 +24,9 @@ keyboard {
         rate 25
         delay 550
     }
-    
+}
 
+touchpad {
+    natural_scroll true
+    tap_to_click true
 }

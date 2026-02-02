@@ -10,7 +10,6 @@ const Window = @import("window.zig");
 const Output = @import("output.zig");
 const Seat = @import("seat.zig");
 const Workspace = @import("workspace.zig");
-const InputManager = @import("input/management.zig");
 const Context = @import("context.zig");
 const Config = @import("config.zig");
 

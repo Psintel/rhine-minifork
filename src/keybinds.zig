@@ -8,6 +8,8 @@ const wl = wayland.client.wl;
 const rwm = wayland.client.river;
 
 const utils = @import("utils.zig");
+const helpers = @import("helpers.zig");
+
 const Context = @import("context.zig");
 const Tiler = @import("tiler.zig");
 const Window = @import("window.zig");
@@ -72,7 +74,7 @@ const binds = [_]Bind{
     .{
         .mods = .{ .mod4 = true },
         .key = xkb.XKB_KEY_d,
-        .trigger = launch(&.{"fuzzel"}),
+        .trigger = launch(&.{"wofi", "-G"}),
     },
     .{
         .mods = .{ .mod4 = true },
@@ -239,33 +241,15 @@ fn moveDir(comptime dir: Tiler.Dir) Trigger {
     }.move;
 }
 
-fn launch(comptime command: [:null]const ?[*:0]const u8) Trigger {
+fn launch(comptime command: []const []const u8) Trigger {
     return struct {
         pub fn launch(_: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
             switch (event) {
                 .pressed => {
-                    var buf: [0x80000]u8 = @splat(0); // look if your env is more than 80 KiB I cannot help you
-                    var fb: std.heap.FixedBufferAllocator = .init(&buf);
-                    const alloc = fb.allocator();
-                    const env = std.process.createEnvironFromMap(alloc, &ctx.child_env, .{}) catch |e| {
-                        log.err("failed to spawn {?s}: {}", .{ command[0], e });
+                    helpers.spawnChild(ctx, command) catch |e| {
+                        log.err("failed to spawn {s}: {}", .{ command[0], e });
                         return;
                     };
-                    const pid = std.posix.fork() catch {
-                        log.err("fork failed for command {*}", .{command});
-                        return;
-                    };
-                    const args: [*:null]const ?[*:0]const u8 = .{ "/bin/sh", "-c" } ++ command;
-                    if (pid == 0) {
-                        _ = posix.setsid() catch posix.exit(1);
-                        const sig_dfl = posix.Sigaction{
-                            .handler = .{ .handler = posix.SIG.DFL },
-                            .mask = posix.sigemptyset(),
-                            .flags = 0,
-                        };
-                        posix.sigaction(posix.SIG.PIPE, &sig_dfl, null);
-                        posix.execveZ("/bin/sh", args, env) catch posix.exit(1);
-                    }
                 },
                 .released => {},
                 .stop_repeat => {},
@@ -423,3 +407,4 @@ pub fn toggleWorkspace(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx:
         .stop_repeat => {},
     }
 }
+

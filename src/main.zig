@@ -6,6 +6,7 @@ const wl = wayland.client.wl;
 const rwm = wayland.client.river;
 
 const utils = @import("utils.zig");
+const helpers = @import("helpers.zig");
 const keybinds = @import("keybinds.zig");
 const point_binds = @import("pointer_binds.zig");
 
@@ -21,7 +22,6 @@ const Workspace = @import("workspace.zig");
 const Tiler = @import("tiler.zig");
 const Layouts = @import("layouts.zig");
 
-const InputManager = @import("input/management.zig");
 const LibInput = @import("input/libinput.zig");
 
 const Config = @import("config.zig");
@@ -36,8 +36,6 @@ const Registry = struct {
     wm: ?*rwm.WindowManagerV1 = null,
     shell: ?*rwm.LayerShellV1 = null,
     bindings: ?*rwm.XkbBindingsV1 = null,
-    input_manager: ?*rwm.InputManagerV1 = null,
-    input_config: ?*rwm.LibinputConfigV1 = null,
 
     pub fn register(registry: *wl.Registry, event: wl.Registry.Event, context: *@This()) void {
         switch (event) {
@@ -51,12 +49,6 @@ const Registry = struct {
                 } else if (mem.orderZ(u8, global.interface, rwm.XkbBindingsV1.interface.name) == .eq) {
                     context.bindings = registry.bind(global.name, rwm.XkbBindingsV1, 1) catch return;
                     std.log.info("registered xkb bindings interface with version {}", .{global.version});
-                } else if (mem.orderZ(u8, global.interface, rwm.InputManagerV1.interface.name) == .eq) {
-                    context.input_manager = registry.bind(global.name, rwm.InputManagerV1, 1) catch return;
-                    std.log.info("registered input manager interface with version {}", .{global.version});
-                } else if (mem.orderZ(u8, global.interface, rwm.LibinputConfigV1.interface.name) == .eq) {
-                    context.input_config = registry.bind(global.name, rwm.LibinputConfigV1, 1) catch return;
-                    std.log.info("registered libinput config interface with version {}", .{global.version});
                 } else {
                     log.info("not registering interface {s}", .{global.interface});
                 }
@@ -485,11 +477,6 @@ pub fn main() !void {
         .bind = try unwrapIFace(reg.bindings),
         .shell = try unwrapIFace(reg.shell),
         .config = try Config.parse(alloc, &reader_object.interface),
-        .input_management = .{
-            .manager = try unwrapIFace(reg.input_manager),
-            .libinput = try unwrapIFace(reg.input_config),
-            .gpa = alloc,
-        },
     };
 
     const ipc = try HyprIPC.init(&ctx);
@@ -506,8 +493,7 @@ pub fn main() !void {
     defer ctx.deinit();
 
     ctx.wm.setListener(*Context, listen, &ctx);
-    ctx.input_management.manager.setListener(*InputManager, InputManager.listener, &ctx.input_management);
-    ctx.input_management.libinput.setListener(*InputManager, LibInput.listener, &ctx.input_management);
+    helpers.startup(&ctx);
 
     while (ctx.running) {
         if (ctx.dirty) {

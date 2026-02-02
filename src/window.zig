@@ -65,7 +65,7 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
 
     for (rules) |rule| {
         const wr = Rules.WindowRule.fromEntry(rule) catch |err| {
-            log.err("failed to apply window rule {} with {}", .{rule, err});
+            log.err("failed to apply window rule {} with {}", .{ rule, err });
             continue;
         };
         if (!wr.match.match(self.app_id orelse "")) continue;
@@ -76,7 +76,16 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
     }
 
     if (ws == null)
-        ws = (if (seat) |s| Workspace.byPointer(ctx, s.pointer_pos) else null) orelse Workspace.getFirst(ctx);
+        ws = ws: {
+            if (seat) |s| {
+                if (s.focus) |f|
+                    if (Workspace.byWindow(ctx, f)) |fc| break :ws fc;
+
+                if (Workspace.byPointer(ctx, s.pointer_pos)) |pt| break :ws pt;
+            }
+
+            break :ws Workspace.getFirst(ctx);
+        };
 
     const cursor = if (seat) |s| Output.relPos(ctx, s.pointer_pos) else null;
 
@@ -105,12 +114,14 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
 pub fn deinit(self: *const @This(), ctx: *Context, win: *rwm.WindowV1) void {
     self.node.destroy();
 
-    const ws = Workspace.byWindow(ctx, win) orelse return;
+    const ws = Workspace.byWindow(ctx, win) orelse {
+        log.err("window {} does not have a workspace", .{win});
+        return;
+    };
+
     const ws_data = ctx.workspaces.getPtr(ws).?;
 
-    if (self.float) {
-        _ = ws_data.floating.swapRemove(win);
-    } else {
+    if (!ws_data.floating.swapRemove(win)) {
         var tctx: Tiler.TileContext = .{
             .focus = null, // TODO: fix this
             .gpa = ctx.gpa,
