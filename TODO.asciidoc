@@ -1,50 +1,52 @@
 = TODO
-- special workspaces
-- split out input config
-- clip windows when they leave workspace bounds
-    - tilers can fuck up but that's a them-problem
-    - allows for scrollers
-    - should I have a more flexible solution?
-- config
-    - keybinds
-    - cursor gestures
-    - hot-reloading
-    - window rules
-        - improve matching and globbing
-            - regex?
-- floating windows
-    - maybe improve initial position
-    - improve pop-up heuristics
-    - gesture for resizing them
-    - float toggle bind
-- implement a bar ipc
-    - hyrpland!
-        - do some sort of RCU thingy to prevent races
-    - my own?
-    - sway?
+* special workspaces
+    ** autostart clients
+    ** maybe have a focused workspace per seat
+* split out input config
+* clip windows when they leave workspace bounds
+    ** tilers can fuck up but that's a them-problem
+    ** allows for scrollers
+    ** should I have a more flexible solution?
+* config
+    ** keybinds
+    ** cursor gestures
+    ** hot-reloading
+    ** window rules
+        *** improve matching and globbing
+            *** regex?
+* floating windows
+    ** maybe improve initial position
+    ** improve pop-up heuristics
+    ** gesture for resizing them
+    ** float toggle bind
+* implement a bar ipc
+    ** hyrpland!
+        *** do some sort of RCU thingy to prevent races
+    ** my own?
+    ** sway?
 
 = issues
 
-- do better window deinit checks, sometimes we panic
-- fix ouput placement logic on rescale
-- moveDir and focusDir should work across outputs
-- keybinds via config
-    - some sort of closure system?
-    - more context?
-        - I don't really want more heap allocation
-- pipe child window stdout/stderr elsewhere
+* do better window deinit checks, sometimes we panic
+* fix ouput placement logic on rescale
+* moveDir and focusDir should work across outputs
+* keybinds via config
+    ** some sort of closure system?
+    ** more context?
+        *** I don't really want more heap allocation
+* pipe child window stdout/stderr elsewhere
 
 = Ambitions
-- multi-touch gestures (also tiling specific)
-    - waiting for protocol
-- workspace switching animation
-- each tiler gets its own memory arena
-- C abi for tilers
-    - we can override malloc, calloc, realloc and free for the shared object :D
-- maybe include a builtin bar
-- layouts
-    - scroller
-    - single window
-- make all interface references just the id.
-    - serialize wm state to disk
-    - waiting for protocol
+* multi-touch gestures (also tiling specific)
+    ** waiting for protocol
+* workspace switching animation
+* each tiler gets its own memory arena
+* C abi for tilers
+    ** we can override malloc, calloc, realloc and free for the shared object :D
+* maybe include a builtin bar
+* layouts
+    ** scroller
+    ** single window
+* make all interface references just the id.
+    ** serialize wm state to disk
+    ** waiting for protocol
