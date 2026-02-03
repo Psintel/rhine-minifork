@@ -140,6 +140,11 @@ fn apply_tiler(ctx: *Context) !void {
         };
         ws.manage(&tctx, out_data.getArea(), &manage_states);
 
+        if (out_data.overlay) |_ows| {
+            const ows = try Workspace.get(ctx, _ows);
+            ows.manage(&tctx, out_data.getArea().scale(0.9) , &manage_states);
+        }
+
         for (ws.floating.keys()) |w| {
             const ms = manage_states.getPtr(w) orelse continue;
             ms.show = true;
@@ -163,12 +168,113 @@ fn apply_tiler(ctx: *Context) !void {
     }
 }
 
-fn manage(ctx: *Context) !void {
-    if (ctx.input_management.dirty) {
-        try ctx.input_management.applyConfig(ctx.config);
-        ctx.input_management.dirty = false;
+fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, curr_time: i64) void {
+    for (ws.windows.keys()) |win| {
+        const wd = ctx.wins.getPtr(win) orelse continue;
+        const man_state = manage_states.get(win) orelse continue;
+
+        if (!man_state.show) continue;
+
+        switch (wd.fullscreen) {
+            .no, .yes => {},
+            .soon => {
+                win.fullscreen(out);
+                win.informFullscreen();
+                wd.fullscreen = .yes;
+            },
+            .was => {
+                win.exitFullscreen();
+                win.informNotFullscreen();
+                wd.fullscreen = .no;
+            },
+        }
+
+        const col = man_state.border;
+
+        win.setBorders(
+            .{ .top = true, .bottom = true, .left = true, .right = true },
+            2,
+            col.r,
+            col.g,
+            col.b,
+            col.a,
+        );
+
+        win.setCapabilities(.{
+            .window_menu = false,
+            .maximize = false,
+            .minimize = false,
+            .fullscreen = false,
+        });
+        win.useSsd();
+        win.setTiled(.{
+            .top = true,
+            .left = true,
+            .right = true,
+            .bottom = true,
+        });
+
+        const goal = &wd.goal_size;
+        const ts = goal.get(curr_time);
+        switch (goal.*) {
+            .transit => win.informResizeStart(),
+            .static => win.informResizeEnd(),
+        }
+
+        win.proposeDimensions(ts[0], ts[1]);
+
+        if (!goal.done(curr_time)) {
+            ctx.dirty = true;
+        } else {
+            goal.staticify();
+        }
     }
-    
+
+    for (ws.floating.keys()) |win| {
+        const wd = ctx.wins.getPtr(win) orelse continue;
+        const col: utils.Color = .gray;
+
+        win.setBorders(
+            .{ .top = true, .bottom = true, .left = true, .right = true },
+            2,
+            col.r,
+            col.g,
+            col.b,
+            col.a,
+        );
+
+        win.setCapabilities(.{
+            .window_menu = false,
+            .maximize = false,
+            .minimize = false,
+            .fullscreen = false,
+        });
+        win.useSsd();
+        win.setTiled(.{
+            .top = false,
+            .left = false,
+            .right = false,
+            .bottom = false,
+        });
+
+        const goal = &wd.goal_size;
+        const ts = goal.get(curr_time);
+        switch (goal.*) {
+            .transit => win.informResizeStart(),
+            .static => win.informResizeEnd(),
+        }
+
+        win.proposeDimensions(ts[0], ts[1]);
+
+        if (!goal.done(curr_time)) {
+            ctx.dirty = true;
+        } else {
+            goal.staticify();
+        }
+    }
+}
+
+fn manage(ctx: *Context) !void {
     // register new windows
     for (ctx.should_open.items) |win| {
         try Window.assign(ctx, win);
@@ -251,110 +357,11 @@ fn manage(ctx: *Context) !void {
         const out = _out.key_ptr.*;
         const out_data = _out.value_ptr;
 
-        const ws = ctx.workspaces.get(out_data.workspace).?;
-
-        for (ws.windows.keys()) |win| {
-            const wd = ctx.wins.getPtr(win).?;
-            const man_state = manage_states.get(win) orelse continue;
-
-            if (!man_state.show) continue;
-
-            switch(wd.fullscreen) {
-                .no, .yes => {},
-                .soon => {
-                    win.fullscreen(out);
-                    win.informFullscreen();
-                    wd.fullscreen = .yes;
-                },
-                .was => {
-                    win.exitFullscreen();
-                    win.informNotFullscreen();
-                    wd.fullscreen = .no;
-                },
-            }
-
-            const col = man_state.border;
-
-            win.setBorders(
-                .{ .top = true, .bottom = true, .left = true, .right = true },
-                2,
-                col.r,
-                col.g,
-                col.b,
-                col.a,
-            );
-
-            win.setCapabilities(.{
-                .window_menu = false,
-                .maximize = false,
-                .minimize = false,
-                .fullscreen = false,
-            });
-            win.useSsd();
-            win.setTiled(.{
-                .top = true,
-                .left = true,
-                .right = true,
-                .bottom = true,
-            });
-
-            const goal = &wd.goal_size;
-            const ts = goal.get(curr_time);
-            switch (goal.*) {
-                .transit => win.informResizeStart(),
-                .static => win.informResizeEnd(),
-            }
-
-            win.proposeDimensions(ts[0], ts[1]);
-
-            if (!goal.done(curr_time)) {
-                ctx.dirty = true;
-            } else {
-                goal.staticify();
-            }
-        }
-
-        for (ws.floating.keys()) |win| {
-            const wd = ctx.wins.getPtr(win).?;
-            const col: utils.Color = .gray;
-
-            win.setBorders(
-                .{ .top = true, .bottom = true, .left = true, .right = true },
-                2,
-                col.r,
-                col.g,
-                col.b,
-                col.a,
-            );
-
-            win.setCapabilities(.{
-                .window_menu = false,
-                .maximize = false,
-                .minimize = false,
-                .fullscreen = false,
-            });
-            win.useSsd();
-            win.setTiled(.{
-                .top = true,
-                .left = true,
-                .right = true,
-                .bottom = true,
-            });
-
-            const goal = &wd.goal_size;
-            const ts = goal.get(curr_time);
-            switch (goal.*) {
-                .transit => win.informResizeStart(),
-                .static => win.informResizeEnd(),
-            }
-
-            win.proposeDimensions(ts[0], ts[1]);
-
-            if (!goal.done(curr_time)) {
-                ctx.dirty = true;
-            } else {
-                goal.staticify();
-            }
+        const ws = try Workspace.get(ctx, out_data.workspace);
+        manage_ws(ctx, ws, out, curr_time);
+        if (out_data.overlay) |_overlay| {
+            const overlay = try Workspace.get(ctx, _overlay);
+            manage_ws(ctx, overlay, out, curr_time);
         }
     }
 
@@ -385,6 +392,7 @@ fn render(ctx: *Context) !void {
 
         const tp = wd.pos.get(curr_time);
         wd.node.setPosition(tp[0], tp[1]);
+        wd.node.placeTop();
 
         if (!wd.pos.done(curr_time)) {
             ctx.dirty = true;
@@ -414,6 +422,18 @@ fn render(ctx: *Context) !void {
         for (wsd.floating.keys()) |w| {
             const wd = ctx.wins.getPtr(w).?;
             wd.node.placeTop();
+        }
+
+        if (out.value_ptr.overlay) |ov| {
+            const ov_data = try Workspace.get(ctx, ov);
+            for (ov_data.windows.keys()) |win| {
+                const wind = ctx.wins.get(win).?;
+                wind.node.placeTop();
+            }
+            for (ov_data.floating.keys()) |win| {
+                const wind = ctx.wins.get(win).?;
+                wind.node.placeTop();
+            }
         }
     }
 }

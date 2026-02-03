@@ -74,7 +74,6 @@ pub fn flerp(fst: Vec2f, snd: Vec2f, _prog: f32) Vec2f {
     // return math.lerp(fst, snd, prog);
 }
 
-
 pub const Rect2 = struct {
     pos: Vec2,
     dim: Vec2,
@@ -90,6 +89,17 @@ pub const Rect2 = struct {
 
         return near[0] <= pos[0] and pos[0] < far[0] and
             near[1] <= pos[1] and pos[1] < far[1];
+    }
+
+    pub fn scale(self: @This(), fac: f32) @This() {
+        var dim = int2Float(self.dim);
+        dim *= @splat(fac);
+        var pd = int2Float(self.dim) - dim;
+        pd /= @splat(2);
+        return .{
+            .pos = float2Int(int2Float(self.pos) + pd),
+            .dim = float2Int(dim),
+        };
     }
 };
 

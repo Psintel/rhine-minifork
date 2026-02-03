@@ -52,6 +52,7 @@ pub fn getOutput(ctx: *Context, ws: WS) ?*rwm.OutputV1 {
 pub fn byPointer(ctx: *Context, pos: utils.Vec2) ?WS {
     const out = Output.byPointer(ctx, pos) orelse return null;
     const out_data = ctx.outs.get(out).?;
+    if (out_data.overlay) |ows| return ows;
     return out_data.workspace;
 }
 

@@ -2,7 +2,8 @@
 * special workspaces
     ** autostart clients
     ** maybe have a focused workspace per seat
-* split out input config
+* re-integrate input config
+    ** configure mouse accel profile
 * clip windows when they leave workspace bounds
     ** tilers can fuck up but that's a them-problem
     ** allows for scrollers
@@ -22,11 +23,11 @@
 * implement a bar ipc
     ** hyrpland!
         *** do some sort of RCU thingy to prevent races
+        *** implement json support
     ** my own?
     ** sway?
 
 = issues
-
 * do better window deinit checks, sometimes we panic
 * fix ouput placement logic on rescale
 * moveDir and focusDir should work across outputs

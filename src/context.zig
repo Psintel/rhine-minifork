@@ -30,7 +30,7 @@ child_env: std.process.EnvMap,
 wins: utils.WLHashMap(rwm.WindowV1, Window) = .empty,
 outs: utils.WLHashMap(rwm.OutputV1, Output) = .empty,
 seats: utils.WLHashMap(rwm.SeatV1, Seat) = .empty,
-workspaces: std.AutoArrayHashMapUnmanaged(Workspace.WS, Workspace)  = .empty,
+workspaces: std.AutoArrayHashMapUnmanaged(Workspace.WS, Workspace) = .empty,
 config: Config,
 rules: std.ArrayList(Rules) = .empty,
 
@@ -75,6 +75,11 @@ pub fn deinit(self: *@This()) void {
     self.should_open.deinit(self.gpa);
 
     self.child_env.deinit();
+}
 
-
+// not allowed to fail
+pub fn orphan(ctx: *@This(), win: *rwm.WindowV1) void {
+    ctx.orphans.append(ctx.gpa, win) catch |er| {
+        std.log.err("lost window {} after trying to orphan it: {}", .{ win, er });
+    };
 }

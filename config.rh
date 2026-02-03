@@ -30,3 +30,10 @@ touchpad {
     natural_scroll true
     tap_to_click true
 }
+
+startup [
+    kanshi
+    awww-daemon
+    swayidle
+    dbus-update-activation-environment, --all, --systemd
+]

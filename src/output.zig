@@ -85,6 +85,17 @@ pub fn getArea(self: @This()) utils.Rect2 {
     };
 }
 
+pub fn bySeat(ctx: *Context, seat: *rwm.SeatV1) ?*rwm.OutputV1 {
+    const seat_data = ctx.seats.get(seat) orelse return null;
+
+    if (seat_data.focus) |f| {
+        const _ws = Workspace.byWindow(ctx, f);
+        if (_ws) |ws| if (byWorkspace(ctx, ws)) |o| return o;
+    }
+
+    return byPointer(ctx, seat_data.pointer_pos);
+}
+
 pub fn byPointer(ctx: *Context, pos: utils.Vec2) ?*rwm.OutputV1 {
     var iter = ctx.outs.iterator();
     while (iter.next()) |o| {

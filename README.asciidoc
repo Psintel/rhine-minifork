@@ -1,5 +1,4 @@
-    ATTENTION: I'm still developing this, I plan to daily-drive this going forward
-    but there will be things missing
+    ATTENTION: I'm still developing this. Though I am daily-driving this now there will be things still missing
 
 = Rhine: a modular window manager for river
 
@@ -19,37 +18,39 @@ this repo also contains an example config.
 
 the config (so far) supports:
 
-- setting per workspace layout (there is only the bsp layout available so far).
-- setting window rules: requires an exact match of the appid and supports
-    - workspace assignment
-    - making a window float
+* setting per workspace layout (there is only the bsp layout available so far).
+* setting window rules: requires an exact match of the appid and supports
+    ** workspace assignment
+    ** making a window float
 
 
 === non-goals
 
 What will rhine _not_ do (for now):
 
-- ssd. all windows will be (for now) undecorated (aside from fun borders)
-- clip windows
-- present the best floating/stacking experience
+* ssd. all windows will be (for now) undecorated (aside from fun borders)
+* clip windows
+* present the best floating/stacking experience
 
 
 === keybinds
 
 the keybinds are hardcoded (for now), feel free to edit `src/keybinds.zig`
 
-- super+d                      : open fuzzel
-- super+enter                  : open foot
-- super+f                      : toggle fullscreen
-- super+arrows                 : move focus
-- super+{h,j,k,l}              : move focus
-- shift+super+arrows           : move focused window
-- shift+super+{h,j,k,l}        : move focused window
-- super+s                      : bsp layout: change the direction of the innermost split
-- super+f                      : toggle fullscreen state of the current window
-- super+tab                    : switch to previous workspace
-- super+{1,2,3,4,5,6,7,8,9,0,} : show workspace {1,2,3,4,5,6,7,8,9,10} on the current monitor
-- ctrl+alt+delete            : quit river (this hardcoded by river itself)
+* super+d                      : open fuzzel
+* super+enter                  : open foot
+* super+f                      : toggle fullscreen
+* super+arrows                 : move focus
+* super+{h,j,k,l}              : move focus
+* shift+super+arrows           : move focused window
+* shift+super+{h,j,k,l}        : move focused window
+* super+s                      : bsp layout: change the direction of the innermost split
+* super+f                      : toggle fullscreen state of the current window
+* super+tab                    : switch to previous workspace
+* super+{1,2,3,4,5,6,7,8,9,0,} : show workspace {1,2,3,4,5,6,7,8,9,10} on the current monitor
+* ctrl+alt+delete              : quit river (this hardcoded by river itself)
+* f12                          : toggle visibility of and overlay/scratchpad
+* super+f12                    : send window to the overlay/scratchpad
 
 == running rhine
 
@@ -62,15 +63,15 @@ the keybinds are hardcoded (for now), feel free to edit `src/keybinds.zig`
 === protocols bound
 rhine binds the following protocols:
 
-- river-window-management-v1
-- river-layer-shell-v1
-- river-xkb-bindings-v1
-- river-input-management-v1
-- river-libinput-config-v1
+* river-window-management-v1
+* river-layer-shell-v1
+* river-xkb-bindings-v1
+* river-input-management-v1
+* river-libinput-config-v1
 
 
 === shared libraries
 rhine links the following shared libraries:
 
-- libwayland-client
-- libc
+* libwayland-client
+* libc
