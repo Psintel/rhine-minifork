@@ -38,6 +38,14 @@ pub fn init(ctx: *Context) !@This() {
     defer dir.close();
     try dir.makePath(sockdirpath);
 
+    var sd = try dir.openDir(sockdirpath, .{});
+    defer sd.close();
+
+    sd.deleteFile(".socket.sock") catch |e| switch (e) {
+        error.FileNotFound => {},
+        else => return e,
+    };
+
     return .{
         .signature = name,
     };
@@ -51,28 +59,7 @@ fn path(self: @This(), allocator: mem.Allocator) ![]u8 {
     return std.fmt.allocPrint(allocator, "{s}/hypr/{s}/.socket.sock", .{ runtime, sig });
 }
 
-fn handleCon(serv: *net.Server, ctx: *Context) !void {
-    const conn = try serv.accept();
-
-    var buffer: [0x200]u8 = undefined;
-
-    const stream = conn.stream;
-    defer stream.close();
-    var writer_obj = stream.writer(buffer[0..0x100]);
-    var reader_obj = stream.reader(buffer[0x100..]);
-    const writer = &writer_obj.interface;
-    const reader: *std.Io.Reader = reader_obj.interface();
-
-    while (reader.bufferedLen() == 0) {
-        try reader.fillMore();
-    }
-
-    if (try reader.peekByte() != '/') {
-        try writer.print("wtf bro yappin about?\n", .{});
-        try writer.flush();
-        return;
-    }
-
+fn handlePlain(ctx: *Context, reader: *std.Io.Reader, writer: *std.Io.Writer) !void {
     if (mem.order(u8, reader.buffered(), "/workspaces") == .eq) {
         var wsit = ctx.workspaces.iterator();
         while (wsit.next()) |_ws| {
@@ -111,17 +98,63 @@ fn handleCon(serv: *net.Server, ctx: *Context) !void {
                 .{out_data.workspace + 1},
             );
         }
+
+        if (ctx.outs.entries.len == 0) {
+            try writer.print("Monitor WL-1 (ID 0):\n", .{});
+            try writer.print(
+                \\     active workspace: 0 (0)
+                \\     focused: yeg
+                \\
+                \\
+            ,
+                .{},
+            );
+        }
     } else if (mem.eql(u8, try reader.takeDelimiter(' ') orelse return, "/dispatch")) {
         const word = try reader.takeDelimiter(' ') orelse return;
         if (mem.eql(u8, word, "workspace")) {
             const id_s = reader.buffered();
             const id = try std.fmt.parseInt(Workspace.WS, id_s, 0);
-            _ = id;
+
+            if (ctx.last_active) |last| {
+                try ctx.commands_queue.add(ctx.gpa, last, .{
+                    .focusWorkspace = id - 1,
+                });
+            }
+
             try writer.print("ok", .{});
         }
     } else {
         try writer.print("don't know how to respond :(\n\n", .{});
         log.info("unknown ipc request {s}", .{reader.buffered()});
+    }
+    try writer.flush();
+}
+
+fn handleCon(serv: *net.Server, ctx: *Context) !void {
+    const conn = try serv.accept();
+
+    var buffer: [0x200]u8 = undefined;
+
+    const stream = conn.stream;
+    defer stream.close();
+    var writer_obj = stream.writer(buffer[0..0x100]);
+    var reader_obj = stream.reader(buffer[0x100..]);
+    const writer = &writer_obj.interface;
+    const reader: *std.Io.Reader = reader_obj.interface();
+
+    while (reader.bufferedLen() == 0) {
+        try reader.fillMore();
+    }
+
+    switch (try reader.peekByte()) {
+        '/' => try handlePlain(ctx, reader, writer),
+        else => {
+            try writer.print("wtf bro yappin about?\n", .{});
+            log.info("unknown IPC request start: {s}", .{reader.buffered()});
+            // try ctx.events.seekTo(0);
+            // _ = try ctx.events.write("HEY!");
+        },
     }
     try writer.flush();
 }
@@ -141,7 +174,6 @@ pub fn run(self: @This(), ctx: *Context) !void {
         handleCon(&serv, ctx) catch |e| {
             log.err("HyprIPC error: {}", .{e});
         };
-        std.Thread.sleep(1000_000);
     }
 }
 
@@ -158,5 +190,4 @@ pub fn deinit(self: @This(), ctx: *Context) void {
         error.FileNotFound => {},
         else => return,
     };
-
 }

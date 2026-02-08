@@ -190,7 +190,13 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, curr_time: i64) 
             },
         }
 
-        const col = man_state.border;
+        var col = man_state.border;
+        for (ctx.seats.values(), 0..) |s, i| {
+            if (win == s.focus) {
+                if (i == 1)
+                    col = .green;
+            }
+        }
 
         win.setBorders(
             .{ .top = true, .bottom = true, .left = true, .right = true },
@@ -303,9 +309,12 @@ fn manage(ctx: *Context) !void {
         }
 
         if (seat_data.pointer_op) |*op| {
-            switch (op.state) {
+            op: switch (op.state) {
                 .start => {
-                    op.start(op.context, ctx);
+                    op.start(op.context, ctx, seat_data.pointer_pos) catch {
+                        log.err("failed to start pointer op", .{});
+                        break :op;
+                    };
                     seat.opStartPointer();
                     op.state = .during;
                 },
@@ -314,7 +323,7 @@ fn manage(ctx: *Context) !void {
                 },
                 .end => {
                     seat.opEnd();
-                    op.end(op.context, ctx);
+                    op.end(op.context, ctx, op.delta);
                     seat_data.pointer_op = null;
                 },
             }
@@ -517,6 +526,16 @@ pub fn main() !void {
     helpers.startup(&ctx);
 
     while (ctx.running) {
+        {
+            ctx.commands_queue.mutex.lock();
+            defer ctx.commands_queue.mutex.unlock();
+            while (ctx.commands_queue.list.pop()) |n| {
+                const cmd: *commands.QueueItem = @fieldParentPtr("link", n);
+                defer ctx.gpa.destroy(cmd);
+                try cmd.command.dispatch(&ctx, cmd.seat);
+            }
+        }
+
         if (ctx.dirty) {
             ctx.dirty = false;
             ctx.wm.manageDirty();

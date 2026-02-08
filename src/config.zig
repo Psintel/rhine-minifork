@@ -92,7 +92,7 @@ fn consume(reader: *std.Io.Reader, char: u8) !bool {
 
 fn parseEntry(allocator: mem.Allocator, reader: *std.Io.Reader) !Entry {
     const b = try reader.takeDelimiterExclusive('\n');
-    var iter = mem.tokenizeScalar(u8, b, ',');
+    var iter = mem.splitScalar(u8, b, ',');
     var entries: std.ArrayList([]u8) = .empty;
     errdefer {
         for (entries.items) |e| allocator.free(e);
@@ -122,7 +122,11 @@ fn parseList(allocator: mem.Allocator, reader: *std.Io.Reader) ![]Entry {
         };
 
         switch (try reader.peekByte()) {
-            '}', ']' => break,
+            ']' => break,
+            '#' => {
+                _ = try reader.discardDelimiterInclusive('\n');
+                continue;
+            },
             else => {},
         }
 

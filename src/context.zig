@@ -66,6 +66,7 @@ pub fn deinit(self: *@This()) void {
     for (self.workspaces.values()) |*w| {
         w.deinit(self);
     }
+
     self.workspaces.clearAndFree(self.gpa);
 
     self.wins.deinit(self.gpa);
