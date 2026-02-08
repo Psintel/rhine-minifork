@@ -23,6 +23,7 @@ win: *rwm.WindowV1,
 node: *rwm.NodeV1,
 
 app_id: ?[:0]const u8 = null,
+title: ?[:0]const u8 = null,
 size: utils.Vec2 = @splat(1),
 float: bool = false, // is this window floating
 parent: ?*rwm.WindowV1 = null,
@@ -143,6 +144,7 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
             log.info("closed window with id {}", .{win.getId()});
         },
         .app_id => |app_id| {
+            // if (win_data.app_id) |old| std.c.free(old.ptr);
             win_data.app_id = std.mem.sliceTo(app_id.app_id, 0);
             log.info("{} has app_id {?s}", .{ win.getId(), win_data.app_id });
         },
@@ -162,6 +164,10 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
             // } else {
             //     // win_data.float = false;
             // }
+        },
+        .title => |t| {
+            const title = t.title orelse return;
+            win_data.title = mem.sliceTo(title, 0);
         },
         else => {
             log.warn("lmao! can't actually handle event {s}", .{@tagName(event)});
