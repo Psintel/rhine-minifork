@@ -28,11 +28,13 @@ const State = enum {
     end,
 };
 
+const StartError = error{StartError};
+
 pub const PointerOp = struct {
     context: ?*anyopaque,
-    start: *const fn (?*anyopaque, *Context) void,
+    start: *const fn (?*anyopaque, *Context, utils.Vec2) StartError!void,
     update: *const fn (?*anyopaque, *Context, utils.Vec2) void,
-    end: *const fn (?*anyopaque, *Context) void,
+    end: *const fn (?*anyopaque, *Context, utils.Vec2) void,
 
     state: State = .start,
     delta: utils.Vec2 = @splat(0),
@@ -62,6 +64,7 @@ const move = struct {
     const Ctx = struct {
         win: *rwm.WindowV1,
         start: utils.Vec2,
+        pos: utils.Vec2,
     };
 
     pub fn listener(bind: *rwm.PointerBindingV1, event: rwm.PointerBindingV1.Event, ctx: *Context) void {
@@ -70,13 +73,14 @@ const move = struct {
 
         switch (event) {
             .pressed => {
-                const win = seat_data.focus orelse return;
-
                 if (seat_data.pointer_op != null) return;
 
                 const ct = ctx.gpa.create(Ctx) catch return;
-                ct.win = win;
-                ct.start = ctx.wins.get(win).?.pos.get(std.time.microTimestamp());
+                start(@ptrCast(ct), ctx, seat_data.pointer_pos) catch |e| {
+                    ctx.gpa.destroy(ct);
+                    log.err("failed to start pointer op: {}", .{e});
+                    return;
+                };
 
                 seat_data.pointer_op = .{
                     .context = @ptrCast(ct),
@@ -89,29 +93,60 @@ const move = struct {
         }
     }
 
-    fn start(_: ?*anyopaque, _: *Context) void {}
+    fn start(_win: ?*anyopaque, ctx: *Context, pos: utils.Vec2) StartError!void {
+        const ptr = _win orelse return error.StartError;
+        const ct: *Ctx = @ptrCast(@alignCast(ptr));
+        errdefer ctx.gpa.destroy(ct);
+
+        const win = Window.byPointer(ctx, pos) orelse return error.StartError;
+
+        ct.* = .{
+            .win = win,
+            .start = ctx.wins.get(win).?.pos.current(),
+            .pos = pos,
+        };
+    }
 
     fn update(_win: ?*anyopaque, ctx: *Context, delta: utils.Vec2) void {
         const ptr = _win orelse return;
-        const ct: *Ctx = @alignCast(@ptrCast(ptr));
+        const ct: *Ctx = @ptrCast(@alignCast(ptr));
         const win_data = ctx.wins.getPtr(ct.win) orelse return;
 
         win_data.pos = .{ .static = ct.start + delta };
     }
 
-    fn end(_win: ?*anyopaque, ctx: *Context) void {
+    fn end(_win: ?*anyopaque, ctx: *Context, final: utils.Vec2) void {
         const ptr = _win orelse return;
-        const ct: *Ctx = @alignCast(@ptrCast(ptr));
-        // const win_data = ctx.wins.getPtr(ct.win) orelse return;
+        const ct: *Ctx = @ptrCast(@alignCast(ptr));
+        defer ctx.gpa.destroy(ct);
 
+        // XXX: this is not multi-monitor aware
+        const ws = Workspace.byWindow(ctx, ct.win) orelse return;
+        const ws_data = ctx.workspaces.getPtr(ws) orelse return;
+        const out = Output.byWorkspace(ctx, ws) orelse return;
+        const out_data = ctx.outs.get(out).?;
 
-        ctx.gpa.destroy(ct);
+        if (ws_data.floating.contains(ct.win) or !ws_data.windows.contains(ct.win)) return;
+        var tc: Tiler.TileContext = .{
+            .gpa = ctx.gpa,
+            .cursorPos = (ct.pos + final - out_data.position.?) * utils.Rect2.unit.dim / out_data.size.?,
+        };
+
+        ws_data.rmWindow(&tc, ct.win);
+        tc.focus = Window.byPointer(ctx, ct.pos + final);
+        ws_data.addWindow(&tc, ct.win) catch {
+            log.err("couldn't reinsert window {}", .{ct.win.getId()});
+            _ = ws_data.windows.swapRemove(ct.win);
+            ctx.orphans.append(ctx.gpa, ct.win) catch {
+                log.err("lost window {} entirely", .{ct.win.getId()});
+            };
+        };
     }
 };
 
 pub fn register(ctx: *Context, seat: *rwm.SeatV1) !void {
     const sc = ctx.seats.getPtr(seat).?;
-    log.info("registering keybinds for seat {}", .{seat.getId()});
+    log.info("registering pointer binds for seat {}", .{seat.getId()});
 
     for (binds) |b| {
         const nb = try seat.getPointerBinding(b.button, b.mods);

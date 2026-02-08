@@ -26,6 +26,10 @@ pub fn Lerp(comptime period: i64) type {
             }
         },
 
+        pub fn current(self: @This()) Vec2 {
+            return self.get(std.time.microTimestamp());
+        }
+
         pub fn get(self: @This(), progtime: i64) Vec2 {
             return switch (self) {
                 .static => |v| v,
@@ -113,6 +117,13 @@ pub const Color = struct {
         .r = 0x4700_0000,
         .g = 0x9300_0000,
         .b = 0xCC00_0000,
+        .a = 0xFFFF_FFFF,
+    };
+
+    pub const green: @This() = .{ // #47cc93
+        .r = 0x4700_0000,
+        .g = 0xCC00_0000,
+        .b = 0x9300_0000,
         .a = 0xFFFF_FFFF,
     };
 
