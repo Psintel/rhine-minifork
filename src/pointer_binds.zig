@@ -9,6 +9,7 @@ const rwm = wayland.client.river;
 
 const Context = @import("context.zig");
 const utils = @import("utils.zig");
+const Window = @import("window.zig");
 const Workspace = @import("workspace.zig");
 const Tilable = @import("tilable.zig");
 const Tiler = @import("tiler.zig");

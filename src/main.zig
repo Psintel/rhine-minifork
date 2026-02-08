@@ -9,6 +9,7 @@ const utils = @import("utils.zig");
 const helpers = @import("helpers.zig");
 const keybinds = @import("keybinds.zig");
 const point_binds = @import("pointer_binds.zig");
+const commands = @import("commands.zig");
 
 pub const std_options: std.Options = .{
     .log_level = .info,
@@ -142,7 +143,7 @@ fn apply_tiler(ctx: *Context) !void {
 
         if (out_data.overlay) |_ows| {
             const ows = try Workspace.get(ctx, _ows);
-            ows.manage(&tctx, out_data.getArea().scale(0.9) , &manage_states);
+            ows.manage(&tctx, out_data.getArea().scale(0.9), &manage_states);
         }
 
         for (ws.floating.keys()) |w| {

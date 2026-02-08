@@ -46,6 +46,26 @@ pub const Layout = layout: {
     break :layout retT;
 };
 
+pub fn parseCommand(args: []const []const u8) !Tiler.Command {
+    if (args.len == 0) return error.TooFewArgs;
+
+    const layout = meta.stringToEnum(LayoutTypes, args[0]) orelse return error.InvalidLayout;
+
+    switch (layout) {
+        inline else => |l| {
+            const layout_impl = @field(layouts, @tagName(l));
+            if (!@hasDecl(layout_impl, "Command")) return error.LayoutDoesNotSupportCommands;
+            const Command = layout_impl.Command;
+            if (@hasDecl(Command, "parse"))
+                return Command.parse(args[1..])
+            else if (meta.stringToEnum(Command, args[1])) |cmd|
+                return .{ .command = @intFromEnum(cmd), .payload = null }
+            else
+                return error.InvalidCommand;
+        },
+    }
+}
+
 fn create(lay: LayoutTypes) Layout {
     const name = @tagName(lay);
     const T = @field(layouts, name);

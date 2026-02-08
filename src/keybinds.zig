@@ -9,6 +9,7 @@ const rwm = wayland.client.river;
 
 const utils = @import("utils.zig");
 const helpers = @import("helpers.zig");
+const command = @import("commands.zig");
 
 const Context = @import("context.zig");
 const Tiler = @import("tiler.zig");
@@ -22,12 +23,33 @@ const bsp = @import("bsp.zig");
 const xkb = @cImport(@cInclude("xkbcommon/xkbcommon-keysyms.h"));
 pub const Sym = u32;
 
+const syms: std.StaticStringMap(Sym) = .initComptime(kvs: {
+    const T = meta.Tuple(&.{ []const u8, Sym });
+
+    var out: []const T = &.{};
+    @setEvalBranchQuota(1000_000);
+
+    for (meta.declarations(xkb)) |f| {
+        if (f.name.len < 8 or !mem.eql(u8, f.name[0..8], "XKB_KEY_")) continue;
+
+        const new: T = .{
+            f.name[8..],
+            @intCast(@field(xkb, f.name)),
+        };
+
+        out = out ++ .{new};
+    }
+
+    break :kvs out;
+});
+
 pub const Trigger = fn (b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void;
 
 const log = std.log.scoped(.keybinds);
 
 const BindData = struct {
     seat: *rwm.SeatV1,
+    cmd: command.Command,
 };
 
 var bindDatas: utils.WLHashMap(rwm.XkbBindingV1, BindData) = .empty;
@@ -35,9 +57,11 @@ var bindDatas: utils.WLHashMap(rwm.XkbBindingV1, BindData) = .empty;
 pub const Bind = struct {
     mods: rwm.SeatV1.Modifiers,
     key: Sym,
-    trigger: *const Trigger,
+    cmd: command.Command,
 
     pub fn fromEntry(entry: Config.Entry) !@This() {
+        if (entry.args.len < 3) return error.ArgsTooShort;
+
         var iter = std.mem.tokenizeScalar(u8, entry.args[0], '+');
         var mods = rwm.SeatV1.Modifiers{};
 
@@ -50,100 +74,53 @@ pub const Bind = struct {
                 mods.ctrl = true;
             } else if (mem.eql(u8, m, "shift")) {
                 mods.shift = true;
+            } else if (mem.eql(u8, m, "none")) {
+                // do nothing
             } else {
                 return error.ParseError;
             }
         }
 
-        var buf: [20]u8 = @splat(0);
-        const key = try std.fmt.bufPrint(&buf, "XKB_KEY_{s}", .{entry.args[1]});
+        const key = entry.args[1];
+        const keyval = syms.get(key) orelse {
+            log.err("invalid keysym {s}", .{key});
+            return error.InvalidKey;
+        };
 
         return .{
-            .key = key,
+            .key = keyval,
             .mods = mods,
+            .cmd = try .fromArg(entry.args[2..]),
         };
     }
 };
 
-const binds = [_]Bind{
-    .{
-        .mods = .{ .mod4 = true },
-        .key = xkb.XKB_KEY_q,
-        .trigger = kill,
-    },
-    .{
-        .mods = .{ .mod4 = true },
-        .key = xkb.XKB_KEY_d,
-        .trigger = launch(&.{ "wofi", "-G" }),
-    },
-    .{
-        .mods = .{ .mod4 = true },
-        .key = xkb.XKB_KEY_Return,
-        .trigger = launch(&.{"foot"}),
-    },
-    .{
-        .mods = .{ .mod4 = true },
-        .key = xkb.XKB_KEY_s,
-        .trigger = changeSplit,
-    },
-    .{
-        .mods = .{ .mod4 = true },
-        .key = xkb.XKB_KEY_f,
-        .trigger = toggleFullscreen,
-    },
-    .{
-        .mods = .{ .mod4 = true },
-        .key = xkb.XKB_KEY_Tab,
-        .trigger = toggleWorkspace,
-    },
-    .{
-        .mods = .{},
-        .key = xkb.XKB_KEY_F12,
-        .trigger = toggleSpecial(-1),
-    },
-    .{
-        .mods = .{ .mod4 = true },
-        .key = xkb.XKB_KEY_F12,
-        .trigger = sendToWorkspace(-1),
-    },
-} ++ directionals(
-    .{ .mod4 = true },
-    .{ xkb.XKB_KEY_h, xkb.XKB_KEY_j, xkb.XKB_KEY_k, xkb.XKB_KEY_l },
-    focusDir,
-) ++ directionals(
-    .{ .mod4 = true, .shift = true },
-    .{ xkb.XKB_KEY_h, xkb.XKB_KEY_j, xkb.XKB_KEY_k, xkb.XKB_KEY_l },
-    moveDir,
-) ++ directionals(
-    .{ .mod4 = true },
-    .{ xkb.XKB_KEY_Left, xkb.XKB_KEY_Down, xkb.XKB_KEY_Up, xkb.XKB_KEY_Right },
-    focusDir,
-) ++ directionals(
-    .{ .mod4 = true, .shift = true },
-    .{ xkb.XKB_KEY_Left, xkb.XKB_KEY_Down, xkb.XKB_KEY_Up, xkb.XKB_KEY_Right },
-    moveDir,
-) ++ numbers(
-    .{ .mod4 = true },
-    changeWorkspace,
-) ++ numbers(
-    .{ .mod4 = true, .shift = true },
-    moveToWorkspace,
-);
-
 pub fn register(ctx: *Context, seat: *rwm.SeatV1) !void {
     const sc = ctx.seats.getPtr(seat).?;
-    // const conf = try ctx.config.getList("keybinds");
-    // _ = conf;
+    const conf = try ctx.config.getList("keybinds");
 
     log.info("registering keybinds for seat {}", .{seat.getId()});
 
-    for (binds) |b| {
+    for (conf) |entry| {
+        const b: Bind = try .fromEntry(entry);
         const nb = try ctx.bind.getXkbBinding(seat, b.key, b.mods);
         try sc.binds.append(ctx.gpa, nb);
         try bindDatas.put(ctx.gpa, nb, .{
             .seat = seat,
+            .cmd = b.cmd,
         });
-        nb.setListener(*Context, b.trigger, ctx);
+        nb.setListener(*Context, trigger, ctx);
+    }
+}
+
+pub fn trigger(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
+    const dat = bindDatas.get(b).?;
+    switch (event) {
+        .pressed => {
+            ctx.commands_queue.addNoFail(ctx.gpa, dat.seat, dat.cmd);
+        },
+        .released => {},
+        .stop_repeat => {},
     }
 }
 
@@ -153,337 +130,4 @@ pub fn unregister(ctx: *Context, seat: *rwm.SeatV1) void {
     }
 
     if (bindDatas.entries.len == 0) bindDatas.clearAndFree(ctx.gpa);
-}
-
-fn directionals(mods: rwm.SeatV1.Modifiers, keys: [4]u32, f: fn (comptime Tiler.Dir) Trigger) [4]Bind {
-    const dirs: [4]Tiler.Dir = .{ .Left, .Down, .Up, .Right };
-    var out: [4]Bind = undefined;
-    for (keys, dirs, &out) |k, d, *b| {
-        b.* = .{
-            .key = k,
-            .mods = mods,
-            .trigger = f(d),
-        };
-    }
-    return out;
-}
-
-fn numbers(mods: rwm.SeatV1.Modifiers, f: fn (comptime i32) Trigger) [10]Bind {
-    var out: [10]Bind = undefined;
-    for (&out, 0..) |*b, i| {
-        b.* = .{
-            .mods = mods,
-            .key = @field(xkb, std.fmt.comptimePrint("XKB_KEY_{}", .{(i + 1) % 10})),
-            .trigger = f(i),
-        };
-    }
-
-    return out;
-}
-
-fn kill(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
-    const dat = bindDatas.get(b).?;
-
-    switch (event) {
-        .pressed => {
-            if (ctx.seats.get(dat.seat).?.focus) |w| {
-                ctx.should_close.append(ctx.gpa, w) catch return;
-                log.info("marked window {} for closure", .{w.getId()});
-            }
-        },
-        .released => {},
-        .stop_repeat => {},
-    }
-}
-
-fn focusDir(comptime dir: Tiler.Dir) Trigger {
-    return struct {
-        pub fn focus(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
-            const data = bindDatas.get(b).?;
-            const seat_data = ctx.seats.getPtr(data.seat).?;
-            const win = seat_data.focus orelse return;
-            const ws_id = Window.getWorkspace(ctx, win) orelse return;
-            const ws = ctx.workspaces.getPtr(ws_id).?;
-
-            switch (event) {
-                .pressed => {
-                    var tc: Tiler.TileContext = .{
-                        .focus = seat_data.focus,
-                        .gpa = ctx.gpa,
-                    };
-                    if (ws.getWindow(&tc, dir)) |w| {
-                        seat_data.focus = w;
-                        seat_data.warp_to_window = w;
-                        log.info("focus  window {}", .{w.getId()});
-                    }
-                },
-                .released => {},
-                .stop_repeat => {},
-            }
-        }
-    }.focus;
-}
-
-fn moveDir(comptime dir: Tiler.Dir) Trigger {
-    return struct {
-        pub fn move(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
-            const data = bindDatas.get(b).?;
-            const seat_data = ctx.seats.getPtr(data.seat).?;
-            const win = seat_data.focus orelse return;
-            // const win_data = ctx.wins.get(win).?;
-            const ws_id = Window.getWorkspace(ctx, win) orelse return;
-            const ws = ctx.workspaces.getPtr(ws_id).?;
-
-            switch (event) {
-                .pressed => {
-                    var tc: Tiler.TileContext = .{
-                        .focus = win,
-                        .gpa = ctx.gpa,
-                    };
-                    ws.move(&tc, dir);
-                    seat_data.warp_to_window = win;
-                    ctx.dirty = true;
-                },
-                .released => {},
-                .stop_repeat => {},
-            }
-        }
-    }.move;
-}
-
-fn launch(comptime command: []const []const u8) Trigger {
-    return struct {
-        pub fn launch(_: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
-            switch (event) {
-                .pressed => {
-                    helpers.spawnChild(ctx, command, true) catch |e| {
-                        log.err("failed to spawn {s}: {}", .{ command[0], e });
-                        return;
-                    };
-                },
-                .released => {},
-                .stop_repeat => {},
-            }
-        }
-    }.launch;
-}
-
-fn changeSplit(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
-    switch (event) {
-        .pressed => {
-            const data = bindDatas.get(b).?;
-            const seat_data = ctx.seats.getPtr(data.seat).?;
-            const win = seat_data.focus orelse return;
-            const ws_id = Workspace.byWindow(ctx, win) orelse return;
-            const ws = ctx.workspaces.getPtr(ws_id).?;
-
-            var tc: Tiler.TileContext = .{
-                .focus = win,
-                .gpa = ctx.gpa,
-            };
-
-            ws.command(&tc, .{ .command = @intFromEnum(bsp.Commands.ChangeSplit) }) catch |e| {
-                log.err("changesplit failed with {}", .{e});
-                return;
-            };
-        },
-        .released => {},
-        .stop_repeat => {},
-    }
-}
-
-fn changeWorkspace(comptime target: Workspace.WS) Trigger {
-    return struct {
-        pub fn change(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
-            switch (event) {
-                .pressed => { // TODO: determine output based on focus too
-                    const data = bindDatas.get(b).?;
-                    const seat_data = ctx.seats.getPtr(data.seat).?;
-
-                    const out = Output.bySeat(ctx, data.seat) orelse return;
-                    const out_data = ctx.outs.getPtr(out).?;
-
-                    const w = Workspace.get(ctx, target) catch |e| {
-                        log.err("failed to switch to workspace {} with error {}", .{ target, e });
-                        return;
-                    };
-
-                    log.info("switching to workspace {}", .{target});
-
-                    if (Workspace.getOutput(ctx, target) == null) {
-                        out_data.setWorkspace(ctx, target);
-                    }
-
-                    seat_data.focus = if (w.windows.entries.len > 0) w.windows.keys()[0] else null;
-                    seat_data.warp_to_window = seat_data.focus;
-
-                    ctx.dirty = true;
-                },
-                .released => {},
-                .stop_repeat => {},
-            }
-        }
-    }.change;
-}
-
-fn moveToWorkspace(comptime target: Workspace.WS) Trigger {
-    return struct {
-        pub fn change(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
-            switch (event) {
-                .pressed => {
-                    const data = bindDatas.get(b).?;
-                    const seat_data = ctx.seats.getPtr(data.seat).?;
-
-                    const focus = seat_data.focus orelse return;
-                    const source = Window.getWorkspace(ctx, focus) orelse return;
-
-                    if (source == target) return;
-
-                    const out = Output.byPointer(ctx, seat_data.pointer_pos) orelse return;
-                    const out_data = ctx.outs.getPtr(out).?;
-
-                    const w = Workspace.get(ctx, target) catch |e| {
-                        log.err("failed to switch to workspace {} with error {}", .{ target, e });
-                        return;
-                    };
-
-                    log.info("switching to workspace {}", .{target});
-
-                    if (Workspace.getOutput(ctx, target) == null) {
-                        out_data.setWorkspace(ctx, target);
-                    }
-
-                    const s = ctx.workspaces.getPtr(source).?;
-                    var tc: Tiler.TileContext = .{
-                        .cursorPos = seat_data.pointer_pos,
-                        .focus = seat_data.focus,
-                        .gpa = ctx.gpa,
-                    };
-
-                    s.rmWindow(&tc, focus);
-                    w.addWindow(&tc, focus) catch |e| {
-                        log.err("error adding window {} to workspace {}: {}", .{ focus.getId(), target, e });
-                        ctx.orphan(focus);
-                    };
-
-                    ctx.dirty = true;
-                },
-                .released => {},
-                .stop_repeat => {},
-            }
-        }
-    }.change;
-}
-
-fn sendToWorkspace(comptime target: Workspace.WS) Trigger {
-    return struct {
-        pub fn send(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
-            switch (event) {
-                .pressed => {
-                    const data = bindDatas.get(b).?;
-                    const seat_data = ctx.seats.getPtr(data.seat).?;
-
-                    const focus = seat_data.focus orelse return;
-                    const source = Window.getWorkspace(ctx, focus) orelse return;
-
-                    if (source == target) return;
-
-                    const w = Workspace.get(ctx, target) catch |e| {
-                        log.err("failed send to workspace {} with error {}", .{ target, e });
-                        return;
-                    };
-
-                    log.info("sending workspace {}", .{target});
-
-                    const s = ctx.workspaces.getPtr(source).?;
-                    var tc: Tiler.TileContext = .{
-                        .cursorPos = seat_data.pointer_pos,
-                        .focus = seat_data.focus,
-                        .gpa = ctx.gpa,
-                    };
-
-                    s.rmWindow(&tc, focus);
-                    w.addWindow(&tc, focus) catch |e| {
-                        log.err("error adding window {} to workspace {}: {}", .{ focus.getId(), target, e });
-                        ctx.orphan(focus);
-                    };
-
-                    ctx.dirty = true;
-                },
-                .released => {},
-                .stop_repeat => {},
-            }
-        }
-    }.send;
-}
-
-pub fn toggleFullscreen(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
-    switch (event) {
-        .pressed => {
-            const data = bindDatas.get(b).?;
-            const seat_data = ctx.seats.getPtr(data.seat).?;
-
-            const focus = seat_data.focus orelse return;
-
-            const win_data = ctx.wins.getPtr(focus) orelse return;
-
-            win_data.fullscreen.toggle();
-
-            ctx.dirty = true;
-        },
-        .released => {},
-        .stop_repeat => {},
-    }
-}
-
-pub fn toggleWorkspace(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
-    switch (event) {
-        .pressed => {
-            log.info("toggle keybinds", .{});
-            const data = bindDatas.get(b).?;
-            const out = Output.bySeat(ctx, data.seat) orelse return;
-
-            const out_data = ctx.outs.getPtr(out) orelse return;
-
-            const old = out_data.last_workspace orelse return;
-            out_data.setWorkspace(ctx, old);
-
-            ctx.dirty = true;
-        },
-        .released => {},
-        .stop_repeat => {},
-    }
-}
-
-fn toggleSpecial(ws: Workspace.WS) Trigger {
-    return struct {
-        pub fn toggleSpecial(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
-            switch (event) {
-                .pressed => {
-                    const dat = bindDatas.get(b).?;
-                    const out = Output.bySeat(ctx, dat.seat) orelse return;
-                    const out_data = ctx.outs.getPtr(out).?;
-                    const seat_data = ctx.seats.getPtr(dat.seat).?;
-
-                    var target_ws: Workspace.WS = undefined;
-
-                    if (out_data.overlay == ws) {
-                        out_data.overlay = null;
-                        target_ws = out_data.workspace;
-                    } else {
-                        out_data.overlay = ws;
-                        target_ws = ws;
-                    }
-
-                    log.info("toggled special workspace {}", .{ws});
-
-                    const ws_data = Workspace.get(ctx, target_ws) catch return;
-
-                    seat_data.focus = if (ws_data.windows.entries.len > 0) ws_data.windows.keys()[0] else null;
-                    seat_data.warp_to_window = seat_data.focus;
-                },
-                else => {},
-            }
-        }
-    }.toggleSpecial;
 }

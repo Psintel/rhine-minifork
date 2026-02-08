@@ -1,4 +1,5 @@
 const std = @import("std");
+const mem = std.mem;
 const wayland = @import("wayland");
 
 const meta = std.meta;
@@ -199,6 +200,31 @@ pub fn getWorkspace(ctx: *Context, win: *rwm.WindowV1) ?Workspace.WS {
 
     while (iter.next()) |ws| {
         if (ws.value_ptr.windows.contains(win)) return ws.key_ptr.*;
+    }
+
+    return null;
+}
+
+pub fn byPointer(ctx: *Context, pos: utils.Vec2) ?*rwm.WindowV1 {
+    const ws = Workspace.byPointer(ctx, pos) orelse return null;
+    const ws_data = ctx.workspaces.get(ws).?;
+
+    for (ws_data.floating.keys()) |win| {
+        const win_data = ctx.wins.get(win).?;
+        const rec: utils.Rect2 = .{
+            .dim = win_data.size,
+            .pos = win_data.pos.current(),
+        };
+        if (rec.inside(pos)) return win;
+    }
+
+    for (ws_data.windows.keys()) |win| {
+        const win_data = ctx.wins.get(win).?;
+        const rec: utils.Rect2 = .{
+            .dim = win_data.size,
+            .pos = win_data.pos.current(),
+        };
+        if (rec.inside(pos)) return win;
     }
 
     return null;

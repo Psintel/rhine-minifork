@@ -29,8 +29,8 @@ const pad: utils.Vec2 = @splat(gap + border);
 tree: ?subTile = null,
 tiler: Tiler.tiler(@This()) = .{},
 
-pub const Commands = enum(u32) {
-    ChangeSplit,
+pub const Command = enum(u32) {
+    changeSplit,
 };
 
 fn scale(i: i32, f: f32) i32 {
@@ -396,9 +396,9 @@ pub fn move(self: *@This(), ctx: *Tiler.TileContext, dir: Tiler.Dir) void {
 
 pub fn command(self: *@This(), ctx: *Tiler.TileContext, cmd: Tiler.Command) Tiler.Error!void {
     const tree = &(self.tree orelse return);
-    const op: Commands = std.enums.fromInt(Commands, cmd.command) orelse return error.InvalidCommand;
+    const op: Command = std.enums.fromInt(Command, cmd.command) orelse return error.InvalidCommand;
     switch (op) {
-        .ChangeSplit => {
+        .changeSplit => {
             const f = ctx.focus orelse return;
             const n = tree.parent(f) orelse return;
             n.Branch.direction = n.Branch.direction.other();

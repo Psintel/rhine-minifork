@@ -12,6 +12,7 @@ const Seat = @import("seat.zig");
 const Workspace = @import("workspace.zig");
 const Rules = @import("rules.zig");
 const Config = @import("config.zig");
+const commands = @import("commands.zig");
 
 // base allocator
 gpa: mem.Allocator,
@@ -33,6 +34,7 @@ seats: utils.WLHashMap(rwm.SeatV1, Seat) = .empty,
 workspaces: std.AutoArrayHashMapUnmanaged(Workspace.WS, Workspace) = .empty,
 config: Config,
 rules: std.ArrayList(Rules) = .empty,
+commands_queue: commands.Queue = .{},
 
 // short-lived state
 last_active: ?*rwm.SeatV1 = null, // last seat with activity

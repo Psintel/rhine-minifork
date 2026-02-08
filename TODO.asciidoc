@@ -1,4 +1,9 @@
 = TODO
+* unified filedescriptor waiting?
+* tiler API overhaul
+    ** re-introduce between render and manage better
+    ** window highlights won't be managed by the tiler
+    ** reduce API surface by removing the context object
 * special workspaces
     ** autostart clients
     ** maybe have a focused workspace per seat
@@ -9,9 +14,9 @@
     ** allows for scrollers
     ** should I have a more flexible solution?
 * config
-    ** keybinds
     ** cursor gestures
     ** hot-reloading
+        *** have working POC
     ** window rules
         *** improve matching and globbing
             *** regex?
@@ -31,11 +36,6 @@
 * do better window deinit checks, sometimes we panic
 * fix ouput placement logic on rescale
 * moveDir and focusDir should work across outputs
-* keybinds via config
-    ** some sort of closure system?
-    ** more context?
-        *** I don't really want more heap allocation
-* pipe child window stdout/stderr elsewhere
 
 = Ambitions
 * multi-touch gestures (also tiling specific)

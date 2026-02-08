@@ -71,7 +71,7 @@ pub fn get(ctx: *Context, id: WS) !*Workspace {
     else
         null;
 
-    if (layt == null) log.err("invalid layout {?s} for workspace {}", .{layout, id});
+    if (layt == null) log.err("invalid layout {?s} for workspace {}", .{ layout, id });
 
     const tiler = try Layouts.new(
         ctx.gpa,
@@ -128,10 +128,20 @@ pub fn deinit(self: *@This(), ctx: *Context) void {
 
 pub fn byWindow(ctx: *Context, win: *rwm.WindowV1) ?WS {
     var iter = ctx.workspaces.iterator();
-    while(iter.next()) |_ws| {
+    while (iter.next()) |_ws| {
         const ws = _ws.key_ptr.*;
         const ws_data = _ws.value_ptr;
         if (ws_data.windows.contains(win) or ws_data.floating.contains(win)) return ws;
     }
     return null;
+}
+
+pub fn bySeat(ctx: *Context, seat: *rwm.SeatV1) ?WS {
+    const seat_data = ctx.seats.get(seat).?;
+
+    if (seat_data.focus) |f| return byWindow(ctx, f);
+
+    const out = Output.byPointer(ctx, seat_data.pointer_pos) orelse return null;
+    const out_data = ctx.outs.get(out).?;
+    return out_data.workspace;
 }

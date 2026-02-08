@@ -6,10 +6,59 @@ layout {
     * bsp
 }
 
-# keybinds [
-#     alt, s, bsp:togglesplit
-#     alt, return, spawn foot
-# ]
+# alt, s, tiler, bsp, togglesplit
+keybinds [
+    super, q, killFocus
+    super, Return, launch, foot
+    super, d, launch, fuzzel
+    super, f, toggleFullscreen
+    super, Tab, toggleWorkspace
+    super, s, layoutCommand, bsp, changeSplit
+    none, F12, toggleSpecial, -1
+    super, F12, sendFocusToWorkspace, -1
+
+    super, h, moveFocus, Left
+    super, l, moveFocus, Right
+    super, j, moveFocus, Down
+    super, k, moveFocus, Up
+
+    super, Left, moveFocus, Left
+    super, Right, moveFocus, Right
+    super, Down, moveFocus, Down
+    super, Up, moveFocus, Up
+
+    super+shift, h, moveWindow, Left
+    super+shift, l, moveWindow, Right
+    super+shift, j, moveWindow, Down
+    super+shift, k, moveWindow, Up
+
+    super+shift, Left, moveWindow, Left
+    super+shift, Right, moveWindow, Right
+    super+shift, Down, moveWindow, Down
+    super+shift, Up, moveWindow, Up
+
+    super, 1, focusWorkspace, 0
+    super, 2, focusWorkspace, 1
+    super, 3, focusWorkspace, 2
+    super, 4, focusWorkspace, 3
+    super, 5, focusWorkspace, 4
+    super, 6, focusWorkspace, 5
+    super, 7, focusWorkspace, 6
+    super, 8, focusWorkspace, 7
+    super, 9, focusWorkspace, 8
+    super, 0, focusWorkspace, 9
+
+    super+shift, 1, moveToWorkspace, 0
+    super+shift, 2, moveToWorkspace, 1
+    super+shift, 3, moveToWorkspace, 2
+    super+shift, 4, moveToWorkspace, 3
+    super+shift, 5, moveToWorkspace, 4
+    super+shift, 6, moveToWorkspace, 5
+    super+shift, 7, moveToWorkspace, 6
+    super+shift, 8, moveToWorkspace, 7
+    super+shift, 9, moveToWorkspace, 8
+    super+shift, 0, moveToWorkspace, 9
+]
 
 windowrules [
     com.mitchellh.ghostty, workspace 1
