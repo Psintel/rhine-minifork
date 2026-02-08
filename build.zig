@@ -3,12 +3,25 @@ const Build = std.Build;
 
 const Scanner = @import("wayland").Scanner;
 
+fn haveSysProtos(b: *Build) bool {
+    const pkg_config_exe = b.graph.env_map.get("PKG_CONFIG") orelse "pkg-config";
+    var code: u8 = undefined;
+    _ = b.runAllowFail(&[_][]const u8{
+        pkg_config_exe,
+        "river-protocols",
+        "--variable=pkgdatadir",
+    }, &code, .Ignore) catch return false;
+    return true;
+}
+
 pub fn build(b: *Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const river = b.dependency("river", .{});
-    const protos = river.path("protocol");
+    const sys_river = b.systemIntegrationOption("river-protocols", .{
+        .default = haveSysProtos(b) and optimize != .Debug,
+    });
+
     const tween = b.dependency("mr_tween", .{
         .optimize = optimize,
         .target = target,
@@ -23,18 +36,27 @@ pub fn build(b: *Build) !void {
         .strip = b.option(bool, "strip", "strip executable"),
     });
 
+    inline for ([_][]const u8{
+        // window management
+        "river-window-management-v1.xml",
+        "river-layer-shell-v1.xml",
+        "river-xkb-bindings-v1.xml",
+        // input stuff
+        "river-input-management-v1.xml",
+        "river-libinput-config-v1.xml",
+        "river-xkb-config-v1.xml",
+    }) |proto| {
+        if (sys_river) {
+            scanner.addSystemProtocol("../river-protocols/stable/" ++ proto);
+        } else {
+            const river = b.lazyDependency("river", .{}) orelse return;
+            const protos = river.path("protocol");
+            scanner.addCustomProtocol(protos.path(b, proto));
+        }
+    }
 
-    // window management
-    scanner.addCustomProtocol(protos.path(b, "river-window-management-v1.xml"));
-    scanner.addCustomProtocol(protos.path(b, "river-layer-shell-v1.xml"));
-    scanner.addCustomProtocol(protos.path(b, "river-xkb-bindings-v1.xml"));
-
-    // input stuff
-    scanner.addCustomProtocol(protos.path(b, "river-input-management-v1.xml"));
-    scanner.addCustomProtocol(protos.path(b, "river-libinput-config-v1.xml"));
-    scanner.addCustomProtocol(protos.path(b, "river-xkb-config-v1.xml"));
-
-    scanner.generate("wl_seat", 4);
+    if (sys_river)
+        scanner.generate("wl_seat", 4);
     scanner.generate("wl_output", 4);
     // scanner.generate("xdg_wm_base", 3);
     // scanner.generate("ext_session_lock_manager_v1", 1);
