@@ -1,6 +1,7 @@
 const std = @import("std");
 const mem = std.mem;
 const wayland = @import("wayland");
+const linux = std.os.linux;
 
 const wl = wayland.client.wl;
 const rwm = wayland.client.river;
@@ -24,10 +25,9 @@ const Tiler = @import("tiler.zig");
 const Layouts = @import("layouts.zig");
 
 const LibInput = @import("input/libinput.zig");
-
 const Config = @import("config.zig");
-
 const HyprIPC = @import("hyprIPC.zig");
+const Inotify = @import("inotify.zig");
 
 const log = std.log;
 
@@ -474,26 +474,57 @@ pub fn main() !void {
 
     const alloc = gpa.allocator();
 
-    const config = conf: {
-        var pathbuf: [std.posix.PATH_MAX]u8 = @splat(0);
+    const config_path = path: {
         const home = std.posix.getenv("HOME").?;
         const xdg_config_home = std.posix.getenv("XDG_CONFIG_HOME");
         const cfile = try if (xdg_config_home) |xdg|
-            std.fmt.bufPrint(&pathbuf, "{s}/river/config.rh", .{xdg})
+            std.fmt.allocPrint(alloc, "{s}/river/config.rh", .{xdg})
         else
-            std.fmt.bufPrint(&pathbuf, "{s}/.config/river/config.rh", .{home});
-
-        break :conf try std.fs.cwd().openFile(cfile, .{});
+            std.fmt.allocPrint(alloc, "{s}/.config/river/config.rh", .{home});
+        break :path cfile;
     };
+
+    const config = try std.fs.cwd().openFile(config_path, .{});
+    var inotify: Inotify = try .init(.{ .nonblock = true });
+    defer inotify.deinit();
+
+    const wid = try inotify.watch(config_path, .{ .MODIFY = true });
 
     var buffer: [0x100]u8 = undefined;
     var reader_object = config.reader(&buffer);
-    var writer = std.fs.File.stdout().writer(&.{});
+    var writer = std.fs.File.stderr().writer(&.{});
 
     const display = try wl.Display.connect(null);
     defer display.disconnect();
     const registry = try display.getRegistry();
     defer registry.destroy();
+
+    const read, const write = try std.posix.pipe2(.{ .NONBLOCK = true });
+
+    const event_read = std.fs.File{ .handle = read };
+    defer event_read.close();
+    var event_reader = event_read.reader(&.{});
+
+    const events: std.fs.File = .{ .handle = write };
+    defer events.close();
+
+    var pollfds = [_]linux.pollfd{
+        .{
+            .events = linux.POLL.IN,
+            .fd = display.getFd(),
+            .revents = undefined,
+        },
+        .{
+            .events = linux.POLL.IN,
+            .fd = read,
+            .revents = undefined,
+        },
+        .{
+            .events = linux.POLL.IN,
+            .fd = inotify.inot_file.handle,
+            .revents = undefined,
+        },
+    };
 
     var reg: Registry = .{};
     registry.setListener(*Registry, Registry.register, &reg);
@@ -507,6 +538,7 @@ pub fn main() !void {
         .bind = try unwrapIFace(reg.bindings),
         .shell = try unwrapIFace(reg.shell),
         .config = try Config.parse(alloc, &reader_object.interface),
+        .events = events,
     };
 
     const ipc = try HyprIPC.init(&ctx);
@@ -525,7 +557,25 @@ pub fn main() !void {
     ctx.wm.setListener(*Context, listen, &ctx);
     helpers.startup(&ctx);
 
+    if (display.flush() != .SUCCESS) return error.FlushError;
+
     while (ctx.running) {
+        var reload_conf = false;
+        while (try inotify.nextEvent()) |e| {
+            if (e.wd == wid) reload_conf = true;
+        }
+
+        if (reload_conf) {
+            log.info("reloading config :D", .{});
+            try reader_object.seekTo(0);
+            const nc = try Config.parse(alloc, &reader_object.interface);
+            // try nc.serialize(&writer.interface);
+            ctx.config.deinit(alloc);
+            ctx.config = nc;
+            ctx.dirty = true;
+            try ctx.reload();
+        }
+
         {
             ctx.commands_queue.mutex.lock();
             defer ctx.commands_queue.mutex.unlock();
@@ -541,6 +591,16 @@ pub fn main() !void {
             ctx.wm.manageDirty();
         }
 
-        if (display.dispatch() != .SUCCESS) return error.DispatchError;
+        _ = try std.posix.poll(&pollfds, -1);
+        _ = event_reader.interface.discard(.unlimited) catch |e| switch (e) {
+            error.ReadFailed => {},
+            else => log.err("error on discard: {}", .{e}),
+        };
+        if (display.prepareRead()) {
+            if (display.readEvents() != .SUCCESS)
+                return error.ReadEvent;
+        }
+        if (display.dispatchPending() != .SUCCESS) return error.DispatchError;
+        if (display.flush() != .SUCCESS) return error.FlushError;
     }
 }

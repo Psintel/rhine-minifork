@@ -14,6 +14,9 @@ const Rules = @import("rules.zig");
 const Config = @import("config.zig");
 const commands = @import("commands.zig");
 
+const keybinds = @import("keybinds.zig");
+const pointerbinds = @import("pointer_binds.zig");
+
 // base allocator
 gpa: mem.Allocator,
 
@@ -43,6 +46,9 @@ dirty: bool = false,
 should_close: std.ArrayList(*rwm.WindowV1) = .empty,
 should_open: std.ArrayList(*rwm.WindowV1) = .empty, // uninitalized windows
 orphans: std.ArrayList(*rwm.WindowV1) = .empty, // initialized windows that need to be reassigned
+
+// weird posix thingy:
+events: std.fs.File,
 
 pub fn deinit(self: *@This()) void {
     var wins = self.wins.iterator();
@@ -78,6 +84,17 @@ pub fn deinit(self: *@This()) void {
     self.should_open.deinit(self.gpa);
 
     self.child_env.deinit();
+}
+
+pub fn reload(self: *@This()) !void {
+    for (self.seats.keys()) |seat| {
+        // reload keybinds
+        keybinds.unregister(self, seat);
+        try keybinds.register(self, seat);
+        // reload pointer binds
+        pointerbinds.unregister(self, seat);
+        try pointerbinds.register(self, seat);
+    }
 }
 
 // not allowed to fail

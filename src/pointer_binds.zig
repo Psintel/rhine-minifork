@@ -137,9 +137,7 @@ const move = struct {
         ws_data.addWindow(&tc, ct.win) catch {
             log.err("couldn't reinsert window {}", .{ct.win.getId()});
             _ = ws_data.windows.swapRemove(ct.win);
-            ctx.orphans.append(ctx.gpa, ct.win) catch {
-                log.err("lost window {} entirely", .{ct.win.getId()});
-            };
+            ctx.orphan(ct.win);
         };
     }
 };
@@ -159,11 +157,12 @@ pub fn register(ctx: *Context, seat: *rwm.SeatV1) !void {
 }
 
 pub fn unregister(ctx: *Context, seat: *rwm.SeatV1) void {
-    const seat_data = ctx.seats.get(seat).?;
+    const seat_data = ctx.seats.getPtr(seat).?;
     for (seat_data.pointer_binds.items) |bind| {
-        _ = bindDatas.swapRemove(bind);
         bind.destroy();
+        _ = bindDatas.swapRemove(bind);
     }
 
+    seat_data.pointer_binds.clearAndFree(ctx.gpa);
     if (bindDatas.entries.len == 0) bindDatas.clearAndFree(ctx.gpa);
 }

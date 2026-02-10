@@ -152,11 +152,10 @@ fn handleCon(serv: *net.Server, ctx: *Context) !void {
         else => {
             try writer.print("wtf bro yappin about?\n", .{});
             log.info("unknown IPC request start: {s}", .{reader.buffered()});
-            // try ctx.events.seekTo(0);
-            // _ = try ctx.events.write("HEY!");
         },
     }
     try writer.flush();
+    _ = try ctx.events.write("HEY!");
 }
 
 pub fn run(self: @This(), ctx: *Context) !void {

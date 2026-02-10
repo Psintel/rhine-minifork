@@ -6,8 +6,8 @@ const wl = wayland.client.wl;
 const rwm = wayland.client.river;
 
 const Context = @import("context.zig");
-const Keybinds = @import("keybinds.zig");
-const Pointerbinds = @import("pointer_binds.zig");
+const keybinds = @import("keybinds.zig");
+const pointerbinds = @import("pointer_binds.zig");
 
 const log = std.log.scoped(.seat);
 
@@ -15,13 +15,14 @@ seat: ?u32, // unsure what this is supposed to be
 focus: ?*rwm.WindowV1 = null,
 pointer_pos: utils.Vec2 = @splat(0),
 
-binds: std.ArrayList(*rwm.XkbBindingV1) = .empty,
+binds: std.ArrayListUnmanaged(*rwm.XkbBindingV1) = .empty,
+
 pointer_binds: std.ArrayList(*rwm.PointerBindingV1) = .empty,
 
 // warp pointer to focus in next manage
 warp_to_window: ?*rwm.WindowV1 = null,
 
-pointer_op: ?Pointerbinds.PointerOp = null,
+pointer_op: ?pointerbinds.PointerOp = null,
 
 pub fn listener(seat: *rwm.SeatV1, e: rwm.SeatV1.Event, ctx: *Context) void {
     const seat_data = ctx.seats.getPtr(seat).?;
@@ -68,10 +69,7 @@ pub fn listener(seat: *rwm.SeatV1, e: rwm.SeatV1.Event, ctx: *Context) void {
     }
 }
 
-pub fn deinit(self: *@This(), ctx: *Context, seat: *rwm.SeatV1) void {
-    Keybinds.unregister(ctx, seat);
-    self.binds.clearAndFree(ctx.gpa);
-
-    Pointerbinds.unregister(ctx, seat);
-    self.pointer_binds.clearAndFree(ctx.gpa);
+pub fn deinit(_: *@This(), ctx: *Context, seat: *rwm.SeatV1) void {
+    keybinds.unregister(ctx, seat);
+    pointerbinds.unregister(ctx, seat);
 }

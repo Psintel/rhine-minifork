@@ -94,25 +94,6 @@ pub const Bind = struct {
         };
     }
 };
-
-pub fn register(ctx: *Context, seat: *rwm.SeatV1) !void {
-    const sc = ctx.seats.getPtr(seat).?;
-    const conf = try ctx.config.getList("keybinds");
-
-    log.info("registering keybinds for seat {}", .{seat.getId()});
-
-    for (conf) |entry| {
-        const b: Bind = try .fromEntry(entry);
-        const nb = try ctx.bind.getXkbBinding(seat, b.key, b.mods);
-        try sc.binds.append(ctx.gpa, nb);
-        try bindDatas.put(ctx.gpa, nb, .{
-            .seat = seat,
-            .cmd = b.cmd,
-        });
-        nb.setListener(*Context, trigger, ctx);
-    }
-}
-
 pub fn trigger(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void {
     const dat = bindDatas.get(b).?;
     switch (event) {
@@ -124,10 +105,35 @@ pub fn trigger(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Contex
     }
 }
 
+
+pub fn register(ctx: *Context, seat: *rwm.SeatV1) !void {
+    const sc = ctx.seats.getPtr(seat).?;
+    const conf = try ctx.config.getList("keybinds");
+
+    log.info("registering keybinds for seat {}", .{seat.getId()});
+
+    for (conf) |entry| {
+        const b = Bind.fromEntry(entry) catch |e| {
+            log.err("error parsing keybinds: {}", .{e});
+            continue;
+        };
+        const nb = try ctx.bind.getXkbBinding(seat, b.key, b.mods);
+        try sc.binds.append(ctx.gpa, nb);
+        try bindDatas.put(ctx.gpa, nb, .{
+            .seat = seat,
+            .cmd = b.cmd,
+        });
+        nb.setListener(*Context, trigger, ctx);
+    }
+}
+
 pub fn unregister(ctx: *Context, seat: *rwm.SeatV1) void {
-    for (ctx.seats.get(seat).?.binds.items) |b| {
+    const seat_data = ctx.seats.getPtr(seat).?;
+    for (seat_data.binds.items) |b| {
+        b.destroy();
         _ = bindDatas.swapRemove(b);
     }
 
+    seat_data.binds.clearAndFree(ctx.gpa);
     if (bindDatas.entries.len == 0) bindDatas.clearAndFree(ctx.gpa);
 }
