@@ -299,8 +299,7 @@ fn manage(ctx: *Context) !void {
         const seat = _seat.key_ptr.*;
         const seat_data = _seat.value_ptr;
 
-
-        if (ctx.locked ) {
+        if (ctx.locked) {
             for (seat_data.binds.items) |b| b.disable();
             for (seat_data.pointer_binds.items) |b| b.disable();
         } else {
@@ -380,7 +379,6 @@ fn manage(ctx: *Context) !void {
             manage_ws(ctx, overlay, out, curr_time);
         }
     }
-
 }
 
 fn render(ctx: *Context) !void {
@@ -569,7 +567,10 @@ pub fn main() !void {
         if (reload_conf) {
             log.info("reloading config :D", .{});
             try reader_object.seekTo(0);
-            const nc = try Config.parse(alloc, &reader_object.interface);
+            const nc = Config.parse(alloc, &reader_object.interface) catch |e| {
+                log.err("failure reloading config: {}", .{e});
+                continue;
+            };
             // try nc.serialize(&writer.interface);
             ctx.config.deinit(alloc);
             ctx.config = nc;

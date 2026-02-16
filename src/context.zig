@@ -113,7 +113,9 @@ pub fn reload(self: *@This()) !void {
         try pointerbinds.register(self, seat);
     }
 
-    try self.loadEnv();
+    self.loadEnv() catch |e| {
+        std.log.err("failure loading new env variables: {}", .{e});
+    };
 }
 
 // not allowed to fail

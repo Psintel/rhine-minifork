@@ -49,7 +49,6 @@ pub const Queue = struct {
 pub const Command = union(enum) {
     killFocus: void,
     launch: []const u8,
-    tiler: Tiler.Command,
     toggleFullscreen: void,
     toggleWorkspace: void,
     toggleSpecial: Workspace.WS,
