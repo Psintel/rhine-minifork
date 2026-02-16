@@ -1,5 +1,3 @@
-    ATTENTION: I'm still developing this. Though I am daily-driving this now there will be things still missing
-
 = Rhine: a modular window manager for river
 
 Rhine is a window manager for the river wayland compositor (using the river-window-manager-v1 protocol).
@@ -16,11 +14,11 @@ this repo also contains an example config.
 
 == config
 
-There is an example config at config.rh at the root of this repo.
-The config is found at `~/.config/river/config.rh` (respecting `XDG_CONFIG_HOME`).
-The config is reloaded whenever it is changed.
-The config may contain more options than what is specified below.
-(this allows for example for https://codeberg.org/Sivecano/channel[channel] to share the same config file).
+There is an example `config.rh` at the root of this repo.
+
+- The config is loaded from `~/.config/river/config.rh` ( or `XDG_CONFIG_HOME/river/config.rh`).
+- The config is reloaded whenever it is changed.
+- The config may contain more options than what is specified below. (this allows for example for https://codeberg.org/Sivecano/channel[channel] to share the same config file).
 
 === layouts
 
@@ -39,17 +37,17 @@ keybinds are of the form `[modifiers], [key], [command]`. The same keybinds are 
 * `[modifiers]` is a `+`-separated list of the modifiers `super`, `shift`, `alt`, `ctrl` and `none`.
 * `[key]` is the name of a key as found in the `xkbcommon/xkbcommon-keysyms.h` header (with the `XKB_KEY_` part removed).
 * `[command]` is one of the following commands followed by a comma and a comma-separated list of arguments.
-    ** killFocus :  kill the focused window
-    ** launch <shell command> : launch the command <shell command> using `sh -c`
-    ** toggleFullscreen: toggle fullscreen state of the focused window
-    ** toggleWorkspace: toggle back and forth between the current and previously focused workspace.
-    ** toggleSpecial <workspace ID>: set <workspace ID> as overlay workspace.
-    ** focusWorkspace <workspace ID>: focus the workspace <workspace ID>.
- 12:53 <ifreund> I'm not really sure how I'll feel about dynamic typing in the long term for larger projects but I've quite enjoyed janet so far for writing high level window management policy     ** sendFocusToWorkspace <workspace ID>: send focused window to workspace <workspace ID>.
-    ** moveToWorkspace <workspace ID>: equivalent to sendFocusToWorkspace followed by focusWorkspace.
-    ** moveFocus <Left|Right|Up|Down>: move the seat's focus up, down, left, or right.
-    ** moveWindow <Left|Right|Up|Down>:  move the focused window up, down, left, or right.
-    ** layoutCommand <layout> <command> <args...>: run the layout-specific command <command> of layout <layout> with given arguments.
+    ** `killFocus` :  kill the focused window
+    ** `launch <shell command>` : launch the command <shell command> using `sh -c`
+    ** `toggleFullscreen` : toggle fullscreen state of the focused window
+    ** `toggleWorkspace` : toggle back and forth between the current and previously focused workspace.
+    ** `toggleSpecial <workspace ID>` : set <workspace ID> as overlay workspace.
+    ** `focusWorkspace <workspace ID>` : focus the workspace <workspace ID>.
+    ** `sendFocusToWorkspace <workspace ID>` : send focused window to workspace <workspace ID>.
+    ** `moveToWorkspace <workspace ID>` : equivalent to sendFocusToWorkspace followed by focusWorkspace.
+    ** `moveFocus <Left|Right|Up|Down>` : move the seat's focus up, down, left, or right.
+    ** `moveWindow <Left|Right|Up|Down>` :  move the focused window up, down, left, or right.
+    ** `layoutCommand <layout> <command> <args...>` : run the layout-specific command <command> of layout <layout> with given arguments.
         *** bsp-specific commands:
             **** changeSplit: change the split direction of the split in the binary tree the focused window is part of.
 
@@ -85,8 +83,6 @@ rhine binds the following protocols:
 * river-window-management-v1
 * river-layer-shell-v1
 * river-xkb-bindings-v1
-* river-input-management-v1
-* river-libinput-config-v1
 
 
 === shared libraries
