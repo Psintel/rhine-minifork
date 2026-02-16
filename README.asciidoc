@@ -17,6 +17,10 @@ this repo also contains an example config.
 == config
 
 There is an example config at config.rh at the root of this repo.
+The config is found at `~/.config/river/config.rh` (respecting `XDG_CONFIG_HOME`).
+The config is reloaded whenever it is changed.
+The config may contain more options than what is specified below.
+(this allows for example for https://codeberg.org/Sivecano/channel[channel] to share the same config file).
 
 === layouts
 
@@ -41,7 +45,7 @@ keybinds are of the form `[modifiers], [key], [command]`. The same keybinds are 
     ** toggleWorkspace: toggle back and forth between the current and previously focused workspace.
     ** toggleSpecial <workspace ID>: set <workspace ID> as overlay workspace.
     ** focusWorkspace <workspace ID>: focus the workspace <workspace ID>.
-    ** sendFocusToWorkspace <workspace ID>: send focused window to workspace <workspace ID>.
+ 12:53 <ifreund> I'm not really sure how I'll feel about dynamic typing in the long term for larger projects but I've quite enjoyed janet so far for writing high level window management policy     ** sendFocusToWorkspace <workspace ID>: send focused window to workspace <workspace ID>.
     ** moveToWorkspace <workspace ID>: equivalent to sendFocusToWorkspace followed by focusWorkspace.
     ** moveFocus <Left|Right|Up|Down>: move the seat's focus up, down, left, or right.
     ** moveWindow <Left|Right|Up|Down>:  move the focused window up, down, left, or right.
