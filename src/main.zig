@@ -292,7 +292,6 @@ fn manage(ctx: *Context) !void {
     try apply_tiler(ctx);
 
     const curr_time = std.time.microTimestamp();
-
     // make sure out internal seat data is in-sync
     // with what the compositor knows
     var seats = ctx.seats.iterator();
@@ -300,7 +299,8 @@ fn manage(ctx: *Context) !void {
         const seat = _seat.key_ptr.*;
         const seat_data = _seat.value_ptr;
 
-        if (ctx.locked) {
+
+        if (ctx.locked ) {
             for (seat_data.binds.items) |b| b.disable();
             for (seat_data.pointer_binds.items) |b| b.disable();
         } else {
@@ -313,6 +313,7 @@ fn manage(ctx: *Context) !void {
                 .start => {
                     op.start(op.context, ctx, seat_data.pointer_pos) catch {
                         log.err("failed to start pointer op", .{});
+                        seat_data.pointer_op = null;
                         break :op;
                     };
                     seat.opStartPointer();
@@ -360,6 +361,11 @@ fn manage(ctx: *Context) !void {
         }
     }
 
+    for (ctx.should_close.items) |w| {
+        w.close();
+    }
+    ctx.should_close.clearAndFree(ctx.gpa);
+
     // apply window management
 
     var outs = ctx.outs.iterator();
@@ -375,10 +381,6 @@ fn manage(ctx: *Context) !void {
         }
     }
 
-    for (ctx.should_close.items) |w| {
-        w.close();
-    }
-    ctx.should_close.clearAndFree(ctx.gpa);
 }
 
 fn render(ctx: *Context) !void {
@@ -555,9 +557,8 @@ pub fn main() !void {
     defer ctx.deinit();
 
     ctx.wm.setListener(*Context, listen, &ctx);
+    try ctx.loadEnv();
     helpers.startup(&ctx);
-
-    if (display.flush() != .SUCCESS) return error.FlushError;
 
     while (ctx.running) {
         var reload_conf = false;
@@ -591,6 +592,8 @@ pub fn main() !void {
             ctx.wm.manageDirty();
         }
 
+        if (display.flush() != .SUCCESS) return error.FlushError;
+
         _ = try std.posix.poll(&pollfds, -1);
         _ = event_reader.interface.discard(.unlimited) catch |e| switch (e) {
             error.ReadFailed => {},
@@ -601,6 +604,5 @@ pub fn main() !void {
                 return error.ReadEvent;
         }
         if (display.dispatchPending() != .SUCCESS) return error.DispatchError;
-        if (display.flush() != .SUCCESS) return error.FlushError;
     }
 }

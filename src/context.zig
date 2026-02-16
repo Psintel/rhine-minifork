@@ -86,6 +86,23 @@ pub fn deinit(self: *@This()) void {
     self.child_env.deinit();
 }
 
+pub fn loadEnv(self: *@This()) !void {
+    const env = try self.config.sub("env");
+
+    var iter = env.values.keyIterator();
+
+    while (iter.next()) |name| {
+        const confval = try env.getArgs(name.*) orelse continue;
+
+        const key = try self.gpa.dupe(u8, name.*);
+        errdefer self.gpa.free(key);
+        const val = try mem.join(self.gpa, ", ", confval.args);
+        errdefer self.gpa.free(val);
+
+        try self.child_env.putMove(key, val);
+    }
+}
+
 pub fn reload(self: *@This()) !void {
     for (self.seats.keys()) |seat| {
         // reload keybinds
@@ -95,6 +112,8 @@ pub fn reload(self: *@This()) !void {
         pointerbinds.unregister(self, seat);
         try pointerbinds.register(self, seat);
     }
+
+    try self.loadEnv();
 }
 
 // not allowed to fail

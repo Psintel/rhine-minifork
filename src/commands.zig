@@ -114,11 +114,9 @@ pub const Command = union(enum) {
             .toggleWorkspace => {
                 log.info("toggle keybinds", .{});
                 const out = Output.bySeat(ctx, seat) orelse return;
-                const out_data = ctx.outs.getPtr(out) orelse return;
+                const out_data = ctx.outs.get(out) orelse return;
                 const old = out_data.last_workspace orelse return;
-                out_data.setWorkspace(ctx, old);
-
-                ctx.dirty = true;
+                try ctx.commands_queue.add(ctx.gpa, seat, .{ .focusWorkspace = old });
             },
             .toggleSpecial => |ws| {
                 const out = Output.bySeat(ctx, seat) orelse return;

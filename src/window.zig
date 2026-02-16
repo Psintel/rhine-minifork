@@ -152,8 +152,10 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
             win_data.size = .{ d.width, d.height };
         },
         .parent => |p| {
-            log.info("window {} has parent {}", .{ win.getId(), p.parent.?.getId() });
-            win_data.parent = p.parent;
+            if (p.parent) |parent| {
+                log.info("window {} has parent {}", .{ win.getId(), parent });
+                win_data.parent = p.parent;
+            }
             win_data.float = true;
         },
         .dimensions_hint => |_| {

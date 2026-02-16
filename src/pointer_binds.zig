@@ -68,7 +68,8 @@ const move = struct {
     };
 
     pub fn listener(bind: *rwm.PointerBindingV1, event: rwm.PointerBindingV1.Event, ctx: *Context) void {
-        const seat = bindDatas.get(bind).?.seat;
+        const dat = bindDatas.get(bind) orelse return;
+        const seat = dat.seat;
         const seat_data = ctx.seats.getPtr(seat).?;
 
         switch (event) {
@@ -76,12 +77,6 @@ const move = struct {
                 if (seat_data.pointer_op != null) return;
 
                 const ct = ctx.gpa.create(Ctx) catch return;
-                start(@ptrCast(ct), ctx, seat_data.pointer_pos) catch |e| {
-                    ctx.gpa.destroy(ct);
-                    log.err("failed to start pointer op: {}", .{e});
-                    return;
-                };
-
                 seat_data.pointer_op = .{
                     .context = @ptrCast(ct),
                     .start = start,

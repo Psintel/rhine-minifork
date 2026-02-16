@@ -6,6 +6,12 @@ layout {
     * bsp
 }
 
+env {
+    SDL_VIDEODRIVER wayland, x11
+    QT_QPA_PLATFORM wayland
+    ELECTRON_OZONE_PLATFORM_HINT  wayland
+}
+
 # alt, s, tiler, bsp, togglesplit
 keybinds [
     super, q, killFocus

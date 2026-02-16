@@ -1,9 +1,12 @@
 = TODO
-* unified filedescriptor waiting?
 * tiler API overhaul
     ** re-introduce between render and manage better
     ** window highlights won't be managed by the tiler
     ** reduce API surface by removing the context object
+    ** maybe remove focus move?
+    ** communicate window resizing somehow
+* set cursor shapes based on context
+    * wait for next protocol version
 * special workspaces
     ** autostart clients
     ** maybe have a focused workspace per seat
@@ -15,8 +18,6 @@
     ** should I have a more flexible solution?
 * config
     ** cursor gestures
-    ** hot-reloading
-        *** have working POC
     ** window rules
         *** improve matching and globbing
             *** regex?
