@@ -1,5 +1,6 @@
 = TODO
 * handle reload failures gracefully
+    ** keybinds still scuffed
 * tiler API overhaul
     ** re-introduce between render and manage better
     ** window highlights won't be managed by the tiler

@@ -85,9 +85,6 @@ pub const Command = union(enum) {
             .layoutCommand => {
                 return .{ .layoutCommand = try Layouts.parseCommand(args[1..]) };
             },
-            else => {
-                return error.NotImplemented;
-            },
         }
     }
 
@@ -102,7 +99,7 @@ pub const Command = union(enum) {
                 }
             },
             .launch => |command| {
-                try helpers.spawnChild(ctx, &.{command}, true);
+                try helpers.spawnChild(ctx, command, true);
             },
             .toggleFullscreen => {
                 const focus = seat_data.focus orelse return;
@@ -226,9 +223,6 @@ pub const Command = union(enum) {
                 };
                 try ws_data.command(&tc, laycmd);
                 ctx.dirty = true;
-            },
-            else => {
-                log.err("command {} not implemented yet", .{cmd});
             },
         }
     }
