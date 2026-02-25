@@ -100,7 +100,7 @@ pub fn loadEnv(self: *@This()) !void {
 
         const key = try self.gpa.dupe(u8, name.*);
         errdefer self.gpa.free(key);
-        const val = try mem.join(self.gpa, ", ", confval.args);
+        const val = try mem.join(self.gpa, ",", confval.args);
         errdefer self.gpa.free(val);
 
         try self.child_env.putMove(key, val);
