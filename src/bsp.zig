@@ -15,7 +15,6 @@ const Workspace = @import("workspace.zig");
 const Tiler = @import("tiler.zig");
 const Context = @import("context.zig");
 
-
 const WT = Tiler.WT;
 const ManageMap = Tiler.ManageMap;
 const RenderMap = Tiler.RenderMap;
@@ -219,8 +218,10 @@ const subTile = union(enum) {
                     const s = rect.dim - @as(utils.Vec2, @splat(2)) * pad;
                     out.putAssumeCapacity(w, .{
                         .show = true,
-                        .position = rect.pos + pad,
-                        .size = s,
+                        .dims = .{
+                            .pos = rect.pos + pad,
+                            .dim = s,
+                        },
                         .state = .normal,
                         .border = if (w == ctx.focus) .blue else .gray,
                     });
@@ -287,7 +288,7 @@ pub fn add(self: *@This(), ctx: *Tiler.TileContext, win: WT) Tiler.Error!void {
     // smart splitting (as seen in hyprland for example)
     if (ctx.cursorPos) |cur| {
         log.info("adding with cursor pos {}", .{cur});
-        log.info("target: {}, {}", .{target.pos, target.dim});
+        log.info("target: {}, {}", .{ target.pos, target.dim });
         const cond = cur < target.pos + (target.dim / @as(utils.Vec2, @splat(2)));
         if (switch (d) {
             .V => cond[0],

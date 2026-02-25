@@ -35,9 +35,10 @@ pub const Dir = enum {
 
 pub const TileState = struct {
     show: bool = false, // show the window
-
-    position: utils.Vec2 = @splat(0),
-    size: utils.Vec2 = @splat(0),
+    dims: utils.Rect2 = .{
+        .dim = @splat(0),
+        .pos = @splat(0),
+    },
 
     state: enum {
         normal,

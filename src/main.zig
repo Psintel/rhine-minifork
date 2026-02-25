@@ -118,7 +118,7 @@ fn listen(iface: *rwm.WindowManagerV1, event: rwm.WindowManagerV1.Event, ctx: *C
 }
 
 fn apply_tiler(ctx: *Context) !void {
-    var states = manage_states.iterator();
+    var states = ctx.manage_states.iterator();
     while (states.next()) |rs| {
         rs.value_ptr.show = false;
     }
@@ -139,15 +139,19 @@ fn apply_tiler(ctx: *Context) !void {
             .focus = focus,
             .gpa = ctx.gpa,
         };
-        ws.manage(&tctx, out_data.getArea(), &manage_states);
+        ws.manage(&tctx, out_data.getArea(), &ctx.manage_states);
 
         if (out_data.overlay) |_ows| {
             const ows = try Workspace.get(ctx, _ows);
-            ows.manage(&tctx, out_data.getArea().scale(0.9), &manage_states);
+            ows.manage(&tctx, out_data.getArea().scale(0.95), &ctx.manage_states);
+            for (ows.windows.keys()) |win| {
+                const data = ctx.manage_states.getPtr(win) orelse continue;
+                data.dims = data.dims.scale(0.95);
+            }
         }
 
         for (ws.floating.keys()) |w| {
-            const ms = manage_states.getPtr(w) orelse continue;
+            const ms = ctx.manage_states.getPtr(w) orelse continue;
             ms.show = true;
         }
     }
@@ -159,20 +163,23 @@ fn apply_tiler(ctx: *Context) !void {
 
         if (wd.float) continue;
 
-        const man_state = manage_states.get(w) orelse {
+        const man_state = ctx.manage_states.get(w) orelse {
             log.err("failed to manage window {}", .{w.getId()});
             continue;
         };
 
-        wd.setPos(man_state.position, null);
-        wd.setSize(man_state.size, null);
+        wd.setPos(man_state.dims.pos, null);
     }
 }
 
 fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, curr_time: i64) void {
     for (ws.windows.keys()) |win| {
         const wd = ctx.wins.getPtr(win) orelse continue;
-        const man_state = manage_states.get(win) orelse continue;
+        const man_state = ctx.manage_states.get(win) orelse {
+            log.err("failed to manage window {}", .{win.getId()});
+            ctx.orphan(win);
+            continue;
+        };
 
         if (!man_state.show) continue;
 
@@ -221,19 +228,19 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, curr_time: i64) 
             .bottom = true,
         });
 
+        if (wd.setSize(man_state.dims.dim, curr_time))
+            win.informResizeStart();
+
         const goal = &wd.goal_size;
-        const ts = goal.get(curr_time);
-        switch (goal.*) {
-            .transit => win.informResizeStart(),
-            .static => win.informResizeEnd(),
-        }
+        const ts = @max(goal.get(curr_time), @as(utils.Vec2, @splat(0)));
 
         win.proposeDimensions(ts[0], ts[1]);
 
-        if (!goal.done(curr_time)) {
-            ctx.dirty = true;
-        } else {
+        if (goal.done(curr_time)) {
+            win.informResizeEnd();
             goal.staticify();
+        } else {
+            ctx.dirty = true;
         }
     }
 
@@ -285,7 +292,7 @@ fn manage(ctx: *Context) !void {
     // register new windows
     for (ctx.should_open.items) |win| {
         try Window.assign(ctx, win);
-        try manage_states.put(ctx.gpa, win, .{});
+        try ctx.manage_states.put(ctx.gpa, win, .{});
     }
     ctx.should_open.clearAndFree(ctx.gpa);
 
@@ -361,6 +368,7 @@ fn manage(ctx: *Context) !void {
     }
 
     for (ctx.should_close.items) |w| {
+        _ = ctx.manage_states.swapRemove(w);
         w.close();
     }
     ctx.should_close.clearAndFree(ctx.gpa);
@@ -374,6 +382,8 @@ fn manage(ctx: *Context) !void {
 
         const ws = try Workspace.get(ctx, out_data.workspace);
         manage_ws(ctx, ws, out, curr_time);
+
+        // manage overlay
         if (out_data.overlay) |_overlay| {
             const overlay = try Workspace.get(ctx, _overlay);
             manage_ws(ctx, overlay, out, curr_time);
@@ -391,7 +401,7 @@ fn render(ctx: *Context) !void {
         const w = _w.key_ptr.*;
         const wd = _w.value_ptr;
 
-        const man_state = manage_states.get(w) orelse continue;
+        const man_state = ctx.manage_states.get(w) orelse continue;
 
         if (man_state.show) {
             w.show();
@@ -423,17 +433,18 @@ fn render(ctx: *Context) !void {
         }
     }
 
-    // put float on top
     var outs = ctx.outs.iterator();
     while (outs.next()) |out| {
         const ws = out.value_ptr.workspace;
         const wsd = ctx.workspaces.get(ws).?;
 
+        // put float on top
         for (wsd.floating.keys()) |w| {
             const wd = ctx.wins.getPtr(w).?;
             wd.node.placeTop();
         }
 
+        // overlay on top
         if (out.value_ptr.overlay) |ov| {
             const ov_data = try Workspace.get(ctx, ov);
             for (ov_data.windows.keys()) |win| {
@@ -483,6 +494,7 @@ pub fn main() !void {
             std.fmt.allocPrint(alloc, "{s}/.config/river/config.rh", .{home});
         break :path cfile;
     };
+    defer alloc.free(config_path);
 
     const config = try std.fs.cwd().openFile(config_path, .{});
     var inotify: Inotify = try .init(.{ .nonblock = true });
@@ -600,10 +612,12 @@ pub fn main() !void {
             error.ReadFailed => {},
             else => log.err("error on discard: {}", .{e}),
         };
+
         if (display.prepareRead()) {
             if (display.readEvents() != .SUCCESS)
                 return error.ReadEvent;
         }
+
         if (display.dispatchPending() != .SUCCESS) return error.DispatchError;
     }
 }
