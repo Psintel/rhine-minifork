@@ -46,6 +46,11 @@ pub fn init(ctx: *Context) !@This() {
         else => return e,
     };
 
+    sd.deleteFile(".socket2.sock") catch |e| switch (e) {
+        error.FileNotFound => {},
+        else => return e,
+    };
+
     return .{
         .signature = name,
     };
@@ -103,14 +108,39 @@ fn handlePlain(ctx: *Context, reader: *std.Io.Reader, writer: *std.Io.Writer) !v
             try writer.print("Monitor WL-1 (ID 0):\n", .{});
             try writer.print(
                 \\     active workspace: 0 (0)
-                \\     focused: yeg
+                \\     focused: yes
                 \\
                 \\
             ,
                 .{},
             );
         }
-    } else if (mem.eql(u8, try reader.takeDelimiter(' ') orelse return, "/dispatch")) {
+    } else if (mem.order(u8, reader.buffered(), "/clients") == .eq) {
+        var win_it = ctx.wins.iterator();
+        while (win_it.next()) |_win| {
+            const win = _win.key_ptr.*;
+            const win_dat = _win.value_ptr;
+            const pos = win_dat.pos.current();
+            const size = win_dat.size;
+
+            const ws = Workspace.byWindow(ctx, win);
+
+            try writer.print("Window {} -> {?s}:\n", .{ win.getId(), win_dat.title });
+            try writer.print(
+                \\    mapped: 1
+                \\    hidden: 0
+                \\    at: {0}, {1}
+                \\    size: {2}, {3},
+                \\    workspace: {4?} ({4?})
+                \\    class: {5?s}
+                \\
+                \\
+            ,
+                .{ pos[0], pos[1], size[0], size[1], ws, win_dat.app_id },
+            );
+        }
+    } else if (mem.startsWith(u8, reader.buffered(), "/dispatch")) {
+        _ = try reader.discardDelimiterInclusive(' ');
         const word = try reader.takeDelimiter(' ') orelse return;
         if (mem.eql(u8, word, "workspace")) {
             const id_s = reader.buffered();
@@ -134,12 +164,12 @@ fn handlePlain(ctx: *Context, reader: *std.Io.Reader, writer: *std.Io.Writer) !v
 fn handleCon(serv: *net.Server, ctx: *Context) !void {
     const conn = try serv.accept();
 
-    var buffer: [0x200]u8 = undefined;
+    var buffer: [0x500]u8 = undefined;
 
     const stream = conn.stream;
     defer stream.close();
-    var writer_obj = stream.writer(buffer[0..0x100]);
-    var reader_obj = stream.reader(buffer[0x100..]);
+    var writer_obj = stream.writer(buffer[0x100..]);
+    var reader_obj = stream.reader(buffer[0..0x100]);
     const writer = &writer_obj.interface;
     const reader: *std.Io.Reader = reader_obj.interface();
 
