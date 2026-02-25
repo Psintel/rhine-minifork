@@ -13,6 +13,7 @@ const Workspace = @import("workspace.zig");
 const Rules = @import("rules.zig");
 const Config = @import("config.zig");
 const commands = @import("commands.zig");
+const Tiler = @import("tiler.zig");
 
 const keybinds = @import("keybinds.zig");
 const pointerbinds = @import("pointer_binds.zig");
@@ -46,6 +47,7 @@ dirty: bool = false,
 should_close: std.ArrayList(*rwm.WindowV1) = .empty,
 should_open: std.ArrayList(*rwm.WindowV1) = .empty, // uninitalized windows
 orphans: std.ArrayList(*rwm.WindowV1) = .empty, // initialized windows that need to be reassigned
+manage_states: Tiler.ManageMap = .empty,
 
 // weird posix thingy:
 events: std.fs.File,
@@ -72,6 +74,8 @@ pub fn deinit(self: *@This()) void {
     for (self.workspaces.values()) |*w| {
         w.deinit(self);
     }
+
+    self.manage_states.clearAndFree(self.gpa);
 
     self.workspaces.clearAndFree(self.gpa);
 

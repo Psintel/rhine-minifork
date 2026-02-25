@@ -31,8 +31,6 @@ const Inotify = @import("inotify.zig");
 
 const log = std.log;
 
-var manage_states: Tiler.ManageMap = .empty;
-
 const Registry = struct {
     wm: ?*rwm.WindowManagerV1 = null,
     shell: ?*rwm.LayerShellV1 = null,
