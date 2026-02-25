@@ -53,7 +53,7 @@ pub const Command = union(enum) {
     toggleWorkspace: void,
     toggleSpecial: Workspace.WS,
     focusWorkspace: Workspace.WS,
-    sendFocusToWorkspace: Workspace.WS,
+    sendToWorkspace: Workspace.WS,
     moveToWorkspace: Workspace.WS,
     moveFocus: Tiler.Dir,
     moveWindow: Tiler.Dir,
@@ -77,7 +77,7 @@ pub const Command = union(enum) {
 
                 return .{ .toggleSpecial = ws };
             },
-            inline .sendFocusToWorkspace, .focusWorkspace, .moveToWorkspace => |t| {
+            inline .sendToWorkspace, .focusWorkspace, .moveToWorkspace => |t| {
                 const ws = try std.fmt.parseInt(Workspace.WS, args[1], 0);
 
                 return @unionInit(@This(), @tagName(t), ws);
@@ -99,7 +99,7 @@ pub const Command = union(enum) {
                 }
             },
             .launch => |command| {
-                try helpers.spawnChild(ctx, command, true);
+                try helpers.disownChild(ctx, command);
             },
             .toggleFullscreen => {
                 const focus = seat_data.focus orelse return;
@@ -155,7 +155,7 @@ pub const Command = union(enum) {
                 seat_data.warp_to_window = seat_data.focus;
                 ctx.dirty = true;
             },
-            .sendFocusToWorkspace => |ws| {
+            .sendToWorkspace => |ws| {
                 const focus = seat_data.focus orelse return;
                 const source = Window.getWorkspace(ctx, focus) orelse return;
 
@@ -211,7 +211,7 @@ pub const Command = union(enum) {
                 ctx.dirty = true;
             },
             .moveToWorkspace => |ws| {
-                try ctx.commands_queue.add(ctx.gpa, seat, .{ .sendFocusToWorkspace = ws });
+                try ctx.commands_queue.add(ctx.gpa, seat, .{ .sendToWorkspace = ws });
                 try ctx.commands_queue.add(ctx.gpa, seat, .{ .focusWorkspace = ws });
             },
             .layoutCommand => |laycmd| {

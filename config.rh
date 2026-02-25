@@ -21,7 +21,7 @@ keybinds [
     super, Tab, toggleWorkspace
     super, s, layoutCommand, bsp, changeSplit
     none, F12, toggleSpecial, -1
-    super, F12, sendFocusToWorkspace, -1
+    super, F12, sendToWorkspace, -1
 
     super, h, moveFocus, Left
     super, l, moveFocus, Right
@@ -64,6 +64,17 @@ keybinds [
     super+shift, 8, moveToWorkspace, 7
     super+shift, 9, moveToWorkspace, 8
     super+shift, 0, moveToWorkspace, 9
+
+    super+ctrl, 1, sendToWorkspace, 0
+    super+ctrl, 2, sendToWorkspace, 1
+    super+ctrl, 3, sendToWorkspace, 2
+    super+ctrl, 4, sendToWorkspace, 3
+    super+ctrl, 5, sendToWorkspace, 4
+    super+ctrl, 6, sendToWorkspace, 5
+    super+ctrl, 7, sendToWorkspace, 6
+    super+ctrl, 8, sendToWorkspace, 7
+    super+ctrl, 9, sendToWorkspace, 8
+    super+ctrl, 0, sendToWorkspace, 9
 ]
 
 windowrules [
