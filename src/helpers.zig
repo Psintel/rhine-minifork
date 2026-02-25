@@ -15,18 +15,7 @@ const Workspace = @import("workspace.zig");
 const Output = @import("output.zig");
 const Config = @import("config.zig");
 
-pub fn spawnChild(ctx: *Context, command: []const u8, comptime disown: bool) !void {
-    if (disown){
-        const pid = try posix.fork();
-        if (pid == 0) {
-            spawnChild(ctx, command, false) catch posix.exit(1);
-            posix.exit(0);
-        }
-        const out  = posix.waitpid(pid, 0);
-        if (out.status != 0) return error.ChildFailed;
-        return;
-    }
-
+pub fn spawnChild(ctx: *Context, command: []const u8) !void {
     var buf: [0x80000]u8 = @splat(0); // look if your env is more than 80 KiB I cannot help you
     var fb: std.heap.FixedBufferAllocator = .init(&buf);
     const alloc = fb.allocator();
@@ -48,7 +37,16 @@ pub fn spawnChild(ctx: *Context, command: []const u8, comptime disown: bool) !vo
         posix.sigaction(posix.SIG.PIPE, &sig_dfl, null);
         posix.execveZ("/bin/sh", &args, env) catch posix.exit(1);
     }
+}
 
+pub fn disownChild(ctx: *Context, command: []const u8) !void {
+    const pid = try posix.fork();
+    if (pid == 0) {
+        spawnChild(ctx, command) catch posix.exit(1);
+        posix.exit(0);
+    }
+    const out = posix.waitpid(pid, 0);
+    if (out.status != 0) return error.ChildFailed;
 }
 
 pub fn startup(ctx: *Context) void {
@@ -60,7 +58,7 @@ pub fn startup(ctx: *Context) void {
     };
 
     for (list) |entry| {
-        spawnChild(ctx, entry.args[0], false) catch |e| {
+        spawnChild(ctx, entry.args[0]) catch |e| {
             log.err("failed to start {any} : {}", .{ entry.args, e });
         };
     }
