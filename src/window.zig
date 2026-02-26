@@ -43,8 +43,8 @@ fullscreen: enum {
 } = .no,
 
 // will we keep those?
-pos: utils.Lerp(100_000) = .{ .static = @splat(0) },
-goal_size: utils.Lerp(100_000) = .{ .static = @splat(0) },
+pos: utils.Lerp(250_000) = .{ .static = @splat(0) },
+goal_size: utils.Lerp(250_000) = .{ .static = @splat(0) },
 
 // initialize window
 pub fn init(_: *Context, win: *rwm.WindowV1) !@This() {
@@ -177,16 +177,20 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
     }
 }
 
-pub fn setSize(self: *@This(), new: utils.Vec2, _now: ?i64) void {
+pub fn setSize(self: *@This(), new: utils.Vec2, _now: ?i64) bool {
+    if (@reduce(.Or, new < @as(utils.Vec2, @splat(0)))) return false;
+
     const now = _now orelse time.microTimestamp();
 
-    if (meta.eql(new, self.goal_size.end())) return;
+    if (meta.eql(new, self.goal_size.end())) return false;
 
     self.goal_size = .{ .transit = .{
         .from = self.size,
         .to = new,
         .start = now,
     } };
+
+    return true;
 }
 
 pub fn setPos(self: *@This(), new: utils.Vec2, _now: ?i64) void {

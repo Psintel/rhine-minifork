@@ -73,7 +73,7 @@ pub fn ilerp(fst: Vec2, snd: Vec2, prog: f32) Vec2 {
 }
 
 pub fn flerp(fst: Vec2f, snd: Vec2f, _prog: f32) Vec2f {
-    return interp.lerp(fst, snd, ease.circInOut(_prog));
+    return interp.lerp(fst, snd, ease.elasticOut(_prog, .{.amplitude = 0.5}));
     // const prog: Vec2f = @splat(_prog);
     // return math.lerp(fst, snd, prog);
 }
