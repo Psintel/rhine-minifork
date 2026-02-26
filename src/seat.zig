@@ -6,6 +6,9 @@ const wl = wayland.client.wl;
 const rwm = wayland.client.river;
 
 const Context = @import("context.zig");
+const Output = @import("output.zig");
+const Window = @import("window.zig");
+const Workspace = @import("workspace.zig");
 const keybinds = @import("keybinds.zig");
 const pointerbinds = @import("pointer_binds.zig");
 
@@ -43,6 +46,23 @@ pub fn listener(seat: *rwm.SeatV1, e: rwm.SeatV1.Event, ctx: *Context) void {
         },
         .pointer_enter => |win| {
             if (win.window) |w| {
+
+
+                const ws = Workspace.byWindow(ctx, w) orelse {
+                    log.err("seat {}: pointer entered window {} without workspace", .{seat.getId(), w.getId()});
+                    return;
+                };
+
+                const out = Output.byWorkspace(ctx, ws) orelse {
+                    log.err("seat {}: pointer entered window {} shown on no output", .{seat.getId(), w.getId()});
+                    return;
+                };
+
+                const out_data = ctx.outs.getPtr(out) orelse return;
+
+                // don't focus non-overlay windows when overlay is active
+                if (out_data.overlay != null and out_data.overlay != ws) return;
+
                 seat_data.focus = w;
             }
         },

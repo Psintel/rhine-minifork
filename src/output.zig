@@ -116,9 +116,15 @@ pub fn byWorkspace(ctx: *Context, ws: Workspace.WS) ?*rwm.OutputV1 {
         const out_data = _out.value_ptr;
 
         if (out_data.workspace == ws) return out;
+        if (out_data.overlay == ws) return out;
     }
 
     return null;
+}
+
+pub fn byWindow(ctx: *Context, win: *rwm.WindowV1) ?*rwm.OutputV1 {
+    const ws = Workspace.byWindow(ctx, win) orelse return null;
+    return byWorkspace(ctx, ws);
 }
 
 pub fn relPos(ctx: *Context, pos: utils.Vec2) ?utils.Vec2 {
