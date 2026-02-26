@@ -1,4 +1,6 @@
 const std = @import("std");
+const builtin = @import("builtin");
+const native = builtin.target.cpu.arch.endian();
 const posix = std.posix;
 const mem = std.mem;
 const linux = std.os.linux;
@@ -80,6 +82,10 @@ pub fn init(flags: Flags) !@This() {
     } };
 }
 
+pub fn deinit(self: @This()) void {
+    self.inot_file.close();
+}
+
 pub fn watch(self: @This(), path: []const u8, mask: Mask) !WatchDescriptor {
     return .{
         .id = try posix.inotify_add_watch(self.inot_file.handle, path, @bitCast(mask)),
@@ -94,7 +100,7 @@ pub fn nextEvent(self: @This()) !?Event {
     var buf: [@sizeOf(RawEvent)]u8 = undefined;
     var reader = self.inot_file.reader(&buf);
 
-    const raw = reader.interface.takeStruct(RawEvent, .little) catch |e| switch (e) {
+    const raw = reader.interface.takeStruct(RawEvent, native) catch |e| switch (e) {
         error.ReadFailed => return null,
         else => return e,
     };
@@ -106,14 +112,10 @@ pub fn namedEvent(self: @This(), gpa: mem.Allocator) !?Event {
     var buf: [@sizeOf(RawEvent)]u8 = undefined;
     var reader = self.inot_file.reader(&buf);
 
-    const raw = reader.interface.takeStruct(RawEvent, .little) catch |e| switch (e) {
+    const raw = reader.interface.takeStruct(RawEvent, native) catch |e| switch (e) {
         error.ReadFailed => return null,
         else => return e,
     };
 
     return raw.asNamedEvent(try reader.interface.readAlloc(gpa, raw.len));
-}
-
-pub fn deinit(self: @This()) void {
-    self.inot_file.close();
 }
