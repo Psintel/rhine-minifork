@@ -22,8 +22,8 @@ const log = std.log.scoped(.window);
 win: *rwm.WindowV1,
 node: *rwm.NodeV1,
 
-app_id: ?[:0]const u8 = null,
-title: ?[:0]const u8 = null,
+app_id: ?[]const u8 = null,
+title: ?[]const u8 = null,
 size: utils.Vec2 = @splat(1),
 float: bool = false, // is this window floating
 parent: ?*rwm.WindowV1 = null,
@@ -121,6 +121,9 @@ pub fn deinit(self: *const @This(), ctx: *Context, win: *rwm.WindowV1) void {
         return;
     };
 
+    if (self.app_id) |appid| ctx.gpa.free(appid);
+    if (self.title) |title| ctx.gpa.free(title);
+
     const ws_data = ctx.workspaces.getPtr(ws).?;
 
     if (!ws_data.floating.swapRemove(win)) {
@@ -144,9 +147,12 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
             log.info("closed window with id {}", .{win.getId()});
         },
         .app_id => |app_id| {
-            // if (win_data.app_id) |old| std.c.free(old.ptr);
-            win_data.app_id = std.mem.sliceTo(app_id.app_id, 0);
-            log.info("{} has app_id {?s}", .{ win.getId(), win_data.app_id });
+            const _old = win_data.app_id;
+            if (std.mem.sliceTo(app_id.app_id, 0)) |new| {
+                win_data.app_id = ctx.gpa.dupe(u8, new) catch return;
+                if (_old) |old| ctx.gpa.free(old);
+                log.info("{} has app_id {?s}", .{ win.getId(), win_data.app_id });
+            }
         },
         .dimensions => |d| {
             win_data.size = .{ d.width, d.height };
@@ -168,8 +174,11 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
             // }
         },
         .title => |t| {
-            const title = t.title orelse return;
-            win_data.title = mem.sliceTo(title, 0);
+            const _old = win_data.title;
+            if (std.mem.sliceTo(t.title, 0)) |new| {
+                win_data.title = ctx.gpa.dupe(u8, new) catch return;
+                if (_old) |old| ctx.gpa.free(old);
+            }
         },
         else => {
             log.warn("lmao! can't actually handle event {s}", .{@tagName(event)});
