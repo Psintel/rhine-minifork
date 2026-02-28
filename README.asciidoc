@@ -43,7 +43,7 @@ keybinds are of the form `[modifiers], [key], [command]`. The same keybinds are 
     ** `toggleWorkspace` : toggle back and forth between the current and previously focused workspace.
     ** `toggleSpecial <workspace ID>` : set <workspace ID> as overlay workspace.
     ** `focusWorkspace <workspace ID>` : focus the workspace <workspace ID>.
-    ** `sendFocusToWorkspace <workspace ID>` : send focused window to workspace <workspace ID>.
+    ** `sendToWorkspace <workspace ID>` : send focused window to workspace <workspace ID>.
     ** `moveToWorkspace <workspace ID>` : equivalent to sendFocusToWorkspace followed by focusWorkspace.
     ** `moveFocus <Left|Right|Up|Down>` : move the seat's focus up, down, left, or right.
     ** `moveWindow <Left|Right|Up|Down>` :  move the focused window up, down, left, or right.

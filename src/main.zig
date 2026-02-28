@@ -569,23 +569,25 @@ pub fn main() !void {
     helpers.startup(&ctx);
 
     while (ctx.running) {
-        var reload_conf = false;
-        while (try inotify.nextEvent()) |e| {
-            if (e.wd == wid) reload_conf = true;
-        }
+        {
+            var reload_conf = false;
+            while (try inotify.nextEvent()) |e| {
+                if (e.wd == wid) reload_conf = true;
+            }
 
-        if (reload_conf) {
-            log.info("reloading config :D", .{});
-            try reader_object.seekTo(0);
-            const nc = Config.parse(alloc, &reader_object.interface) catch |e| {
-                log.err("failure reloading config: {}", .{e});
-                continue;
-            };
-            // try nc.serialize(&writer.interface);
-            ctx.config.deinit(alloc);
-            ctx.config = nc;
-            ctx.dirty = true;
-            try ctx.reload();
+            if (reload_conf) {
+                log.info("reloading config :D", .{});
+                try reader_object.seekTo(0);
+                const nc = Config.parse(alloc, &reader_object.interface) catch |e| {
+                    log.err("failure reloading config: {}", .{e});
+                    continue;
+                };
+                // try nc.serialize(&writer.interface);
+                ctx.config.deinit(alloc);
+                ctx.config = nc;
+                ctx.dirty = true;
+                try ctx.reload();
+            }
         }
 
         {

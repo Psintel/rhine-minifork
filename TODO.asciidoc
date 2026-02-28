@@ -1,4 +1,7 @@
 = TODO
+* only have one fullscreen window per workspace
+* rework animation system
+    ** interactive resize -> window cropping
 * handle reload failures gracefully
     ** keybinds still scuffed
 * tiler API overhaul
