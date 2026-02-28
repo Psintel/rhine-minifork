@@ -16,6 +16,7 @@ const Rules = @import("rules.zig");
 const Context = @import("context.zig");
 const Tiler = @import("tiler.zig");
 const Layouts = @import("layouts.zig");
+const Config = @import("config.zig");
 
 const log = std.log.scoped(.Commands);
 
@@ -59,31 +60,38 @@ pub const Command = union(enum) {
     moveWindow: Tiler.Dir,
     layoutCommand: Tiler.Command,
 
-    pub fn fromArg(args: []const []const u8) !@This() {
-        const tag = meta.stringToEnum(meta.Tag(Command), args[0]) orelse return error.InvalidTag;
+    pub fn fromArg(args: *Config.Entry.Iterator) !@This() {
+        const tag = meta.stringToEnum(
+            meta.Tag(Command),
+            args.next() orelse return error.NoCommand,
+        ) orelse return error.InvalidTag;
 
         switch (tag) {
             inline .killFocus, .toggleFullscreen, .toggleWorkspace => |t| return @unionInit(@This(), @tagName(t), {}),
-            .launch => return .{ .launch = args[1] },
-            .moveFocus => return .{
-                .moveFocus = meta.stringToEnum(Tiler.Dir, args[1]) orelse return error.InvalidDirection,
+            .launch => return .{
+                .launch = args.next() orelse return error.NoLaunchArg,
             },
-            .moveWindow => return .{
-                .moveWindow = meta.stringToEnum(Tiler.Dir, args[1]) orelse return error.InvalidDirection,
-            },
+            inline .moveFocus, .moveWindow => |t| return @unionInit(
+                @This(),
+                @tagName(t),
+                meta.stringToEnum(
+                    Tiler.Dir,
+                    args.next() orelse return error.NoMoveArg,
+                ) orelse return error.InvalidDirection,
+            ),
             .toggleSpecial => {
-                const ws = try std.fmt.parseInt(Workspace.WS, args[1], 0);
+                const ws = try std.fmt.parseInt(Workspace.WS, args.next() orelse return error.NoWsArg, 0);
                 if (ws >= 0) return error.PositiveSpecialWorkspace;
 
                 return .{ .toggleSpecial = ws };
             },
             inline .sendToWorkspace, .focusWorkspace, .moveToWorkspace => |t| {
-                const ws = try std.fmt.parseInt(Workspace.WS, args[1], 0);
+                const ws = try std.fmt.parseInt(Workspace.WS, args.next() orelse return error.NoWsArg, 0);
 
                 return @unionInit(@This(), @tagName(t), ws);
             },
             .layoutCommand => {
-                return .{ .layoutCommand = try Layouts.parseCommand(args[1..]) };
+                return .{ .layoutCommand = try Layouts.parseCommand(args) };
             },
         }
     }

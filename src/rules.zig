@@ -31,10 +31,11 @@ pub const WindowRule = struct {
     rule: Rule,
 
     pub fn fromEntry(entry: Config.Entry) !@This() {
-        if (entry.args.len != 2) return error.ParseError;
 
-        const match = entry.args[0];
-        const rules = entry.args[1];
+        var args = entry.iterate();
+
+        const match = try args.nextAssume();
+        const rules = try args.nextAssume();
 
         var ruleit = std.mem.tokenizeScalar(u8, rules, ' ');
         const rtype = std.meta.stringToEnum(

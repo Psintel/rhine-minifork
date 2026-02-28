@@ -10,6 +10,7 @@ const rwm = wayland.client.river;
 const utils = @import("utils.zig");
 const Context = @import("context.zig");
 const Tiler = @import("tiler.zig");
+const Config = @import("config.zig");
 
 const layouts = .{
     .bsp = @import("bsp.zig"),
@@ -46,10 +47,8 @@ pub const Layout = layout: {
     break :layout retT;
 };
 
-pub fn parseCommand(args: []const []const u8) !Tiler.Command {
-    if (args.len == 0) return error.TooFewArgs;
-
-    const layout = meta.stringToEnum(LayoutTypes, args[0]) orelse return error.InvalidLayout;
+pub fn parseCommand(args: *Config.Entry.Iterator) !Tiler.Command {
+    const layout = meta.stringToEnum(LayoutTypes, try args.nextAssume()) orelse return error.InvalidLayout;
 
     switch (layout) {
         inline else => |l| {
@@ -57,8 +56,8 @@ pub fn parseCommand(args: []const []const u8) !Tiler.Command {
             if (!@hasDecl(layout_impl, "Command")) return error.LayoutDoesNotSupportCommands;
             const Command = layout_impl.Command;
             if (@hasDecl(Command, "parse"))
-                return Command.parse(args[1..])
-            else if (meta.stringToEnum(Command, args[1])) |cmd|
+                return Command.parse(args)
+            else if (meta.stringToEnum(Command, try args.nextAssume())) |cmd|
                 return .{ .command = @intFromEnum(cmd), .payload = null }
             else
                 return error.InvalidCommand;

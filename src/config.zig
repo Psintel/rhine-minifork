@@ -6,7 +6,7 @@ const Config = @This();
 values: std.StringHashMapUnmanaged(Value),
 
 pub const Entry = struct {
-    args: [][]u8,
+    args: []const u8,
 
     pub fn splits(self: Entry, index: usize, comptime n: usize) std.meta.Tuple(.{Entry} ** n) {
         var out: [n]Entry = undefined;
@@ -22,8 +22,57 @@ pub const Entry = struct {
         return out;
     }
 
+    pub fn argList(self: Entry, comptime n: usize) ![n][]const u8 {
+        var iter = self.iterate();
+        var out: [n][]const u8 = undefined;
+
+        var i: usize = 0;
+
+        while (iter.next()) |s| {
+            if (i >= n) return error.ParseError;
+            out[i] = s;
+            i += 1;
+        }
+        if (i < n) return error.ParseError;
+
+        return out;
+    }
+
+    pub fn argAlloc(self: Entry, gpa: mem.Allocator) ![][]const u8 {
+        var iter = self.iterate();
+        var out: std.ArrayList([]const u8) = .empty;
+        errdefer {
+            for (out.items) |e| gpa.free(e);
+            out.deinit(gpa);
+        }
+
+        while (iter.next()) |s| {
+            try out.append(gpa, s);
+        }
+
+        return out.toOwnedSlice(gpa);
+    }
+
+    pub const Iterator = struct {
+        iter: mem.SplitIterator(u8, .scalar),
+
+        pub fn next(self: *@This()) ?[]const u8 {
+            const nextval = self.iter.next() orelse return null;
+            return mem.trim(u8, nextval, " \t");
+        }
+
+        pub fn nextAssume(self: *@This()) ![]const u8 {
+            return self.next() orelse error.TooFewArgs;
+        }
+    };
+
+    pub fn iterate(self: Entry) Iterator {
+        return .{
+            .iter = mem.splitScalar(u8, self.args, ','),
+        };
+    }
+
     pub fn deinit(self: @This(), allocator: mem.Allocator) void {
-        for (self.args) |a| allocator.free(a);
         allocator.free(self.args);
     }
 };
@@ -91,22 +140,9 @@ fn consume(reader: *std.Io.Reader, char: u8) !bool {
 }
 
 fn parseEntry(allocator: mem.Allocator, reader: *std.Io.Reader) !Entry {
-    const b = try reader.takeDelimiterExclusive('\n');
-    var iter = mem.splitScalar(u8, b, ',');
-    var entries: std.ArrayList([]u8) = .empty;
-    errdefer {
-        for (entries.items) |e| allocator.free(e);
-        entries.deinit(allocator);
-    }
-
-    while (iter.next()) |s| {
-        const trimmed = mem.trim(u8, s, " \t");
-        try entries.append(allocator, try allocator.dupe(u8, trimmed));
-    }
-
-    _ = try consume(reader, '\n');
-
-    return .{ .args = try entries.toOwnedSlice(allocator) };
+    const b = try reader.takeDelimiter('\n') orelse &.{};
+    const trimmed = mem.trim(u8, b, " \t");
+    return .{ .args = try allocator.dupe(u8, trimmed) };
 }
 
 fn parseList(allocator: mem.Allocator, reader: *std.Io.Reader) ![]Entry {
@@ -203,8 +239,7 @@ pub fn serialize(conf: Config, writer: *std.Io.Writer) !void {
 
         switch (val) {
             .args => |e| {
-                for (e.args) |a| try writer.print("{s}, ", .{a});
-                try writer.print("\n", .{});
+                try writer.print("{s}\n", .{e.args});
             },
             .config => |subconf| {
                 try writer.print("{{\n", .{});
@@ -213,10 +248,7 @@ pub fn serialize(conf: Config, writer: *std.Io.Writer) !void {
             },
             .list => |ls| {
                 try writer.print("[\n", .{});
-                for (ls) |entry| {
-                    for (entry.args) |a| try writer.print("{s}, ", .{a});
-                    try writer.print("\n", .{});
-                }
+                for (ls) |entry| try writer.print("{s}\n", .{entry.args});
                 try writer.print("]\n", .{});
             },
         }
@@ -251,29 +283,21 @@ pub fn getList(self: Config, key: []const u8) ![]Entry {
     return val.list;
 }
 
-pub fn getTup(self: Config, key: []const u8, comptime n: usize) !?[n][]u8 {
+pub fn getTup(self: Config, key: []const u8, comptime n: usize) !?[n][]const u8 {
     const val = self.values.get(key) orelse return null;
 
     if (std.meta.activeTag(val) != .args) return error.NotArg;
 
     const entry = val.args;
 
-    if (entry.args.len != n) return error.wrongLength;
-
-    var out: [n][]u8 = undefined;
-
-    for (entry.args, &out) |a, *o| o.* = a;
-
-    return out;
+    return entry.argList(n);
 }
 
-pub fn getSole(self: Config, key: []const u8) !?[]u8 {
+pub fn getSole(self: Config, key: []const u8) !?[]const u8 {
     const val = self.values.get(key) orelse return null;
 
     if (std.meta.activeTag(val) != .args) return error.NotArg;
     const entry = val.args;
 
-    if (entry.args.len != 1) return error.TooMany;
-
-    return entry.args[0];
+    return (try entry.argList(1))[0];
 }

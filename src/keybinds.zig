@@ -60,9 +60,9 @@ pub const Bind = struct {
     cmd: command.Command,
 
     pub fn fromEntry(entry: Config.Entry) !@This() {
-        if (entry.args.len < 3) return error.ArgsTooShort;
+        var args = entry.iterate();
 
-        var iter = std.mem.tokenizeScalar(u8, entry.args[0], '+');
+        var iter = std.mem.tokenizeScalar(u8, args.next() orelse return error.NoMod, '+');
         var mods = rwm.SeatV1.Modifiers{};
 
         while (iter.next()) |m| {
@@ -81,7 +81,7 @@ pub const Bind = struct {
             }
         }
 
-        const key = entry.args[1];
+        const key = args.next() orelse return error.NoKey;
         const keyval = syms.get(key) orelse {
             log.err("invalid keysym {s}", .{key});
             return error.InvalidKey;
@@ -90,7 +90,7 @@ pub const Bind = struct {
         return .{
             .key = keyval,
             .mods = mods,
-            .cmd = try .fromArg(entry.args[2..]),
+            .cmd = try .fromArg(&args),
         };
     }
 };
