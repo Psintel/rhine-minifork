@@ -105,26 +105,35 @@ pub fn trigger(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Contex
     }
 }
 
-
-pub fn register(ctx: *Context, seat: *rwm.SeatV1) !void {
-    const sc = ctx.seats.getPtr(seat).?;
+pub fn registerAll(ctx: *Context, seat: *rwm.SeatV1) !void {
     const conf = try ctx.config.getList("keybinds");
 
     log.info("registering keybinds for seat {}", .{seat.getId()});
 
     for (conf) |entry| {
         const b = Bind.fromEntry(entry) catch |e| {
-            log.err("error parsing keybinds: {}", .{e});
+            log.err("error parsing keybind : {}", .{ e});
             continue;
         };
-        const nb = try ctx.bind.getXkbBinding(seat, b.key, b.mods);
-        try sc.binds.append(ctx.gpa, nb);
-        try bindDatas.put(ctx.gpa, nb, .{
-            .seat = seat,
-            .cmd = b.cmd,
-        });
-        nb.setListener(*Context, trigger, ctx);
+
+        registerBind(ctx, seat, b) catch |e| {
+            log.err("failed to register keybind {}: {}", .{ b, e });
+            continue;
+        };
     }
+}
+
+fn registerBind(ctx: *Context, seat: *rwm.SeatV1, b: Bind) !void {
+    const sc = ctx.seats.getPtr(seat).?;
+    const nb = try ctx.bind.getXkbBinding(seat, b.key, b.mods);
+    errdefer nb.destroy();
+    try sc.binds.append(ctx.gpa, nb);
+    errdefer _ = sc.binds.pop();
+    try bindDatas.put(ctx.gpa, nb, .{
+        .seat = seat,
+        .cmd = b.cmd,
+    });
+    nb.setListener(*Context, trigger, ctx);
 }
 
 pub fn unregister(ctx: *Context, seat: *rwm.SeatV1) void {

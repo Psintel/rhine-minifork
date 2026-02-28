@@ -111,7 +111,7 @@ pub fn reload(self: *@This()) !void {
     for (self.seats.keys()) |seat| {
         // reload keybinds
         keybinds.unregister(self, seat);
-        try keybinds.register(self, seat);
+        try keybinds.registerAll(self, seat);
         // reload pointer binds
         pointerbinds.unregister(self, seat);
         try pointerbinds.register(self, seat);

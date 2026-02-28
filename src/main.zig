@@ -89,7 +89,7 @@ fn listen(iface: *rwm.WindowManagerV1, event: rwm.WindowManagerV1.Event, ctx: *C
                 .seat = null,
             }) catch return;
             args.id.setListener(*Context, Seat.listener, ctx);
-            keybinds.register(ctx, args.id) catch |err|
+            keybinds.registerAll(ctx, args.id) catch |err|
                 std.log.err("{} when trying to register keybinds for seat {}", .{ err, args.id.getId() });
             point_binds.register(ctx, args.id) catch |err|
                 std.log.err("{} when trying to register pointbinds for seat {}", .{ err, args.id.getId() });
