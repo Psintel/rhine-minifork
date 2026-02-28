@@ -193,6 +193,7 @@ pub const Command = union(enum) {
             },
             .moveFocus => |dir| {
                 const win = seat_data.focus orelse return;
+                const win_data = ctx.wins.getPtr(win) orelse return;
                 const ws_id = Window.getWorkspace(ctx, win) orelse return error.OrphanedFocus;
                 const ws = ctx.workspaces.getPtr(ws_id).?;
                 var tc: Tiler.TileContext = .{
@@ -200,6 +201,7 @@ pub const Command = union(enum) {
                     .gpa = ctx.gpa,
                 };
                 if (ws.getWindow(&tc, dir)) |w| {
+                    win_data.fullscreen.off();
                     seat_data.focus = w;
                     seat_data.warp_to_window = w;
                     log.info("focus  window {}", .{w.getId()});
@@ -210,6 +212,7 @@ pub const Command = union(enum) {
                 const win = seat_data.focus orelse return;
                 const ws_id = Window.getWorkspace(ctx, win) orelse return error.OrphanedFocus;
                 const ws = ctx.workspaces.getPtr(ws_id).?;
+
                 var tc: Tiler.TileContext = .{
                     .focus = win,
                     .gpa = ctx.gpa,

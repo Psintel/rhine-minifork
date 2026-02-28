@@ -86,8 +86,8 @@ pub fn get(ctx: *Context, id: WS) !*Workspace {
 }
 
 pub fn addWindow(self: *@This(), ctx: *Tiler.TileContext, win: *rwm.WindowV1) !void {
-    try self.windows.put(ctx.gpa, win, {});
     try self.tiler.vtable.add(self.tiler.context, ctx, win);
+    try self.windows.put(ctx.gpa, win, {});
 }
 
 pub fn rmWindow(self: *@This(), ctx: *Tiler.TileContext, win: *rwm.WindowV1) void {

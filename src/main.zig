@@ -133,10 +133,29 @@ fn apply_tiler(ctx: *Context) !void {
             if (!ctx.wins.contains(f)) seat.?.focus = null;
         }
 
+
         var tctx: Tiler.TileContext = .{
             .focus = focus,
             .gpa = ctx.gpa,
         };
+
+        for (ws.floating.keys()) |w| {
+            const wd = ctx.wins.getPtr(w) orelse continue;
+            if (!wd.float) {
+                try ws.addWindow(&tctx, w);
+                _ = ws.floating.swapRemove(w);
+            }
+        }
+
+        for (ws.windows.keys()) |w| {
+            const wd = ctx.wins.getPtr(w) orelse continue;
+            if (wd.float) {
+                try ws.floating.put(ctx.gpa, w, {});
+                ws.rmWindow(&tctx, w);
+            }
+
+        }
+
         ws.manage(&tctx, out_data.getArea(), &ctx.manage_states);
 
         if (out_data.overlay) |_ows| {

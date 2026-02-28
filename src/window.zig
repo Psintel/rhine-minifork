@@ -37,8 +37,32 @@ fullscreen: enum {
         switch (self.*) {
             .no => self.* = .soon,
             .yes => self.* = .was,
-            .soon, .was => {},
+            .soon => self.* = .no,
+            .was => self.* = .yes,
         }
+    }
+
+    pub fn off(self: *@This()) void {
+        switch (self.*) {
+            .yes => self.* = .was,
+            .soon => self.* = .no,
+            .no, .was => {},
+        }
+    }
+
+    pub fn on(self: *@This()) void {
+        switch (self.*) {
+            .no => self.* = .soon,
+            .was => self.* = .yes,
+            .yes, .soon => {},
+        }
+    }
+
+    pub fn isOn(self: @This()) bool {
+        return switch (self) {
+            .yes, .soon => true,
+            .no, .was => false,
+        };
     }
 } = .no,
 
@@ -164,14 +188,19 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
             }
             win_data.float = true;
         },
-        .dimensions_hint => |_| {
-            // if (h.min_height == h.max_height and h.min_width == h.max_width) {
-            //     win_data.size = .{h.max_width, h.max_height};
-            //     log.info("window {} set to floating", .{win.getId()});
-            //     // win_data.float = true;
-            // } else {
-            //     // win_data.float = false;
-            // }
+        .dimensions_hint => |h| {
+            log.info("window {} hints dimensions from {}, {} to {}, {}", .{
+                win.getId(),
+                h.min_width,
+                h.min_height,
+                h.max_width,
+                h.max_height,
+            });
+            if (h.min_height == h.max_height and h.min_width == h.max_width and h.min_height != 0 and h.min_width != 0) {
+                win_data.size = .{ h.max_width, h.max_height };
+                log.info("window {} set to floating", .{win.getId()});
+                win_data.float = true;
+            }
         },
         .title => |t| {
             const _old = win_data.title;
