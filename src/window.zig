@@ -140,6 +140,7 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
 pub fn deinit(self: *const @This(), ctx: *Context, win: *rwm.WindowV1) void {
     self.node.destroy();
 
+    _ = ctx.manage_states.swapRemove(win);
     const ws = Workspace.byWindow(ctx, win) orelse {
         log.err("window {} does not have a workspace", .{win});
         return;

@@ -1,8 +1,6 @@
 = TODO
 * rework animation system
     ** interactive resize -> window cropping
-* handle reload failures gracefully
-    ** keybinds still scuffed
 * tiler API overhaul
     ** re-introduce between render and manage better
     ** window highlights won't be managed by the tiler
@@ -14,8 +12,6 @@
 * special workspaces
     ** autostart clients
     ** maybe have a focused workspace per seat
-* re-integrate input config
-    ** configure mouse accel profile
 * clip windows when they leave workspace bounds
     ** tilers can fuck up but that's a them-problem
     ** allows for scrollers

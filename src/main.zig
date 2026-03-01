@@ -384,8 +384,7 @@ fn manage(ctx: *Context) !void {
     }
 
     for (ctx.should_close.items) |w| {
-        _ = ctx.manage_states.swapRemove(w);
-        w.close();
+        if (ctx.wins.contains(w)) w.close();
     }
     ctx.should_close.clearAndFree(ctx.gpa);
 
