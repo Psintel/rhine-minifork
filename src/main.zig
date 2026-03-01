@@ -24,7 +24,6 @@ const Workspace = @import("workspace.zig");
 const Tiler = @import("tiler.zig");
 const Layouts = @import("layouts.zig");
 
-const LibInput = @import("input/libinput.zig");
 const Config = @import("config.zig");
 const HyprIPC = @import("hyprIPC.zig");
 const Inotify = @import("inotify.zig");
