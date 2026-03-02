@@ -91,12 +91,13 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
 
     for (rules) |rule| {
         const wr = Rules.WindowRule.fromEntry(rule) catch |err| {
-            log.err("failed to apply window rule {} with {}", .{ rule, err });
+            log.err("failed to parse window rule \"{s}\" with {}", .{ rule.args, err });
             continue;
         };
         if (!wr.match.match(self.app_id orelse "")) continue;
         switch (wr.rule) {
             .float => self.float = true,
+            .nofloat => self.float = false,
             .workspace => |_ws| ws = _ws,
         }
     }
@@ -195,6 +196,12 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
                 log.info("window {} set to floating", .{win.getId()});
                 win_data.float = true;
             }
+        },
+        .fullscreen_requested => {
+            win_data.fullscreen.on();
+        },
+        .exit_fullscreen_requested => {
+            win_data.fullscreen.off();
         },
         .title => |t| {
             const _old = win_data.title;

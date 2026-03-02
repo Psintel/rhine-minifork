@@ -51,6 +51,7 @@ pub const Command = union(enum) {
     killFocus: void,
     launch: []const u8,
     toggleFullscreen: void,
+    toggleFloating: void,
     toggleWorkspace: void,
     toggleSpecial: Workspace.WS,
     focusWorkspace: Workspace.WS,
@@ -67,7 +68,7 @@ pub const Command = union(enum) {
         ) orelse return error.InvalidTag;
 
         switch (tag) {
-            inline .killFocus, .toggleFullscreen, .toggleWorkspace => |t| return @unionInit(@This(), @tagName(t), {}),
+            inline .killFocus, .toggleFullscreen, .toggleFloating, .toggleWorkspace => |t| return @unionInit(@This(), @tagName(t), {}),
             .launch => return .{
                 .launch = args.next() orelse return error.NoLaunchArg,
             },
@@ -113,6 +114,13 @@ pub const Command = union(enum) {
                 const focus = seat_data.focus orelse return;
                 const win_data = ctx.wins.getPtr(focus) orelse return;
                 win_data.fullscreen.toggle();
+                ctx.dirty = true;
+            },
+            .toggleFloating => {
+                const focus = seat_data.focus orelse return;
+                const win_data = ctx.wins.getPtr(focus) orelse return;
+                win_data.float = !win_data.float;
+                log.info("toggled floating state of {}", .{focus.getId()});
                 ctx.dirty = true;
             },
             .toggleWorkspace => {

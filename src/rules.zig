@@ -23,6 +23,7 @@ const Matcher = union(enum) {
 
 const Rule = union(enum) {
     float: void,
+    nofloat: void,
     workspace: Workspace.WS,
 };
 
@@ -44,7 +45,7 @@ pub const WindowRule = struct {
         ) orelse return error.WrongKey;
 
         const rule: Rule = switch (rtype) {
-            .float => .{ .float = {} },
+            inline .float, .nofloat => |r| @unionInit(Rule, @tagName(r), {}),
             .workspace => ws: {
                 const wss = ruleit.next() orelse return error.ParseError;
                 const ws = std.fmt.parseInt(Workspace.WS, wss, 0) catch return error.ParseError;

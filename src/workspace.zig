@@ -140,3 +140,17 @@ pub fn bySeat(ctx: *Context, seat: *rwm.SeatV1) ?WS {
     const out_data = ctx.outs.get(out).?;
     return out_data.workspace;
 }
+
+pub fn setFloating(self: *@This(), ctx: *Context, win: *rwm.WindowV1) !void {
+    if (self.floating.contains(win)) return std.debug.assert(!self.windows.contains(win));
+
+    try self.floating.put(ctx.gpa, win, {});
+    self.rmWindow(.{ .gpa = ctx.gpa }, win);
+}
+
+pub fn setTiling(self: *@This(), ctx: *Context, win: *rwm.WindowV1) !void {
+    if (self.windows.contains(win)) return std.debug.assert(!self.floating.contains(win));
+
+    try self.addWindow(.{ .gpa = ctx.gpa }, win);
+    _ = self.floating.swapRemove(win);
+}
