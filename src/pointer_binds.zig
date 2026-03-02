@@ -127,9 +127,9 @@ const move = struct {
             .cursorPos = (ct.pos + final - out_data.position.?) * utils.Rect2.unit.dim / out_data.size.?,
         };
 
-        ws_data.rmWindow(&tc, ct.win);
+        ws_data.rmWindow(tc, ct.win);
         tc.focus = Window.byPointer(ctx, ct.pos + final);
-        ws_data.addWindow(&tc, ct.win) catch {
+        ws_data.addWindow(tc, ct.win) catch {
             log.err("couldn't reinsert window {}", .{ct.win.getId()});
             _ = ws_data.windows.swapRemove(ct.win);
             ctx.orphan(ct.win);

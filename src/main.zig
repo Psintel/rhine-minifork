@@ -132,16 +132,10 @@ fn apply_tiler(ctx: *Context) !void {
             if (!ctx.wins.contains(f)) seat.?.focus = null;
         }
 
-
-        var tctx: Tiler.TileContext = .{
-            .focus = focus,
-            .gpa = ctx.gpa,
-        };
-
         for (ws.floating.keys()) |w| {
             const wd = ctx.wins.getPtr(w) orelse continue;
             if (!wd.float) {
-                try ws.addWindow(&tctx, w);
+                try ws.addWindow(.{ .gpa = ctx.gpa, .focus = focus }, w);
                 _ = ws.floating.swapRemove(w);
             }
         }
@@ -150,16 +144,15 @@ fn apply_tiler(ctx: *Context) !void {
             const wd = ctx.wins.getPtr(w) orelse continue;
             if (wd.float) {
                 try ws.floating.put(ctx.gpa, w, {});
-                ws.rmWindow(&tctx, w);
+                ws.rmWindow(.{ .gpa = ctx.gpa, .focus = focus }, w);
             }
-
         }
 
-        ws.manage(&tctx, out_data.getArea(), &ctx.manage_states);
+        ws.manage(.{ .gpa = ctx.gpa, .focus = focus }, out_data.getArea(), &ctx.manage_states);
 
         if (out_data.overlay) |_ows| {
             const ows = try Workspace.get(ctx, _ows);
-            ows.manage(&tctx, out_data.getArea().scale(0.95), &ctx.manage_states);
+            ows.manage(.{ .gpa = ctx.gpa, .focus = focus }, out_data.getArea().scale(0.95), &ctx.manage_states);
             for (ows.windows.keys()) |win| {
                 const data = ctx.manage_states.getPtr(win) orelse continue;
                 data.dims = data.dims.scale(0.95);

@@ -177,14 +177,14 @@ pub const Command = union(enum) {
                 log.info("sending workspace {}", .{ws});
 
                 const s = ctx.workspaces.getPtr(source).?;
-                var tc: Tiler.TileContext = .{
+                const tc: Tiler.TileContext = .{
                     .cursorPos = seat_data.pointer_pos,
                     .focus = seat_data.focus,
                     .gpa = ctx.gpa,
                 };
 
-                s.rmWindow(&tc, focus);
-                w.addWindow(&tc, focus) catch |e| {
+                s.rmWindow(tc, focus);
+                w.addWindow(tc, focus) catch |e| {
                     log.err("error adding window {} to workspace {}: {}", .{ focus.getId(), ws, e });
                     ctx.orphan(focus);
                 };
@@ -196,11 +196,10 @@ pub const Command = union(enum) {
                 const win_data = ctx.wins.getPtr(win) orelse return;
                 const ws_id = Window.getWorkspace(ctx, win) orelse return error.OrphanedFocus;
                 const ws = ctx.workspaces.getPtr(ws_id).?;
-                var tc: Tiler.TileContext = .{
+                if (ws.getWindow(.{
                     .focus = seat_data.focus,
                     .gpa = ctx.gpa,
-                };
-                if (ws.getWindow(&tc, dir)) |w| {
+                }, dir)) |w| {
                     win_data.fullscreen.off();
                     seat_data.focus = w;
                     seat_data.warp_to_window = w;
@@ -213,11 +212,7 @@ pub const Command = union(enum) {
                 const ws_id = Window.getWorkspace(ctx, win) orelse return error.OrphanedFocus;
                 const ws = ctx.workspaces.getPtr(ws_id).?;
 
-                var tc: Tiler.TileContext = .{
-                    .focus = win,
-                    .gpa = ctx.gpa,
-                };
-                ws.move(&tc, dir);
+                ws.move(.{ .gpa = ctx.gpa, .focus = win }, dir);
                 seat_data.warp_to_window = win;
                 ctx.dirty = true;
             },
@@ -228,11 +223,10 @@ pub const Command = union(enum) {
             .layoutCommand => |laycmd| {
                 const ws = Workspace.bySeat(ctx, seat) orelse return error.NoSeatFound;
                 const ws_data = try Workspace.get(ctx, ws);
-                var tc: Tiler.TileContext = .{
-                    .focus = seat_data.focus,
+                try ws_data.command(.{
                     .gpa = ctx.gpa,
-                };
-                try ws_data.command(&tc, laycmd);
+                    .focus = seat_data.focus,
+                }, laycmd);
                 ctx.dirty = true;
             },
         }

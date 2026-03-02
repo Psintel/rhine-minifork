@@ -85,40 +85,35 @@ pub fn get(ctx: *Context, id: WS) !*Workspace {
     return ctx.workspaces.getPtr(id).?;
 }
 
-pub fn addWindow(self: *@This(), ctx: *Tiler.TileContext, win: *rwm.WindowV1) !void {
+pub fn addWindow(self: *@This(), ctx: Tiler.TileContext, win: *rwm.WindowV1) !void {
     try self.tiler.vtable.add(self.tiler.context, ctx, win);
     try self.windows.put(ctx.gpa, win, {});
 }
 
-pub fn rmWindow(self: *@This(), ctx: *Tiler.TileContext, win: *rwm.WindowV1) void {
+pub fn rmWindow(self: *@This(), ctx: Tiler.TileContext, win: *rwm.WindowV1) void {
     if (self.windows.swapRemove(win))
         self.tiler.vtable.remove(self.tiler.context, ctx, win);
 }
 
-pub fn manage(self: *@This(), ctx: *Tiler.TileContext, bounds: utils.Rect2, man: *Tiler.ManageMap) void {
+pub fn manage(self: *@This(), ctx: Tiler.TileContext, bounds: utils.Rect2, man: *Tiler.ManageMap) void {
     return self.tiler.vtable.manage(self.tiler.context, ctx, bounds, man);
 }
 
-pub fn getWindow(self: *@This(), ctx: *Tiler.TileContext, dir: Tiler.Dir) ?*rwm.WindowV1 {
+pub fn getWindow(self: *@This(), ctx: Tiler.TileContext, dir: Tiler.Dir) ?*rwm.WindowV1 {
     return self.tiler.vtable.getWindow(self.tiler.context, ctx, dir);
 }
 
-pub fn move(self: *@This(), ctx: *Tiler.TileContext, dir: Tiler.Dir) void {
+pub fn move(self: *@This(), ctx: Tiler.TileContext, dir: Tiler.Dir) void {
     return self.tiler.vtable.move(self.tiler.context, ctx, dir);
 }
 
-pub fn command(self: *@This(), ctx: *Tiler.TileContext, cmd: Tiler.Command) Tiler.Error!void {
+pub fn command(self: *@This(), ctx: Tiler.TileContext, cmd: Tiler.Command) Tiler.Error!void {
     return self.tiler.vtable.command(self.tiler.context, ctx, cmd);
 }
 
 pub fn deinit(self: *@This(), ctx: *Context) void {
-    var tctx: Tiler.TileContext = .{
-        .focus = null,
-        .gpa = ctx.gpa,
-    };
-
     for (self.windows.keys()) |w| {
-        self.tiler.vtable.remove(self.tiler.context, &tctx, w);
+        self.tiler.vtable.remove(self.tiler.context, .{.gpa = ctx.gpa}, w);
     }
 
     Layouts.delete(ctx.gpa, self.tiler);

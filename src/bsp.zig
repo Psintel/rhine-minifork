@@ -211,7 +211,7 @@ const subTile = union(enum) {
         }
     }
 
-    pub fn manage(self: *@This(), ctx: *Tiler.TileContext, rect: utils.Rect2, out: *ManageMap) void {
+    pub fn manage(self: *@This(), ctx: Tiler.TileContext, rect: utils.Rect2, out: *ManageMap) void {
         switch (self.*) {
             .Leaf => |w| {
                 if (out.contains(w)) {
@@ -237,7 +237,7 @@ const subTile = union(enum) {
     }
 };
 
-pub fn add(self: *@This(), ctx: *Tiler.TileContext, win: WT) Tiler.Error!void {
+pub fn add(self: *@This(), ctx: Tiler.TileContext, win: WT) Tiler.Error!void {
     log.info("adding window {} to the tree", .{win.getId()});
 
     const tree = &(self.tree orelse {
@@ -301,7 +301,7 @@ pub fn add(self: *@This(), ctx: *Tiler.TileContext, win: WT) Tiler.Error!void {
     }
 }
 
-pub fn remove(self: *@This(), ctx: *Tiler.TileContext, win: WT) void {
+pub fn remove(self: *@This(), ctx: Tiler.TileContext, win: WT) void {
     const tree = &(self.tree orelse return);
     const rem = tree.remove(ctx.gpa, win);
 
@@ -312,13 +312,13 @@ pub fn remove(self: *@This(), ctx: *Tiler.TileContext, win: WT) void {
     }
 }
 
-pub fn manage(self: *@This(), ctx: *Tiler.TileContext, bound: utils.Rect2, wins: *ManageMap) void {
+pub fn manage(self: *@This(), ctx: Tiler.TileContext, bound: utils.Rect2, wins: *ManageMap) void {
     const tree = &(self.tree orelse return);
 
     tree.manage(ctx, bound, wins);
 }
 
-pub fn getWindow(self: *@This(), ctx: *Tiler.TileContext, dir: Tiler.Dir) ?WT {
+pub fn getWindow(self: *@This(), ctx: Tiler.TileContext, dir: Tiler.Dir) ?WT {
     const tree = &(self.tree orelse return null);
     const win = ctx.focus orelse return null;
     const origin: utils.Rect2 = .unit;
@@ -330,7 +330,7 @@ pub fn getWindow(self: *@This(), ctx: *Tiler.TileContext, dir: Tiler.Dir) ?WT {
         return null;
 }
 
-pub fn move(self: *@This(), ctx: *Tiler.TileContext, dir: Tiler.Dir) void {
+pub fn move(self: *@This(), ctx: Tiler.TileContext, dir: Tiler.Dir) void {
     const tree = &(self.tree orelse return);
     const win = ctx.focus orelse return;
     const wrec = tree.Wrect(.unit, win) orelse return;
@@ -395,7 +395,7 @@ pub fn move(self: *@This(), ctx: *Tiler.TileContext, dir: Tiler.Dir) void {
     }
 }
 
-pub fn command(self: *@This(), ctx: *Tiler.TileContext, cmd: Tiler.Command) Tiler.Error!void {
+pub fn command(self: *@This(), ctx: Tiler.TileContext, cmd: Tiler.Command) Tiler.Error!void {
     const tree = &(self.tree orelse return);
     const op: Command = std.enums.fromInt(Command, cmd.command) orelse return error.InvalidCommand;
     switch (op) {

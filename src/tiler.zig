@@ -62,18 +62,18 @@ pub const Error = error{
 
 pub const VTable = struct {
     // takes workspace (including the anyopaque context pointer) and returns a slice of window positions.
-    add: *const fn (?*anyopaque, *TileContext, WT) Error!void,
+    add: *const fn (?*anyopaque, TileContext, WT) Error!void,
     // every added window must be removed to fully deinitialize
-    remove: *const fn (?*anyopaque, *TileContext, WT) void,
+    remove: *const fn (?*anyopaque, TileContext, WT) void,
 
     // upate the ManageMap structure. all tiler-tracked windows are guaranteed to be available
-    manage: *const fn (?*anyopaque, *TileContext, bound: utils.Rect2, *ManageMap) void,
+    manage: *const fn (?*anyopaque, TileContext, bound: utils.Rect2, *ManageMap) void,
 
     // these two center on the focus from context (since that is an arg, it's easily mockable)
-    getWindow: *const fn (?*anyopaque, *TileContext, Dir) ?WT,
-    move: *const fn (?*anyopaque, *TileContext, Dir) void,
+    getWindow: *const fn (?*anyopaque, TileContext, Dir) ?WT,
+    move: *const fn (?*anyopaque, TileContext, Dir) void,
 
-    command: *const fn (?*anyopaque, *TileContext, Command) Error!void,
+    command: *const fn (?*anyopaque, TileContext, Command) Error!void,
 };
 
 // for embedding a Vtable builder into a state tiler
@@ -88,32 +88,32 @@ pub fn tiler(T: type) type {
             .command = command_impl,
         };
 
-        fn add_impl(data: ?*anyopaque, ctx: *TileContext, win: WT) Error!void {
+        fn add_impl(data: ?*anyopaque, ctx: TileContext, win: WT) Error!void {
             const parent: *T = @ptrCast(@alignCast(data.?));
             return parent.add(ctx, win);
         }
 
-        fn remove_impl(data: ?*anyopaque, ctx: *TileContext, win: WT) void {
+        fn remove_impl(data: ?*anyopaque, ctx: TileContext, win: WT) void {
             const parent: *T = @ptrCast(@alignCast(data.?));
             return parent.remove(ctx, win);
         }
 
-        fn manage_impl(data: ?*anyopaque, ctx: *TileContext, bound: utils.Rect2, man: *ManageMap) void {
+        fn manage_impl(data: ?*anyopaque, ctx: TileContext, bound: utils.Rect2, man: *ManageMap) void {
             const parent: *T = @ptrCast(@alignCast(data.?));
             return parent.manage(ctx, bound, man);
         }
 
-        fn move_impl(data: ?*anyopaque, ctx: *TileContext, d: Dir) void {
+        fn move_impl(data: ?*anyopaque, ctx: TileContext, d: Dir) void {
             const parent: *T = @ptrCast(@alignCast(data.?));
             parent.move(ctx, d);
         }
 
-        fn get_impl(data: ?*anyopaque, ctx: *TileContext, d: Dir) ?WT {
+        fn get_impl(data: ?*anyopaque, ctx: TileContext, d: Dir) ?WT {
             const parent: *T = @ptrCast(@alignCast(data.?));
             return parent.getWindow(ctx, d);
         }
 
-        fn command_impl(data: ?*anyopaque, ctx: *TileContext, cmd: Command) Error!void {
+        fn command_impl(data: ?*anyopaque, ctx: TileContext, cmd: Command) Error!void {
             const parent: *T = @ptrCast(@alignCast(data.?));
             return parent.command(ctx, cmd);
         }

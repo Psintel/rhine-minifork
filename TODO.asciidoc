@@ -33,6 +33,10 @@
     ** my own?
     ** sway?
 
+= Nice to Have
+* show keyboard layout to user
+* nagbar (or similar) for config issues
+
 = issues
 * do better window deinit checks, sometimes we panic
 * fix ouput placement logic on rescale

@@ -127,13 +127,11 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
 
         try ws_data.floating.put(ctx.gpa, win, {});
     } else {
-        var tctx: Tiler.TileContext = .{
+        try ws_data.addWindow(.{
+            .gpa = ctx.gpa,
             .focus = if (seat) |s| s.focus else null,
             .cursorPos = cursor,
-            .gpa = ctx.gpa,
-        };
-
-        try ws_data.addWindow(&tctx, win);
+        }, win);
     }
 }
 
@@ -152,12 +150,7 @@ pub fn deinit(self: *const @This(), ctx: *Context, win: *rwm.WindowV1) void {
     const ws_data = ctx.workspaces.getPtr(ws).?;
 
     if (!ws_data.floating.swapRemove(win)) {
-        var tctx: Tiler.TileContext = .{
-            .focus = null, // TODO: fix this
-            .gpa = ctx.gpa,
-        };
-
-        ws_data.rmWindow(&tctx, win);
+        ws_data.rmWindow(.{ .gpa = ctx.gpa }, win);
     }
 }
 
