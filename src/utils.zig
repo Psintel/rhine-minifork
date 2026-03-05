@@ -26,6 +26,13 @@ pub fn Lerp(comptime period: i64) type {
             }
         },
 
+        pub fn max(self: @This()) Vec2 {
+            return switch (self) {
+                .static => |v| v,
+                .transit => |t| @max(t.from, t.to),
+            };
+        }
+
         pub fn current(self: @This()) Vec2 {
             return self.get(std.time.microTimestamp());
         }
@@ -73,7 +80,7 @@ pub fn ilerp(fst: Vec2, snd: Vec2, prog: f32) Vec2 {
 }
 
 pub fn flerp(fst: Vec2f, snd: Vec2f, _prog: f32) Vec2f {
-    return interp.lerp(fst, snd, ease.elasticOut(_prog, .{.amplitude = 0.5}));
+    return interp.lerp(fst, snd, ease.elasticOut(_prog, .{ .amplitude = 0.5 }));
     // const prog: Vec2f = @splat(_prog);
     // return math.lerp(fst, snd, prog);
 }

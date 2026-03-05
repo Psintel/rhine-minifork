@@ -2,6 +2,7 @@ const std = @import("std");
 const mem = std.mem;
 const wayland = @import("wayland");
 const linux = std.os.linux;
+const meta = std.meta;
 
 const wl = wayland.client.wl;
 const rwm = wayland.client.river;
@@ -227,7 +228,7 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, curr_time: i64) 
             .window_menu = false,
             .maximize = false,
             .minimize = false,
-            .fullscreen = false,
+            .fullscreen = true,
         });
         win.useSsd();
         win.setTiled(.{
@@ -237,24 +238,22 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, curr_time: i64) 
             .bottom = true,
         });
 
-        if (wd.setSize(man_state.dims.dim, curr_time))
-            win.informResizeStart();
-
         const goal = &wd.goal_size;
-        const ts = @max(goal.get(curr_time), @as(utils.Vec2, @splat(0)));
-
-        win.proposeDimensions(ts[0], ts[1]);
+        if (wd.setSize(man_state.dims.dim, curr_time)) {
+            const ts = @max(goal.max(), wd.size, @as(utils.Vec2, @splat(0)));
+            win.proposeDimensions(ts[0], ts[1]);
+        }
 
         if (goal.done(curr_time)) {
-            win.informResizeEnd();
             goal.staticify();
-        } else {
-            ctx.dirty = true;
+            const ts = goal.get(curr_time);
+            win.proposeDimensions(ts[0], ts[1]);
         }
     }
 
     for (ws.floating.keys()) |win| {
         const wd = ctx.wins.getPtr(win) orelse continue;
+        _ = wd;
         const col: utils.Color = .gray;
 
         win.setBorders(
@@ -280,20 +279,7 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, curr_time: i64) 
             .bottom = false,
         });
 
-        const goal = &wd.goal_size;
-        const ts = goal.get(curr_time);
-        switch (goal.*) {
-            .transit => win.informResizeStart(),
-            .static => win.informResizeEnd(),
-        }
-
-        win.proposeDimensions(ts[0], ts[1]);
-
-        if (!goal.done(curr_time)) {
-            ctx.dirty = true;
-        } else {
-            goal.staticify();
-        }
+        win.proposeDimensions(0, 0);
     }
 }
 
@@ -419,12 +405,16 @@ fn render(ctx: *Context) !void {
         }
 
         const tp = wd.pos.get(curr_time);
+        const size: utils.Vec2 = if (wd.goal_size.done(curr_time)) @splat(0) else wd.goal_size.get(curr_time);
+
         wd.node.setPosition(tp[0], tp[1]);
+        w.setContentClipBox(0, 0, size[0], size[1]);
         wd.node.placeTop();
 
-        if (!wd.pos.done(curr_time)) {
-            ctx.dirty = true;
-        } else {
+        if (meta.activeTag(wd.pos) == .transit) ctx.dirty = true;
+        if (meta.activeTag(wd.goal_size) == .transit) ctx.dirty = true;
+
+        if (wd.pos.done(curr_time)) {
             wd.pos.staticify();
         }
     }
