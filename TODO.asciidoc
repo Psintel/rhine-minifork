@@ -1,6 +1,8 @@
 = TODO
+* update to version 4 of window-management-v1
+    ** store identifiers for wm session restore
 * rework animation system
-    ** interactive resize -> window cropping
+    ** customize easings
 * tiler API overhaul
     ** re-introduce between render and manage better
     ** window highlights won't be managed by the tiler

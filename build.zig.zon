@@ -37,8 +37,8 @@
             .hash = "wayland-0.5.0-dev-lQa1kv_ZAQCZfnVZMocokZ78QJbH6NaM5RUC9ODQPhx5",
         },
         .river = .{
-            .url = "git+https://codeberg.org/river/river#e595425c4a2a4a13c23d4e09c3dc2386436b4e99",
-            .hash = "river-0.4.0-dev-_G6Njuw5CwDKnBflrAA8ft0l30TgMyXHAdmxVCjZrd3V",
+            .url = "git+https://codeberg.org/river/river#958b0ac02b878c1d7f55e91dc1876414d70c884b",
+            .hash = "river-0.4.0-dev-_G6NjtKJCwCbP3q1MyVChWBw-Yn_S9xOC51-N0DbNjkr",
         },
         .mr_tween = .{
             .url = "git+https://codeberg.org/Games-by-Mason/mr_tween.git#bdff54a786ec1b72649069273975cfb987079938",

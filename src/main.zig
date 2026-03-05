@@ -39,7 +39,7 @@ const Registry = struct {
         switch (event) {
             .global => |global| {
                 if (mem.orderZ(u8, global.interface, rwm.WindowManagerV1.interface.name) == .eq) {
-                    context.wm = registry.bind(global.name, rwm.WindowManagerV1, 3) catch return;
+                    context.wm = registry.bind(global.name, rwm.WindowManagerV1, 4) catch return;
                     std.log.info("registered window manager interface with version {}", .{global.version});
                 } else if (mem.orderZ(u8, global.interface, rwm.LayerShellV1.interface.name) == .eq) {
                     context.shell = registry.bind(global.name, rwm.LayerShellV1, 1) catch return;

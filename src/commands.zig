@@ -60,6 +60,7 @@ pub const Command = union(enum) {
     moveFocus: Tiler.Dir,
     moveWindow: Tiler.Dir,
     layoutCommand: Tiler.Command,
+    exit: void,
 
     pub fn fromArg(args: *Config.Entry.Iterator) !@This() {
         const tag = meta.stringToEnum(
@@ -68,7 +69,7 @@ pub const Command = union(enum) {
         ) orelse return error.InvalidTag;
 
         switch (tag) {
-            inline .killFocus, .toggleFullscreen, .toggleFloating, .toggleWorkspace => |t| return @unionInit(@This(), @tagName(t), {}),
+            inline .killFocus, .toggleFullscreen, .toggleFloating, .toggleWorkspace, .exit => |t| return @unionInit(@This(), @tagName(t), {}),
             .launch => return .{
                 .launch = args.next() orelse return error.NoLaunchArg,
             },
@@ -99,6 +100,7 @@ pub const Command = union(enum) {
 
     pub fn dispatch(cmd: @This(), ctx: *Context, seat: *rwm.SeatV1) !void {
         const seat_data = ctx.seats.getPtr(seat) orelse return error.NoSeat;
+        log.info("dispatching command {} on seat {}", .{cmd, seat.getId()});
         switch (cmd) {
             .killFocus => {
                 if (seat_data.focus) |w| {
@@ -236,6 +238,9 @@ pub const Command = union(enum) {
                     .focus = seat_data.focus,
                 }, laycmd);
                 ctx.dirty = true;
+            },
+            .exit => {
+                ctx.wm.exitSession();
             },
         }
     }
