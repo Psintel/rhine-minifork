@@ -27,7 +27,6 @@
     ** maybe improve initial position
     ** improve pop-up heuristics
     ** gesture for resizing them
-    ** float toggle bind
 * implement a bar ipc
     ** hyrpland!
         *** do some sort of RCU thingy to prevent races
@@ -38,11 +37,6 @@
 = Nice to Have
 * show keyboard layout to user
 * nagbar (or similar) for config issues
-
-= issues
-* do better window deinit checks, sometimes we panic
-* fix ouput placement logic on rescale
-* moveDir and focusDir should work across outputs
 
 = Ambitions
 * multi-touch gestures (also tiling specific)
@@ -55,6 +49,6 @@
 * layouts
     ** scroller
     ** single window
-* make all interface references just the id.
-    ** serialize wm state to disk
-    ** waiting for protocol
+* improve multi-monitor
+    ** better workspace monitor switching
+    ** move focus and windows across workspaces

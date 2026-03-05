@@ -115,7 +115,7 @@ fn listen(iface: *rwm.WindowManagerV1, event: rwm.WindowManagerV1.Event, ctx: *C
     }
 }
 
-fn apply_tiler(ctx: *Context) !void {
+fn apply_tiler(ctx: *Context, curr_time: i64) !void {
     var states = ctx.manage_states.iterator();
     while (states.next()) |rs| {
         rs.value_ptr.show = false;
@@ -173,12 +173,14 @@ fn apply_tiler(ctx: *Context) !void {
 
         if (wd.float) continue;
 
-        const man_state = ctx.manage_states.get(w) orelse {
+        const man_state = ctx.manage_states.getPtr(w) orelse {
             log.err("failed to manage window {}", .{w.getId()});
             continue;
         };
 
-        wd.setPos(man_state.dims.pos, null);
+        if (@reduce(.Or, man_state.dims.dim < @as(utils.Vec2, @splat(0)))) man_state.show = false;
+
+        wd.setPos(man_state.dims.pos, curr_time);
     }
 }
 
@@ -246,7 +248,7 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, curr_time: i64) 
 
         if (goal.done(curr_time)) {
             goal.staticify();
-            const ts = goal.get(curr_time);
+            const ts = @max(goal.get(curr_time), @as(utils.Vec2, @splat(0)));
             win.proposeDimensions(ts[0], ts[1]);
         }
     }
@@ -291,9 +293,10 @@ fn manage(ctx: *Context) !void {
     }
     ctx.should_open.clearAndFree(ctx.gpa);
 
-    try apply_tiler(ctx);
-
     const curr_time = std.time.microTimestamp();
+
+    try apply_tiler(ctx, curr_time);
+
     // make sure out internal seat data is in-sync
     // with what the compositor knows
     var seats = ctx.seats.iterator();
@@ -405,7 +408,7 @@ fn render(ctx: *Context) !void {
         }
 
         const tp = wd.pos.get(curr_time);
-        const size: utils.Vec2 = if (wd.goal_size.done(curr_time)) @splat(0) else wd.goal_size.get(curr_time);
+        const size: utils.Vec2 = if (wd.goal_size.done(curr_time)) @splat(0) else @max(wd.goal_size.get(curr_time), @as(utils.Vec2, @splat(1)));
 
         wd.node.setPosition(tp[0], tp[1]);
         w.setContentClipBox(0, 0, size[0], size[1]);
