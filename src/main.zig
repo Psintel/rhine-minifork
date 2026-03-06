@@ -12,6 +12,7 @@ const helpers = @import("helpers.zig");
 const keybinds = @import("keybinds.zig");
 const point_binds = @import("pointer_binds.zig");
 const commands = @import("commands.zig");
+const Animations = @import("animations.zig");
 
 pub const std_options: std.Options = .{
     .log_level = .info,
@@ -180,7 +181,7 @@ fn apply_tiler(ctx: *Context, curr_time: i64) !void {
 
         if (@reduce(.Or, man_state.dims.dim < @as(utils.Vec2, @splat(0)))) man_state.show = false;
 
-        wd.setPos(man_state.dims.pos, curr_time);
+        wd.setPos(ctx.anims, man_state.dims.pos, curr_time);
     }
 }
 
@@ -246,9 +247,9 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, curr_time: i64) 
             win.proposeDimensions(ts[0], ts[1]);
         }
 
-        if (goal.done(curr_time)) {
+        if (goal.done(ctx.anims, curr_time)) {
             goal.staticify();
-            const ts = @max(goal.get(curr_time), @as(utils.Vec2, @splat(0)));
+            const ts = @max(goal.get(ctx.anims, curr_time), @as(utils.Vec2, @splat(0)));
             win.proposeDimensions(ts[0], ts[1]);
         }
     }
@@ -341,8 +342,8 @@ fn manage(ctx: *Context) !void {
                     break :window_warp;
                 };
 
-                const size = wd.goal_size.get(curr_time);
-                const pos = wd.pos.get(curr_time);
+                const size = wd.goal_size.get(ctx.anims, curr_time);
+                const pos = wd.pos.get(ctx.anims, curr_time);
                 const two: utils.Vec2 = @splat(2);
 
                 const center = pos + size / two;
@@ -407,8 +408,11 @@ fn render(ctx: *Context) !void {
             continue;
         }
 
-        const tp = wd.pos.get(curr_time);
-        const size: utils.Vec2 = if (wd.goal_size.done(curr_time)) @splat(0) else @max(wd.goal_size.get(curr_time), @as(utils.Vec2, @splat(1)));
+        const tp = wd.pos.get(ctx.anims, curr_time);
+        const size: utils.Vec2 = if (wd.goal_size.done(ctx.anims, curr_time))
+            @splat(0)
+        else
+            @max(wd.goal_size.get(ctx.anims, curr_time), @as(utils.Vec2, @splat(1)));
 
         wd.node.setPosition(tp[0], tp[1]);
         w.setContentClipBox(0, 0, size[0], size[1]);
@@ -417,7 +421,7 @@ fn render(ctx: *Context) !void {
         if (meta.activeTag(wd.pos) == .transit) ctx.dirty = true;
         if (meta.activeTag(wd.goal_size) == .transit) ctx.dirty = true;
 
-        if (wd.pos.done(curr_time)) {
+        if (wd.pos.done(ctx.anims, curr_time)) {
             wd.pos.staticify();
         }
     }
@@ -553,6 +557,7 @@ pub fn main() !void {
         .config = try Config.parse(alloc, &reader_object.interface),
         .events = events,
     };
+    defer ctx.deinit();
 
     const ipc = try HyprIPC.init(&ctx);
     defer ipc.deinit(&ctx);
@@ -564,8 +569,6 @@ pub fn main() !void {
     try ctx.workspaces.put(ctx.gpa, 0, .{
         .tiler = try Layouts.new(ctx.gpa, .bsp),
     });
-
-    defer ctx.deinit();
 
     ctx.wm.setListener(*Context, listen, &ctx);
     try ctx.loadEnv();
@@ -589,7 +592,9 @@ pub fn main() !void {
                 ctx.config.deinit(alloc);
                 ctx.config = nc;
                 ctx.dirty = true;
-                try ctx.reload();
+                ctx.reload() catch |e| {
+                    log.err("failed to reload config: {}", .{e});
+                };
             }
         }
 

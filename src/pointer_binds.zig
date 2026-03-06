@@ -97,7 +97,7 @@ const move = struct {
 
         ct.* = .{
             .win = win,
-            .start = ctx.wins.get(win).?.pos.current(),
+            .start = ctx.wins.get(win).?.pos.current(ctx.anims),
             .pos = pos,
         };
     }

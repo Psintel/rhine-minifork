@@ -14,6 +14,7 @@ const Rules = @import("rules.zig");
 const Config = @import("config.zig");
 const commands = @import("commands.zig");
 const Tiler = @import("tiler.zig");
+const Animations = @import("animations.zig");
 
 const keybinds = @import("keybinds.zig");
 const pointerbinds = @import("pointer_binds.zig");
@@ -39,6 +40,7 @@ workspaces: std.AutoArrayHashMapUnmanaged(Workspace.WS, Workspace) = .empty,
 config: Config,
 rules: std.ArrayList(Rules) = .empty,
 commands_queue: commands.Queue = .{},
+anims: Animations = .{},
 
 // short-lived state
 last_active: ?*rwm.SeatV1 = null, // last seat with activity
@@ -108,6 +110,9 @@ pub fn loadEnv(self: *@This()) !void {
 }
 
 pub fn reload(self: *@This()) !void {
+
+    self.anims = try Animations.load(&self.config);
+
     for (self.seats.keys()) |seat| {
         // reload keybinds
         keybinds.unregister(self, seat);
@@ -117,9 +122,7 @@ pub fn reload(self: *@This()) !void {
         try pointerbinds.register(self, seat);
     }
 
-    self.loadEnv() catch |e| {
-        std.log.err("failure loading new env variables: {}", .{e});
-    };
+    try self.loadEnv();
 }
 
 // not allowed to fail

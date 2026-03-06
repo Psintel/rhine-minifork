@@ -120,7 +120,7 @@ fn handlePlain(ctx: *Context, reader: *std.Io.Reader, writer: *std.Io.Writer) !v
         while (win_it.next()) |_win| {
             const win = _win.key_ptr.*;
             const win_dat = _win.value_ptr;
-            const pos = win_dat.pos.current();
+            const pos = win_dat.pos.current(ctx.anims);
             const size = win_dat.size;
 
             const ws = Workspace.byWindow(ctx, win);
@@ -163,7 +163,6 @@ fn handlePlain(ctx: *Context, reader: *std.Io.Reader, writer: *std.Io.Writer) !v
 
 fn handleCon(serv: *net.Server, ctx: *Context) !void {
     const conn = try serv.accept();
-
     var buffer: [0x500]u8 = undefined;
 
     const stream = conn.stream;

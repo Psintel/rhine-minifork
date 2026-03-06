@@ -16,6 +16,7 @@ const Tiler = @import("tiler.zig");
 const Output = @import("output.zig");
 const Window = @import("window.zig");
 const Rules = @import("rules.zig");
+const Animations = @import("animations.zig");
 
 const log = std.log.scoped(.window);
 
@@ -67,8 +68,8 @@ fullscreen: enum {
 } = .no,
 
 // will we keep those?
-pos: utils.Lerp(250_000) = .{ .static = @splat(0) },
-goal_size: utils.Lerp(250_000) = .{ .static = @splat(0) },
+pos: Animations.Lerp(.move) = .{ .static = @splat(0) },
+goal_size: Animations.Lerp(.resize) = .{ .static = @splat(0) },
 
 // initialize window
 pub fn init(_: *Context, win: *rwm.WindowV1) !@This() {
@@ -122,8 +123,12 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
         if (self.parent) |p| {
             const mics = std.time.microTimestamp();
             const paren = ctx.wins.getPtr(p).?;
-            // self.setPos(paren.pos.get(mics) + (paren.size - self.size) / @as(utils.Vec2, @splat(2)), mics);
-            self.setPos(paren.pos.get(mics), mics);
+            self.setPos(
+                ctx.anims,
+                paren.pos.get(ctx.anims, mics) + (paren.size - self.size) / @as(utils.Vec2, @splat(2)),
+                mics,
+            );
+            // self.setPos(paren.pos.get(mics), mics);
         }
 
         try ws_data.floating.put(ctx.gpa, win, {});
@@ -232,14 +237,14 @@ pub fn setSize(self: *@This(), new: utils.Vec2, _now: ?i64) bool {
     return true;
 }
 
-pub fn setPos(self: *@This(), new: utils.Vec2, _now: ?i64) void {
+pub fn setPos(self: *@This(), anims: Animations, new: utils.Vec2, _now: ?i64) void {
     const now = _now orelse time.microTimestamp();
 
     if (meta.eql(new, self.pos.end())) return;
 
     self.pos = .{
         .transit = .{
-            .from = self.pos.get(now),
+            .from = self.pos.get(anims, now),
             .to = new,
             .start = now,
         },
@@ -264,7 +269,7 @@ pub fn byPointer(ctx: *Context, pos: utils.Vec2) ?*rwm.WindowV1 {
         const win_data = ctx.wins.get(win).?;
         const rec: utils.Rect2 = .{
             .dim = win_data.size,
-            .pos = win_data.pos.current(),
+            .pos = win_data.pos.current(ctx.anims),
         };
         if (rec.inside(pos)) return win;
     }
@@ -273,7 +278,7 @@ pub fn byPointer(ctx: *Context, pos: utils.Vec2) ?*rwm.WindowV1 {
         const win_data = ctx.wins.get(win).?;
         const rec: utils.Rect2 = .{
             .dim = win_data.size,
-            .pos = win_data.pos.current(),
+            .pos = win_data.pos.current(ctx.anims),
         };
         if (rec.inside(pos)) return win;
     }

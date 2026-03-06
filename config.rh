@@ -7,18 +7,31 @@ layout {
 }
 
 env {
-    SDL_VIDEODRIVER wayland, x11
+    SDL_VIDEODRIVER wayland,x11
     QT_QPA_PLATFORM wayland
-    ELECTRON_OZONE_PLATFORM_HINT  wayland
+    ELECTRON_OZONE_PLATFORM_HINT wayland
+}
+
+animations {
+    move {
+        duration 250_000
+        easing expOut
+    }
+    resize {
+        duration 250_000
+        easing expOut
+    }
 }
 
 # alt, s, tiler, bsp, togglesplit
 keybinds [
     super, q, killFocus
+    super, m, exit
     super, Return, launch, foot
     super, d, launch, fuzzel
     super, f, toggleFullscreen
     super, Tab, toggleWorkspace
+    super, v, toggleFloating
     super, s, layoutCommand, bsp, changeSplit
     none, F12, toggleSpecial, -1
     super, F12, sendToWorkspace, -1
@@ -98,8 +111,8 @@ touchpad {
 }
 
 startup [
+    dbus-update-activation-environment --all --systemd
     kanshi
     awww-daemon
     swayidle
-    dbus-update-activation-environment, --all, --systemd
 ]
