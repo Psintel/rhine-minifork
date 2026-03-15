@@ -5,12 +5,13 @@ Rhine is a window manager for the river wayland compositor (using the river-wind
 The aim is to allow for a modular system of tiling algorithms (maybe even ones loaded from shared object files).
 Rhine is meant to be both capable and hackable.
 
+image::assets/screenshot.png[]
 
 rhine has a custom config file called `config.rh` which is to be placed in the river config directory.
 rhine supports parts of the Hyprland IPC protocol (only socket 1 so far) in order to enable external bars.
 (gBar by scorpion-26 runs for the most part.) This works by spoofing the `HYPRLAND_INSTANCE_SIGNATURE`
 environment variable. This spoofing will only affect processes spawned by the wm.
-this repo also contains an example config.
+this repo also contains an link:rhine/raw/branch/main/config.rh[example config].
 
 
 == config
