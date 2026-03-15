@@ -23,12 +23,21 @@ There is an example `config.rh` at the root of this repo.
 
 === layouts
 
-elements of the `layout` block have the form of `[Workspace ID] [layout]`. the only currently available
-layout is `bsp`. Giving `*` for a workspace id sets a default for all unspecified workspaces.
+elements of the `layout` block have the form of `<Workspace ID> <layout>`.
+`<workspace ID>` is an Integer or the wildcard `*` and `<layout>` on of the following:
+
+[cols="m,a", frame=none, grid=none]
+|===
+| Layout | Description
+
+| bsp
+| A fairly standard binary space partitioning layout.
+
+|===
 
 === environment
 
-elements of the `env` block are of the form `[ENV VARIABLE] [value]`.
+elements of the `env` block are of the form `<ENV VARIABLE> <value>`.
 This sets environment variables for all children of rhine.
 
 === keybinds
@@ -95,10 +104,18 @@ keybinds are of the form `<modifiers>, <key>, <command>`. The same keybinds are 
 
 === windowrules
 
-elements of the `windowrules` block are of the form `[appid], [rule]`. Where `[appid]` must match a window's appid exactly. The following rules are available:
+elements of the `windowrules` block are of the form `<appid>, <rule>`. Where `[appid]` must match a window's appid exactly. The following rules are available:
 
-* `float`: make the window floating.
-* `workspace <workspace ID>`: send the window to workspace <workspace ID>.
+[cols="m,a", frame=none, grid=none]
+|===
+| Option | Description
+
+| float
+| make the window floating.
+
+| workspace <workspace ID>
+| send the window to workspace `<workspace ID>`.
+|===
 
 window rules are only applied to new windows.
 
