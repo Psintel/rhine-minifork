@@ -1,4 +1,5 @@
 = Rhine: a modular window manager for river
+:table-caption!:
 
 Rhine is a window manager for the river wayland compositor (using the river-window-manager-v1 protocol).
 The aim is to allow for a modular system of tiling algorithms (maybe even ones loaded from shared object files).
@@ -60,6 +61,55 @@ elements of the `windowrules` block are of the form `[appid], [rule]`. Where `[a
 
 window rules are only applied to new windows.
 
+=== animations
+
+Animations are configured under the `animations` group, the `animations` group contains subgroups for each animations type. these are:
+
+
+[cols="a,a", frame=none, grid=none]
+|===
+| Animation Type | Description
+
+| `move`
+| animation for moving windows
+
+| `resize`
+| animation for resizing windows
+|===
+
+each one of these groups then has the same parameters. Namely:
+
+[cols="2m,a", frame=none, grid=none]
+|===
+| duration <MICROSECONDS>
+| The duration of this animation in microseconds. Setting this to 0 disables this animation.
+| easing{nbsp}<FUNCTION>{nbsp}[,{nbsp}PARAMETERS..]
+| The easing function to use as well as some optional parameters. These are the same ones as available in https://codeberg.org/Games-by-Mason/mr_tween[this library] using the same function names, the same named parameters and the same default values for the named parameters.
+|===
+
+Putting it all together might look something like this
+```
+animations {
+    move {
+        duration 250_000
+        easing elasticOut, amplitude=0.2
+    }
+    resize {
+        duration 250_000
+        easing elasticOut, amplitude=0.2
+    }
+}
+```
+
+
+.Examples
+[cols="a,a", frame=none, grid=none]
+|===
+| elasticOut
+| sinOut
+| video::rhine/raw/branch/main/assets/elastic.mp4[opts="autoplay"]
+| video::rhine/raw/branch/main/assets/sin.mp4[opts="autoplay"]
+|===
 
 == non-goals
 
@@ -67,6 +117,7 @@ What will rhine _not_ do (for now):
 
 * ssd. all windows will be (for now) undecorated (aside from fun borders)
 * present the best floating/stacking experience
+
 
 
 == running rhine
