@@ -42,7 +42,7 @@ const Animations = @This();
 
 animations: std.EnumArray(AnimationType, Animation) = .initFill(.{
     .duration = 300_000,
-    .easing = .{ .fun = .{ .elasticOut = .{ .amplitude = 0.5 } } },
+    .easing = .{ .fun = .{ .elasticOut = .{ .amplitude = 0.5, } } },
 }),
 
 pub const Easing = struct {
@@ -227,7 +227,7 @@ pub fn load(cfg: *const Config) !@This() {
     for (std.enums.values(AnimationType)) |atype| {
         const afield = out.animations.getPtr(atype);
         const data = try anims.sub(@tagName(atype));
-        if (try data.getSole("duration")) |dur| afield.duration = try fmt.parseInt(i64, dur, 0);
+        if (try data.getSole("duration")) |dur| afield.duration = try fmt.parseInt(u63, dur, 0);
         if (try data.getArgs("easing")) |ez| afield.easing = try .parse(ez);
     }
 
