@@ -107,6 +107,10 @@ pub fn move(self: *@This(), ctx: Tiler.TileContext, dir: Tiler.Dir) void {
     return self.tiler.vtable.move(self.tiler.context, ctx, dir);
 }
 
+pub fn setSize(self: *@This(), ctx: Tiler.TileContext, size: utils.Vec2f, anchor: Tiler.Anchor) void {
+    return self.tiler.vtable.setSize(self.tiler.context, ctx, size, anchor);
+}
+
 pub fn command(self: *@This(), ctx: Tiler.TileContext, cmd: Tiler.Command) Tiler.Error!void {
     return self.tiler.vtable.command(self.tiler.context, ctx, cmd);
 }

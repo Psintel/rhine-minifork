@@ -76,17 +76,28 @@ pub fn listener(seat: *rwm.SeatV1, e: rwm.SeatV1.Event, ctx: *Context) void {
         .op_delta => |d| {
             if (seat_data.pointer_op) |*op| {
                 op.delta = .{ d.dx, d.dy };
+            } else {
+                seat.opEnd();
             }
         },
         .op_release => {
             if (seat_data.pointer_op) |*op| {
                 op.state = .end;
+            } else {
+                seat.opEnd();
             }
         },
         else => {
             log.warn("lmao! can't actually handle event {s}", .{@tagName(e)});
         },
     }
+}
+
+pub fn anyPointerOp(ctx: *Context) bool {
+    for (ctx.seats.values()) |s| {
+        if (s.pointer_op) |_| return true;
+    }
+    return false;
 }
 
 pub fn deinit(_: *@This(), ctx: *Context, seat: *rwm.SeatV1) void {

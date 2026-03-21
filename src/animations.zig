@@ -163,7 +163,7 @@ pub fn Lerp(kind: AnimationType) type {
 
             pub fn timeGet(self: @This(), anims: Animations, t: i64) Vec2 {
                 const info = anims.animations.get(kind);
-                if (info.duration == 0) return self.to;
+                if (info.duration == 0 or self.start + info.duration <= t) return self.to;
                 const d: f32 = @floatFromInt(t - self.start);
                 const p: f32 = @floatFromInt(info.duration);
                 return ilerp(self.from, self.to, @min(d / p, 1.0), info.easing);

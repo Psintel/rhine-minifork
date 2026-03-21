@@ -22,7 +22,7 @@ pub const ManageMap= utils.WLHashMap(rwm.WindowV1, TileState);
 
 pub const TileContext = struct {
     focus: ?WT = null,
-    cursorPos: ?utils.Vec2 = null,
+    cursorPos: ?utils.Vec2f = null,
     gpa: mem.Allocator,
 };
 
@@ -31,6 +31,11 @@ pub const Dir = enum {
     Right,
     Up,
     Down,
+};
+
+pub const Anchor = struct {
+    v: enum{top, bottom},
+    h: enum{left, right},
 };
 
 pub const TileState = struct {
@@ -73,18 +78,21 @@ pub const VTable = struct {
     getWindow: *const fn (?*anyopaque, TileContext, Dir) ?WT,
     move: *const fn (?*anyopaque, TileContext, Dir) void,
 
+    setSize:* const fn(?*anyopaque, TileContext, utils.Vec2f, Anchor) void,
+
     command: *const fn (?*anyopaque, TileContext, Command) Error!void,
 };
 
 // for embedding a Vtable builder into a state tiler
 pub fn tiler(T: type) type {
     return struct {
-        const vt = VTable{
+        const vt = VTable {
             .add = add_impl,
             .remove = remove_impl,
             .manage = manage_impl,
             .getWindow = get_impl,
             .move = move_impl,
+            .setSize = setSize_impl,
             .command = command_impl,
         };
 
@@ -113,10 +121,16 @@ pub fn tiler(T: type) type {
             return parent.getWindow(ctx, d);
         }
 
+        fn setSize_impl(data: ?* anyopaque, ctx: TileContext, size: utils.Vec2f, anchor: Anchor) void {
+            const parent: *T = @ptrCast(@alignCast(data.?));
+            parent.setSize(ctx, size, anchor);
+        }
+
         fn command_impl(data: ?*anyopaque, ctx: TileContext, cmd: Command) Error!void {
             const parent: *T = @ptrCast(@alignCast(data.?));
             return parent.command(ctx, cmd);
         }
+
 
         pub fn get(self: *@This()) Tiler {
             const parent: *T = @alignCast(@fieldParentPtr("tiler", self));

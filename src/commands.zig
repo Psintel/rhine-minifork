@@ -188,7 +188,7 @@ pub const Command = union(enum) {
 
                 const s = ctx.workspaces.getPtr(source).?;
                 const tc: Tiler.TileContext = .{
-                    .cursorPos = seat_data.pointer_pos,
+                    .cursorPos = Output.relPos(ctx, seat_data.pointer_pos),
                     .focus = seat_data.focus,
                     .gpa = ctx.gpa,
                 };

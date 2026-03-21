@@ -247,7 +247,7 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, curr_time: i64) 
             win.proposeDimensions(ts[0], ts[1]);
         }
 
-        if (goal.done(ctx.anims, curr_time)) {
+        if (goal.done(ctx.anims, curr_time) or Seat.anyPointerOp(ctx)) {
             goal.staticify();
             const ts = @max(goal.get(ctx.anims, curr_time), @as(utils.Vec2, @splat(0)));
             win.proposeDimensions(ts[0], ts[1]);
@@ -256,7 +256,6 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, curr_time: i64) 
 
     for (ws.floating.keys()) |win| {
         const wd = ctx.wins.getPtr(win) orelse continue;
-        _ = wd;
         const col: utils.Color = .gray;
 
         win.setBorders(
@@ -282,7 +281,18 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, curr_time: i64) 
             .bottom = false,
         });
 
-        win.proposeDimensions(0, 0);
+        // win.proposeDimensions(0, 0);
+        const goal = &wd.goal_size;
+        if (wd.setSize(wd.size, curr_time)) {
+            const ts = @max(goal.max(), wd.size, @as(utils.Vec2, @splat(0)));
+            win.proposeDimensions(ts[0], ts[1]);
+        }
+
+        if (goal.done(ctx.anims, curr_time)) {
+            goal.staticify();
+            const ts = @max(goal.get(ctx.anims, curr_time), @as(utils.Vec2, @splat(0)));
+            win.proposeDimensions(ts[0], ts[1]);
+        }
     }
 }
 
@@ -336,6 +346,8 @@ fn manage(ctx: *Context) !void {
         }
 
         window_warp: {
+            if (seat_data.pointer_op) |_| break :window_warp;
+
             if (seat_data.warp_to_window) |w| {
                 const wd = ctx.wins.get(w) orelse {
                     seat_data.warp_to_window = null;
@@ -421,7 +433,7 @@ fn render(ctx: *Context) !void {
         if (meta.activeTag(wd.pos) == .transit) ctx.dirty = true;
         if (meta.activeTag(wd.goal_size) == .transit) ctx.dirty = true;
 
-        if (wd.pos.done(ctx.anims, curr_time)) {
+        if (wd.pos.done(ctx.anims, curr_time) or Seat.anyPointerOp(ctx) ) {
             wd.pos.staticify();
         }
     }
@@ -509,7 +521,6 @@ pub fn main() !void {
 
     var buffer: [0x100]u8 = undefined;
     var reader_object = config.reader(&buffer);
-    var writer = std.fs.File.stderr().writer(&.{});
 
     const display = try wl.Display.connect(null);
     defer display.disconnect();
@@ -564,14 +575,12 @@ pub fn main() !void {
     const t = try std.Thread.spawn(.{}, HyprIPC.run, .{ ipc, &ctx });
     t.detach();
 
-    try ctx.config.serialize(&writer.interface);
-
     try ctx.workspaces.put(ctx.gpa, 0, .{
         .tiler = try Layouts.new(ctx.gpa, .bsp),
     });
 
     ctx.wm.setListener(*Context, listen, &ctx);
-    try ctx.loadEnv();
+    try ctx.reload();
     helpers.startup(&ctx);
 
     while (ctx.running) {

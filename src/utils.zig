@@ -5,42 +5,70 @@ const mem = std.mem;
 const fmt = std.fmt;
 const Animations = @import("animations.zig");
 
-pub const Vec2 = @Vector(2, i32);
-pub const Vec2f = @Vector(2, f32);
+pub const Vec2 = Vec2T(i32);
+pub const Vec2f = Vec2T(f32);
+pub const Rect2 = Rect2T(i32);
+pub const Rect2f = Rect2T(f32);
 
+fn Vec2T(T: type) type {
+    return @Vector(2, T);
+}
 
 pub fn int2Float(v: Vec2) Vec2f {
     return @floatFromInt(v);
 }
 
-pub const Rect2 = struct {
-    pos: Vec2,
-    dim: Vec2,
+fn Rect2T(T: type) type {
+    const inf = @typeInfo(T);
+    const inf_t = std.meta.activeTag(inf);
+    return struct {
+        pos: Vec2T(T),
+        dim: Vec2T(T),
 
-    pub const unit: @This() = .{
-        .pos = @splat(0),
-        .dim = @splat(1 << 16),
-    };
-
-    pub fn inside(self: @This(), pos: Vec2) bool {
-        const near = self.pos;
-        const far = self.pos + self.dim;
-
-        return near[0] <= pos[0] and pos[0] < far[0] and
-            near[1] <= pos[1] and pos[1] < far[1];
-    }
-
-    pub fn scale(self: @This(), fac: f32) @This() {
-        var dim: Vec2f = @floatFromInt(self.dim);
-        dim *= @splat(fac);
-        var pd = int2Float(self.dim) - dim;
-        pd /= @splat(2);
-        return .{
-            .pos = @intFromFloat(int2Float(self.pos) + pd),
-            .dim = @intFromFloat(dim),
+        pub const unit: @This() = .{
+            .pos = @splat(0),
+            .dim = switch (inf_t) {
+                .int => @splat(1 << 16),
+                .float => @splat(1),
+                else => @compileError("Rect2T doesn't support non-ints or floats"),
+            },
         };
-    }
-};
+
+        pub fn inside(self: @This(), pos: Vec2) bool {
+            const near = self.pos;
+            const far = self.pos + self.dim;
+
+            return near[0] <= pos[0] and pos[0] < far[0] and
+                near[1] <= pos[1] and pos[1] < far[1];
+        }
+
+        pub fn scale(self: @This(), fac: f32) @This() {
+            switch (inf_t) {
+                .int => {
+                    var dim: Vec2f = @floatFromInt(self.dim);
+                    dim *= @splat(fac);
+                    var pd = int2Float(self.dim) - dim;
+                    pd /= @splat(2);
+                    return .{
+                        .pos = @intFromFloat(int2Float(self.pos) + pd),
+                        .dim = @intFromFloat(dim),
+                    };
+                },
+                .float => {
+                    var dim = self.dim;
+                    dim *= @splat(fac);
+                    var pd = self.dim - dim;
+                    pd /= @splat(2);
+                    return .{
+                        .pos = self.pos + pd,
+                        .dim = dim,
+                    };
+                },
+                else => @compileError("Rect2T doesn't support non-ints or floats"),
+            }
+        }
+    };
+}
 
 pub const Color = struct {
     r: u32,

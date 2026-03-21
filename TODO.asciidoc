@@ -1,16 +1,13 @@
 = TODO
 * update to version 4 of window-management-v1
     ** store identifiers for wm session restore
-* rework animation system
-    ** customize easings
+    ** set cursor shapes based on context
 * tiler API overhaul
-    ** re-introduce between render and manage better
+    ** re-introduce distinction between render and manage better
     ** window highlights won't be managed by the tiler
     ** reduce API surface by removing the context object
     ** maybe remove focus move?
     ** communicate window resizing somehow
-* set cursor shapes based on context
-    * wait for next protocol version
 * special workspaces
     ** autostart clients
     ** maybe have a focused workspace per seat
@@ -26,7 +23,6 @@
 * floating windows
     ** maybe improve initial position
     ** improve pop-up heuristics
-    ** gesture for resizing them
 * implement a bar ipc
     ** hyrpland!
         *** do some sort of RCU thingy to prevent races

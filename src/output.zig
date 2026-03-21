@@ -127,10 +127,11 @@ pub fn byWindow(ctx: *Context, win: *rwm.WindowV1) ?*rwm.OutputV1 {
     return byWorkspace(ctx, ws);
 }
 
-pub fn relPos(ctx: *Context, pos: utils.Vec2) ?utils.Vec2 {
+pub fn relPos(ctx: *Context, pos: utils.Vec2) ?utils.Vec2f {
     const out = byPointer(ctx, pos) orelse return null;
     const out_data = ctx.outs.get(out) orelse return null;
-    const cursor = (pos - out_data.position.?) * utils.Rect2.unit.dim / out_data.size.?;
+    var cursor: utils.Vec2f = @floatFromInt(pos - out_data.position.?);
+    cursor /= @floatFromInt(out_data.size.?);
     return cursor;
 }
 

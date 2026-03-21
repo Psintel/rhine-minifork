@@ -21,9 +21,7 @@ const RenderMap = Tiler.RenderMap;
 
 const log = std.log.scoped(.bsp);
 
-const border = 2;
-const gap = 1;
-const pad: utils.Vec2 = @splat(gap + border);
+const pad: utils.Vec2 = @splat(3);
 
 tree: ?subTile = null,
 tiler: Tiler.tiler(@This()) = .{},
@@ -40,30 +38,31 @@ fn vscale(i: utils.Vec2, f: utils.Vec2f) utils.Vec2 {
     return @intFromFloat(@as(utils.Vec2f, @floatFromInt(i)) * f);
 }
 
-pub fn splitDim(v: utils.Vec2, OR: subTile.Mode, ratio: f32) utils.Vec2 {
+pub fn splitDim(v: utils.Vec2f, OR: subTile.Mode, ratio: f32) utils.Vec2f {
     const fac: utils.Vec2f = switch (OR) {
         .V => .{ ratio, 1 },
         .H => .{ 1, ratio },
     };
 
-    return vscale(v, fac);
+    return v * fac;
 }
 
-fn subDivide(r: utils.Rect2, OR: subTile.Mode, ratio: f32) meta.Tuple(&.{ utils.Rect2, utils.Rect2 }) {
-    const split = splitDim(r.dim, OR, ratio);
+fn subDivide(r: utils.Rect2f, OR: subTile.Mode, ratio: f32) meta.Tuple(&.{ utils.Rect2f, utils.Rect2f }) {
+    const lsplit = splitDim(r.dim, OR, ratio);
+    const rsplit = splitDim(r.dim, OR, 1 - ratio);
     const lp = r.pos;
-    const rp: utils.Vec2 = switch (OR) {
-        .V => .{ r.pos[0] + split[0], r.pos[1] },
-        .H => .{ r.pos[0], r.pos[1] + split[1] },
+    const rp: utils.Vec2f = switch (OR) {
+        .V => .{ r.pos[0] + lsplit[0], r.pos[1] },
+        .H => .{ r.pos[0], r.pos[1] + lsplit[1] },
     };
 
-    return .{ .{ .pos = lp, .dim = split }, .{ .pos = rp, .dim = split } };
+    return .{ .{ .pos = lp, .dim = lsplit }, .{ .pos = rp, .dim = rsplit } };
 }
 
 const subTile = union(enum) {
     const Mode = enum {
-        V,
-        H,
+        V, // [|]
+        H, // [-]
 
         pub fn other(self: @This()) @This() {
             return switch (self) {
@@ -97,7 +96,7 @@ const subTile = union(enum) {
     }
 
     // get next tile in direction `dir`
-    pub fn getDir(t: *subTile, bounds: utils.Rect2, descender: utils.Rect2, dir: Tiler.Dir) ?*subTile {
+    pub fn getDir(t: *subTile, bounds: utils.Rect2f, descender: utils.Rect2f, dir: Tiler.Dir) ?*subTile {
         if (dir == .Left and bounds.pos[0] + bounds.dim[0] <= descender.pos[0]) return null;
         if (dir == .Right and descender.pos[0] + descender.dim[0] <= bounds.pos[0]) return null;
         if (dir == .Up and bounds.pos[1] + bounds.dim[1] <= descender.pos[1]) return null;
@@ -190,7 +189,114 @@ const subTile = union(enum) {
         }
     }
 
-    pub fn Wrect(self: @This(), start: utils.Rect2, win: WT) ?utils.Rect2 {
+    pub fn dirSplit(self: *@This(), win: WT, dir: Tiler.Dir) ?*@This() {
+        switch (self.*) {
+            .Leaf => return null,
+            .Branch => |b| {
+                if (b.left.dirSplit(win, dir)) |ls| return ls;
+                if (b.right.dirSplit(win, dir)) |ls| return ls;
+                if (b.left.find(win)) |_| switch (b.direction) {
+                    .V => return if (dir == .Right) self else null,
+                    .H => return if (dir == .Down) self else null,
+                } else if (b.right.find(win)) |_| switch (b.direction) {
+                    .V => return if (dir == .Left) self else null,
+                    .H => return if (dir == .Up) self else null,
+                } else return null;
+            },
+        }
+    }
+
+    pub fn setSize(
+        self: *@This(),
+        target: WT,
+        size: utils.Vec2f,
+        anchor: Tiler.Anchor,
+        rect: utils.Rect2f,
+    ) ?utils.Vec2f {
+        const space = rect.dim;
+        switch (self.*) {
+            .Leaf => |w| return if (w == target) size else null,
+            .Branch => |*b| {
+                const epsilon = 0.0005; // <- magic constant;
+                const l, const r = subDivide(rect, b.direction, b.ratio);
+
+                if (b.left.setSize(target, size, anchor, l)) |ls| switch (b.direction) {
+                    .V => switch (anchor.h) {
+                        .left => {
+                            b.ratio = @min(ls[0] / space[0], 0.95);
+                            return .{ space[0], ls[1] };
+                        },
+                        .right => {
+                            if (rect.pos[0] < epsilon) return .{space[0], ls[1]};
+                            const rat = 1 - b.ratio;
+                            const nw = @min(space[0] * rat + ls[0], 1 );
+                            b.ratio = @min(ls[0] / nw, 0.95);
+                            return .{ nw, ls[1] };
+                        },
+                    },
+                    .H => switch (anchor.v) {
+                        .top => {
+                            b.ratio = @min(ls[1] / space[1], 0.95);
+                            return .{ ls[0], space[1] };
+                        },
+                        .bottom => {
+                            if (rect.pos[1] < epsilon) return .{ls[0], space[1]};
+                            const rat = 1 - b.ratio;
+                            const nh = @min(space[1] * rat + ls[1], 1 );
+                            b.ratio = @min(ls[1] / nh, 0.95);
+                            return .{ ls[0], nh };
+                        },
+                    },
+                };
+
+                if (b.right.setSize(target, size, anchor, r)) |rs| switch (b.direction) {
+                    .V => switch (anchor.h) {
+                        .right => {
+                            b.ratio = 1 - @min(rs[0] / space[0], 0.95);
+                            return .{ space[0], rs[1] };
+                        },
+                        .left => {
+                            if (rect.pos[0] + rect.dim[0] > 1 - epsilon) return .{space[0], rs[1]};
+                            const rat = b.ratio;
+                            const nw = @min(space[0] * rat + rs[0], 1);
+                            b.ratio = 1 - @min(rs[0] / nw, 0.95);
+                            return .{ nw, rs[1] };
+                        },
+                    },
+                    .H => switch (anchor.v) {
+                        .bottom => {
+                            b.ratio = 1 - @min(rs[1] / space[1], 0.95);
+                            return .{ rs[0], space[1] };
+                        },
+                        .top => {
+                            if (rect.pos[1] + rect.dim[1] > 1 - epsilon) return .{rs[0], space[1]};
+                            const rat = b.ratio;
+                            const nh = @min(space[1] * rat + rs[1], 1);
+                            b.ratio = 1 - @min(rs[1] / nh, 0.95);
+                            return .{ rs[0], space[1] * rat + rs[1] };
+                        },
+                    },
+                };
+
+                return null;
+            },
+        }
+    }
+
+    pub fn subRect(self: @This(), start: utils.Rect2f, target: @This()) ?utils.Rect2f {
+        if (meta.eql(self, target)) return start;
+        switch (self) {
+            .Leaf => return null,
+            .Branch => |b| {
+                const l, const r = subDivide(start, b.direction, b.ratio);
+                if (b.left.subRect(l, target)) |ls| return ls;
+                if (b.right.subRect(r, target)) |rs| return rs;
+                return null;
+            },
+        }
+    }
+
+    pub fn Wrect(self: @This(), start: utils.Rect2f, win: WT) ?utils.Rect2f {
         switch (self) {
             .Leaf => |w| {
                 if (win == w)
@@ -211,15 +317,16 @@ const subTile = union(enum) {
         }
     }
 
-    pub fn manage(self: *@This(), ctx: Tiler.TileContext, rect: utils.Rect2, out: *ManageMap) void {
+    pub fn manage(self: *@This(), ctx: Tiler.TileContext, rect: utils.Rect2f, out: *ManageMap) void {
         switch (self.*) {
             .Leaf => |w| {
                 if (out.contains(w)) {
-                    const s = rect.dim - @as(utils.Vec2, @splat(2)) * pad;
+                    const irect = utils.Rect2{ .dim = @intFromFloat(rect.dim), .pos = @intFromFloat(rect.pos) };
+                    const s = irect.dim - @as(utils.Vec2, @splat(2)) * pad;
                     out.putAssumeCapacity(w, .{
                         .show = true,
                         .dims = .{
-                            .pos = rect.pos + pad,
+                            .pos = irect.pos + pad,
                             .dim = s,
                         },
                         .state = .normal,
@@ -289,7 +396,7 @@ pub fn add(self: *@This(), ctx: Tiler.TileContext, win: WT) Tiler.Error!void {
     if (ctx.cursorPos) |cur| {
         log.info("adding with cursor pos {}", .{cur});
         log.info("target: {}, {}", .{ target.pos, target.dim });
-        const cond = cur < target.pos + (target.dim / @as(utils.Vec2, @splat(2)));
+        const cond = cur < target.pos + (target.dim / @as(utils.Vec2f, @splat(2)));
         if (switch (d) {
             .V => cond[0],
             .H => cond[1],
@@ -314,17 +421,17 @@ pub fn remove(self: *@This(), ctx: Tiler.TileContext, win: WT) void {
 
 pub fn manage(self: *@This(), ctx: Tiler.TileContext, bound: utils.Rect2, wins: *ManageMap) void {
     const tree = &(self.tree orelse return);
+    const fbound = utils.Rect2f{ .dim = @floatFromInt(bound.dim), .pos = @floatFromInt(bound.pos) };
 
-    tree.manage(ctx, bound, wins);
+    tree.manage(ctx, fbound, wins);
 }
 
 pub fn getWindow(self: *@This(), ctx: Tiler.TileContext, dir: Tiler.Dir) ?WT {
     const tree = &(self.tree orelse return null);
     const win = ctx.focus orelse return null;
-    const origin: utils.Rect2 = .unit;
-    const wrec = tree.Wrect(origin, win) orelse return null;
+    const wrec = tree.Wrect(.unit, win) orelse return null;
 
-    if (tree.getDir(wrec, origin, dir)) |res|
+    if (tree.getDir(wrec, .unit, dir)) |res|
         return res.Leaf
     else
         return null;
@@ -384,15 +491,24 @@ pub fn move(self: *@This(), ctx: Tiler.TileContext, dir: Tiler.Dir) void {
         } };
         par.* = aux_ptr.*;
         aux_ptr.* = target;
-
-        // if (pard == new_split) {
-        //     res.* = parent_data;
-        // } else {
-        //     const t = res.Branch.left;
-        //     res.Branch.left = res.Branch.right;
-        //     res.Branch.right = t;
-        // }
     }
+}
+
+pub fn setSize(self: *@This(), ctx: Tiler.TileContext, size: utils.Vec2f, anchor: Tiler.Anchor) void {
+    if (size[0] < 0 or size[1] < 0) return;
+    const tree = &(self.tree orelse return);
+    const win = ctx.focus orelse return;
+    // const ppos = ctx.cursorPos orelse return;
+
+    // const wrect = tree.Wrect(.unit, win) orelse return;
+    // const wcen = wrect.pos + wrect.dim / @as(utils.Vec2f, @splat(2));
+    // const lt = ppos < wcen;
+    // const anchor = Tiler.Anchor{
+    //     .h = if (lt[0]) .left else .right,
+    //     .v = if (lt[1]) .top else .bottom,
+    // };
+
+    _ = tree.setSize(win, size, anchor, .unit);
 }
 
 pub fn command(self: *@This(), ctx: Tiler.TileContext, cmd: Tiler.Command) Tiler.Error!void {
