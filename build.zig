@@ -18,10 +18,6 @@ pub fn build(b: *Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const sys_river = b.systemIntegrationOption("river-protocols", .{
-        .default = haveSysProtos(b) and optimize != .Debug,
-    });
-
     const tween = b.dependency("mr_tween", .{
         .optimize = optimize,
         .target = target,
@@ -36,6 +32,8 @@ pub fn build(b: *Build) !void {
         .strip = b.option(bool, "strip", "strip executable"),
     });
 
+    scanner.addSystemProtocol("staging/cursor-shape/cursor-shape-v1.xml");
+
     inline for ([_][]const u8{
         // window management
         "river-window-management-v1.xml",
@@ -46,17 +44,10 @@ pub fn build(b: *Build) !void {
         "river-libinput-config-v1.xml",
         "river-xkb-config-v1.xml",
     }) |proto| {
-        if (sys_river) {
             scanner.addSystemProtocol("../river-protocols/stable/" ++ proto);
-        } else {
-            const river = b.lazyDependency("river", .{}) orelse return;
-            const protos = river.path("protocol");
-            scanner.addCustomProtocol(protos.path(b, proto));
-        }
     }
 
-    if (sys_river)
-        scanner.generate("wl_seat", 4);
+    scanner.generate("wl_seat", 4);
     scanner.generate("wl_output", 4);
     // scanner.generate("xdg_wm_base", 3);
     // scanner.generate("ext_session_lock_manager_v1", 1);
@@ -68,6 +59,7 @@ pub fn build(b: *Build) !void {
     scanner.generate("river_input_manager_v1", 1);
     scanner.generate("river_libinput_config_v1", 1);
     scanner.generate("river_xkb_config_v1", 1);
+    scanner.generate("wp_cursor_shape_manager_v1", 1);
 
     const docs_obj = b.addObject(.{
         .name = "wayland",
