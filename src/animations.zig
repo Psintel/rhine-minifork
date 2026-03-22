@@ -25,6 +25,8 @@ const tween = @import("tween");
 const interp = tween.interp;
 const ease = tween.ease;
 
+const log = std.log.scoped(.animations);
+
 const Vec2 = utils.Vec2;
 const Vec2f = utils.Vec2f;
 
@@ -35,7 +37,7 @@ pub const AnimationType = enum {
 
 pub const Animation = struct {
     easing: Easing,
-    duration: i64,
+    duration: u63,
 };
 
 const Animations = @This();
@@ -163,10 +165,10 @@ pub fn Lerp(kind: AnimationType) type {
 
             pub fn timeGet(self: @This(), anims: Animations, t: i64) Vec2 {
                 const info = anims.animations.get(kind);
-                if (info.duration == 0 or self.start + info.duration <= t) return self.to;
+                if (info.duration == 0 or info.duration <= t - self.start) return self.to;
                 const d: f32 = @floatFromInt(t - self.start);
                 const p: f32 = @floatFromInt(info.duration);
-                return ilerp(self.from, self.to, @min(d / p, 1.0), info.easing);
+                return ilerp(self.from, self.to, interp.clamp01(d / p), info.easing);
             }
         },
 
