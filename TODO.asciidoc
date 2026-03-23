@@ -1,4 +1,8 @@
 = TODO
+* add veriant tag to tiler
+    ** maybe even devirtualize tilers in favour of tagged unions
+        *** this might make future shared object loading ambitions harder
+    ** tiler specific commands are currently handled without checking that we're sending the command to a compatible target. that's a problem
 * update to version 4 of window-management-v1
     ** store identifiers for wm session restore
     ** set cursor shapes based on context

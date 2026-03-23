@@ -498,15 +498,6 @@ pub fn setSize(self: *@This(), ctx: Tiler.TileContext, size: utils.Vec2f, anchor
     if (size[0] < 0 or size[1] < 0) return;
     const tree = &(self.tree orelse return);
     const win = ctx.focus orelse return;
-    // const ppos = ctx.cursorPos orelse return;
-
-    // const wrect = tree.Wrect(.unit, win) orelse return;
-    // const wcen = wrect.pos + wrect.dim / @as(utils.Vec2f, @splat(2));
-    // const lt = ppos < wcen;
-    // const anchor = Tiler.Anchor{
-    //     .h = if (lt[0]) .left else .right,
-    //     .v = if (lt[1]) .top else .bottom,
-    // };
 
     _ = tree.setSize(win, size, anchor, .unit);
 }
