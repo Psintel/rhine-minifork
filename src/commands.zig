@@ -59,7 +59,7 @@ pub const Command = union(enum) {
     moveToWorkspace: Workspace.WS,
     moveFocus: Tiler.Dir,
     moveWindow: Tiler.Dir,
-    layoutCommand: Tiler.Command,
+    layoutCommand: struct { Layouts.LayoutType, Tiler.Command },
     exit: void,
 
     pub fn fromArg(args: *Config.Entry.Iterator) !@This() {
@@ -100,7 +100,7 @@ pub const Command = union(enum) {
 
     pub fn dispatch(cmd: @This(), ctx: *Context, seat: *rwm.SeatV1) !void {
         const seat_data = ctx.seats.getPtr(seat) orelse return error.NoSeat;
-        log.info("dispatching command {} on seat {}", .{cmd, seat.getId()});
+        log.info("dispatching command {} on seat {}", .{ cmd, seat.getId() });
         switch (cmd) {
             .killFocus => {
                 if (seat_data.focus) |w| {
@@ -230,9 +230,11 @@ pub const Command = union(enum) {
                 try ctx.commands_queue.add(ctx.gpa, seat, .{ .sendToWorkspace = ws });
                 try ctx.commands_queue.add(ctx.gpa, seat, .{ .focusWorkspace = ws });
             },
-            .layoutCommand => |laycmd| {
+            .layoutCommand => |_laycmd| {
+                const tag, const laycmd = _laycmd;
                 const ws = Workspace.bySeat(ctx, seat) orelse return error.NoSeatFound;
                 const ws_data = try Workspace.get(ctx, ws);
+                if (tag != ws_data.tiler.tag) return;
                 try ws_data.command(.{
                     .gpa = ctx.gpa,
                     .focus = seat_data.focus,

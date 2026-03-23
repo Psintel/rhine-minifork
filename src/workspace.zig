@@ -66,8 +66,8 @@ pub fn get(ctx: *Context, id: WS) !*Workspace {
     const wskey = try std.fmt.bufPrint(&buf, "{}", .{id});
     const layout = try layoutcfg.getSole(wskey) orelse try layoutcfg.getSole("*");
 
-    const layt: ?Layouts.LayoutTypes = if (layout) |l|
-        std.meta.stringToEnum(Layouts.LayoutTypes, l)
+    const layt: ?Layouts.LayoutType = if (layout) |l|
+        std.meta.stringToEnum(Layouts.LayoutType, l)
     else
         null;
 

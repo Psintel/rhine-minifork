@@ -19,7 +19,7 @@ const layouts = .{
 var storageMap: LayoutMap = .empty;
 
 pub const LayoutMap = std.AutoHashMapUnmanaged(Tiler, *Layout);
-pub const LayoutTypes = meta.FieldEnum(@TypeOf(layouts));
+pub const LayoutType = meta.FieldEnum(@TypeOf(layouts));
 
 pub const Layout = layout: {
     const builtin = std.builtin;
@@ -36,7 +36,7 @@ pub const Layout = layout: {
     }
 
     const un: builtin.Type.Union = .{
-        .tag_type = LayoutTypes,
+        .tag_type = LayoutType,
         .decls = &.{},
         .layout = .auto,
         .fields = &es,
@@ -47,8 +47,8 @@ pub const Layout = layout: {
     break :layout retT;
 };
 
-pub fn parseCommand(args: *Config.Entry.Iterator) !Tiler.Command {
-    const layout = meta.stringToEnum(LayoutTypes, try args.nextAssume()) orelse return error.InvalidLayout;
+pub fn parseCommand(args: *Config.Entry.Iterator) !struct{ LayoutType, Tiler.Command} {
+    const layout = meta.stringToEnum(LayoutType, try args.nextAssume()) orelse return error.InvalidLayout;
 
     switch (layout) {
         inline else => |l| {
@@ -58,14 +58,14 @@ pub fn parseCommand(args: *Config.Entry.Iterator) !Tiler.Command {
             if (@hasDecl(Command, "parse"))
                 return Command.parse(args)
             else if (meta.stringToEnum(Command, try args.nextAssume())) |cmd|
-                return .{ .command = @intFromEnum(cmd), .payload = null }
+                return .{l, .{ .command = @intFromEnum(cmd), .payload = null }}
             else
                 return error.InvalidCommand;
         },
     }
 }
 
-fn create(lay: LayoutTypes) Layout {
+fn create(lay: LayoutType) Layout {
     const name = @tagName(lay);
     const T = @field(layouts, name);
 
@@ -76,12 +76,12 @@ fn create(lay: LayoutTypes) Layout {
     return @unionInit(Layout, name, T{});
 }
 
-pub fn new(gpa: mem.Allocator, lay: LayoutTypes) !Tiler {
+pub fn new(gpa: mem.Allocator, lay: LayoutType) !Tiler {
     const l = try gpa.create(Layout);
     errdefer gpa.destroy(l);
 
     l.* = create(lay);
-    const t = @field(l, @tagName(lay)).tiler.get();
+    const t = @field(l, @tagName(lay)).tiler.get(lay);
 
     try storageMap.put(gpa, t, l);
 

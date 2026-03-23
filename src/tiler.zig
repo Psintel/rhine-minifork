@@ -11,11 +11,13 @@ const Output = @import("output.zig");
 const Context = @import("context.zig");
 const Seat = @import("seat.zig");
 const Tilable = @import("tilable.zig");
+const Layouts = @import("layouts.zig");
 
 const Tiler = @This();
 
 vtable: *const VTable,
 context: ?*anyopaque,
+tag: Layouts.LayoutType,
 
 pub const WT = *rwm.WindowV1;
 pub const ManageMap= utils.WLHashMap(rwm.WindowV1, TileState);
@@ -132,11 +134,12 @@ pub fn tiler(T: type) type {
         }
 
 
-        pub fn get(self: *@This()) Tiler {
+        pub fn get(self: *@This(), tag: Layouts.LayoutType) Tiler {
             const parent: *T = @alignCast(@fieldParentPtr("tiler", self));
             return .{
                 .vtable = &vt,
                 .context = parent,
+                .tag = tag,
             };
         }
     };
