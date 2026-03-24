@@ -1,9 +1,15 @@
-# layouts :3
 layout {
     0 bsp
     1 bsp
     2 bsp
     * bsp
+}
+
+layout_config {
+    bsp {
+        # split_override 1, 1
+        gaps 5
+    }
 }
 
 env {

@@ -13,6 +13,7 @@ const Context = @import("context.zig");
 const Seat = @import("seat.zig");
 const Tiler = @import("tiler.zig");
 const Tilable = @import("tilable.zig");
+const Config = @import("config.zig");
 
 const Layouts = @import("layouts.zig");
 
@@ -66,10 +67,7 @@ pub fn get(ctx: *Context, id: WS) !*Workspace {
     const wskey = try std.fmt.bufPrint(&buf, "{}", .{id});
     const layout = try layoutcfg.getSole(wskey) orelse try layoutcfg.getSole("*");
 
-    const layt: ?Layouts.LayoutType = if (layout) |l|
-        std.meta.stringToEnum(Layouts.LayoutType, l)
-    else
-        null;
+    const layt: ?Layouts.LayoutType = if (layout) |l| std.meta.stringToEnum(Layouts.LayoutType, l) else null;
 
     if (layt == null) log.err("invalid layout {?s} for workspace {}", .{ layout, id });
 
@@ -82,7 +80,17 @@ pub fn get(ctx: *Context, id: WS) !*Workspace {
 
     try ctx.workspaces.put(ctx.gpa, id, .{ .tiler = tiler });
 
-    return ctx.workspaces.getPtr(id).?;
+    const new = ctx.workspaces.getPtr(id).?;
+
+    if (ctx.config.sub("layout_config")) |cf| {
+        new.loadConfig(cf) catch |e| {
+            log.err("couldn't apply initial config to ws of tag {}: {}", .{layt orelse .bsp, e});
+        };
+    } else |e| {
+        log.err("invalid key \"layout_config\": {}", .{e});
+    }
+
+    return new;
 }
 
 pub fn addWindow(self: *@This(), ctx: Tiler.TileContext, win: *rwm.WindowV1) !void {
@@ -117,7 +125,7 @@ pub fn command(self: *@This(), ctx: Tiler.TileContext, cmd: Tiler.Command) Tiler
 
 pub fn deinit(self: *@This(), ctx: *Context) void {
     for (self.windows.keys()) |w| {
-        self.tiler.vtable.remove(self.tiler.context, .{.gpa = ctx.gpa}, w);
+        self.tiler.vtable.remove(self.tiler.context, .{ .gpa = ctx.gpa }, w);
     }
 
     Layouts.delete(ctx.gpa, self.tiler);
@@ -157,4 +165,9 @@ pub fn setTiling(self: *@This(), ctx: *Context, win: *rwm.WindowV1) !void {
 
     try self.addWindow(.{ .gpa = ctx.gpa }, win);
     _ = self.floating.swapRemove(win);
+}
+
+pub fn loadConfig(self: *@This(), conf: Config) !void{
+    const lc = try conf.sub(@tagName(self.tiler.tag));
+    return self.tiler.vtable.loadConfig(self.tiler.context, lc);
 }

@@ -12,6 +12,7 @@ const Context = @import("context.zig");
 const Seat = @import("seat.zig");
 const Tilable = @import("tilable.zig");
 const Layouts = @import("layouts.zig");
+const Config = @import("config.zig");
 
 const Tiler = @This();
 
@@ -72,7 +73,6 @@ pub const VTable = struct {
     add: *const fn (?*anyopaque, TileContext, WT) Error!void,
     // every added window must be removed to fully deinitialize
     remove: *const fn (?*anyopaque, TileContext, WT) void,
-
     // upate the ManageMap structure. all tiler-tracked windows are guaranteed to be available
     manage: *const fn (?*anyopaque, TileContext, bound: utils.Rect2, *ManageMap) void,
 
@@ -80,8 +80,11 @@ pub const VTable = struct {
     getWindow: *const fn (?*anyopaque, TileContext, Dir) ?WT,
     move: *const fn (?*anyopaque, TileContext, Dir) void,
 
+    // set the size of the focused window
     setSize:* const fn(?*anyopaque, TileContext, utils.Vec2f, Anchor) void,
 
+    loadConfig: *const fn(?*anyopaque, Config) Config.Error!void,
+    // run a layout-specific command
     command: *const fn (?*anyopaque, TileContext, Command) Error!void,
 };
 
@@ -95,6 +98,7 @@ pub fn tiler(T: type) type {
             .getWindow = get_impl,
             .move = move_impl,
             .setSize = setSize_impl,
+            .loadConfig = loadConfig_impl,
             .command = command_impl,
         };
 
@@ -126,6 +130,12 @@ pub fn tiler(T: type) type {
         fn setSize_impl(data: ?* anyopaque, ctx: TileContext, size: utils.Vec2f, anchor: Anchor) void {
             const parent: *T = @ptrCast(@alignCast(data.?));
             parent.setSize(ctx, size, anchor);
+        }
+
+        fn loadConfig_impl(data: ?* anyopaque, conf: Config) !void {
+            if (!@hasDecl(T, "loadConfig")) return;
+            const parent: *T = @ptrCast(@alignCast(data.?));
+            return parent.loadConfig(conf);
         }
 
         fn command_impl(data: ?*anyopaque, ctx: TileContext, cmd: Command) Error!void {

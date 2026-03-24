@@ -1,9 +1,16 @@
 const std = @import("std");
 const mem = std.mem;
+const meta = std.meta;
+const fmt = std.fmt;
 
 const Config = @This();
 
 values: std.StringHashMapUnmanaged(Value),
+
+pub const Error = error{
+    ParseError,
+    TooFewArgs,
+};
 
 pub const Entry = struct {
     args: []const u8,
@@ -72,6 +79,43 @@ pub const Entry = struct {
         };
     }
 
+    pub fn parseT(self: Entry, T: type) Error!T {
+        if (meta.hasFn(T, "parse")) return T.parse(self);
+
+        switch (@typeInfo(T)) {
+            .array => |a| {
+                const l = try self.argList(a.len);
+                var out: T = undefined;
+                for (l, &out) |str, *entry| entry.* = try parseSingle(str, a.child);
+                return out;
+            },
+            .vector => |v| {
+                const l = try self.argList(v.len);
+                var out: T = undefined;
+                for (l, 0..) |str, i| out[i] = try parseSingle(str, v.child);
+                return out;
+            },
+            else => {
+                return parseSingle(self.args, T);
+            },
+        }
+    }
+
+    fn parseSingle(str: []const u8, T: type) Error!T {
+        switch (@typeInfo(T)) {
+            .int => {
+                return fmt.parseInt(T, str, 0) catch error.ParseError;
+            },
+            .float => {
+                return fmt.parseFloat(T, str) catch error.ParseError;
+            },
+            .@"enum" => {
+                return meta.stringToEnum(T, str) orelse error.ParseError;
+            },
+            else => @compileError(fmt.comptimePrint("cannot parse type {} from string", .{T})),
+        }
+    }
+
     pub fn deinit(self: @This(), allocator: mem.Allocator) void {
         allocator.free(self.args);
     }
@@ -81,6 +125,19 @@ pub const Value = union(enum) {
     config: *Config,
     args: Entry,
     list: []Entry,
+
+    pub fn parseT(self: Value, T: type) Error!T {
+        return switch (self) {
+            .config => |c| c.parseT(T),
+            .args => |e| e.parseT(T),
+            .list => |l| parseListT(l, T),
+        };
+    }
+
+    fn parseListT(list: []Entry, T: type) Error!T {
+        _ = list;
+        unreachable;
+    }
 
     pub fn deinit(self: Value, allocator: std.mem.Allocator) void {
         switch (self) {
@@ -301,4 +358,35 @@ pub fn getSole(self: Config, key: []const u8) !?[]const u8 {
     const entry = val.args;
 
     return (try entry.argList(1))[0];
+}
+
+pub fn parseT(self: Config, T: type) Error!T {
+    if (meta.hasFn(T, "parse")) return T.parse(self);
+
+    const str = switch (@typeInfo(T)) {
+        .@"struct" => |pl| pl,
+        else => return error.ParseError,
+    };
+
+    if (str.is_tuple) @compileError("cannot parse config block into tuple");
+
+    var out: T = undefined;
+
+    inline for (str.fields) |field| {
+        const val = self.get(field.name);
+        switch (@typeInfo(field.type)) {
+            .optional => |o| {
+                @field(out, field.name) = if (val) |v| try v.parseT(o.child) else null;
+            },
+            else => {
+                @field(out, field.name) = if (val) |v|
+                    try v.parseT(field.type)
+                else if (field.default_value_ptr) |v|
+                    @as(*const field.type, @ptrCast(@alignCast(v))).*
+                else return error.ParseError;
+            },
+        }
+    }
+
+    return out;
 }

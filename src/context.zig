@@ -110,7 +110,6 @@ pub fn loadEnv(self: *@This()) !void {
 }
 
 pub fn reload(self: *@This()) !void {
-
     self.anims = try Animations.load(&self.config);
 
     for (self.seats.keys()) |seat| {
@@ -120,6 +119,12 @@ pub fn reload(self: *@This()) !void {
         // reload pointer binds
         pointerbinds.unregister(self, seat);
         try pointerbinds.register(self, seat);
+    }
+
+    const lc = try self.config.sub("layout_config");
+
+    for (self.workspaces.values()) |*ws| {
+        try ws.loadConfig(lc);
     }
 
     try self.loadEnv();

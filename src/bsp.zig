@@ -14,6 +14,7 @@ const Seat = @import("seat.zig");
 const Workspace = @import("workspace.zig");
 const Tiler = @import("tiler.zig");
 const Context = @import("context.zig");
+const Config = @import("config.zig");
 
 const WT = Tiler.WT;
 const ManageMap = Tiler.ManageMap;
@@ -21,10 +22,14 @@ const RenderMap = Tiler.RenderMap;
 
 const log = std.log.scoped(.bsp);
 
-const pad: utils.Vec2 = @splat(3);
-
 tree: ?subTile = null,
 tiler: Tiler.tiler(@This()) = .{},
+config: Conf = .{},
+
+const Conf = struct {
+    gaps: u31 = 3,
+    split_override: ?utils.Vec2f = null,
+};
 
 pub const Command = enum(u32) {
     changeSplit,
@@ -227,9 +232,9 @@ const subTile = union(enum) {
                             return .{ space[0], ls[1] };
                         },
                         .right => {
-                            if (rect.pos[0] < epsilon) return .{space[0], ls[1]};
+                            if (rect.pos[0] < epsilon) return .{ space[0], ls[1] };
                             const rat = 1 - b.ratio;
-                            const nw = @min(space[0] * rat + ls[0], 1 );
+                            const nw = @min(space[0] * rat + ls[0], 1);
                             b.ratio = @min(ls[0] / nw, 0.95);
                             return .{ nw, ls[1] };
                         },
@@ -240,9 +245,9 @@ const subTile = union(enum) {
                             return .{ ls[0], space[1] };
                         },
                         .bottom => {
-                            if (rect.pos[1] < epsilon) return .{ls[0], space[1]};
+                            if (rect.pos[1] < epsilon) return .{ ls[0], space[1] };
                             const rat = 1 - b.ratio;
-                            const nh = @min(space[1] * rat + ls[1], 1 );
+                            const nh = @min(space[1] * rat + ls[1], 1);
                             b.ratio = @min(ls[1] / nh, 0.95);
                             return .{ ls[0], nh };
                         },
@@ -256,7 +261,7 @@ const subTile = union(enum) {
                             return .{ space[0], rs[1] };
                         },
                         .left => {
-                            if (rect.pos[0] + rect.dim[0] > 1 - epsilon) return .{space[0], rs[1]};
+                            if (rect.pos[0] + rect.dim[0] > 1 - epsilon) return .{ space[0], rs[1] };
                             const rat = b.ratio;
                             const nw = @min(space[0] * rat + rs[0], 1);
                             b.ratio = 1 - @min(rs[0] / nw, 0.95);
@@ -269,7 +274,7 @@ const subTile = union(enum) {
                             return .{ rs[0], space[1] };
                         },
                         .top => {
-                            if (rect.pos[1] + rect.dim[1] > 1 - epsilon) return .{rs[0], space[1]};
+                            if (rect.pos[1] + rect.dim[1] > 1 - epsilon) return .{ rs[0], space[1] };
                             const rat = b.ratio;
                             const nh = @min(space[1] * rat + rs[1], 1);
                             b.ratio = 1 - @min(rs[1] / nh, 0.95);
@@ -317,16 +322,16 @@ const subTile = union(enum) {
         }
     }
 
-    pub fn manage(self: *@This(), ctx: Tiler.TileContext, rect: utils.Rect2f, out: *ManageMap) void {
+    pub fn manage(self: *@This(), conf: Conf, ctx: Tiler.TileContext, rect: utils.Rect2f, out: *ManageMap) void {
         switch (self.*) {
             .Leaf => |w| {
                 if (out.contains(w)) {
                     const irect = utils.Rect2{ .dim = @intFromFloat(rect.dim), .pos = @intFromFloat(rect.pos) };
-                    const s = irect.dim - @as(utils.Vec2, @splat(2)) * pad;
+                    const s = irect.dim - @as(utils.Vec2, @splat(2 * conf.gaps));
                     out.putAssumeCapacity(w, .{
                         .show = true,
                         .dims = .{
-                            .pos = irect.pos + pad,
+                            .pos = irect.pos + @as(utils.Vec2, @splat(conf.gaps)),
                             .dim = s,
                         },
                         .state = .normal,
@@ -337,8 +342,8 @@ const subTile = union(enum) {
             .Branch => |b| {
                 const l, const r = subDivide(rect, b.direction, b.ratio);
 
-                b.left.manage(ctx, l, out);
-                b.right.manage(ctx, r, out);
+                b.left.manage(conf, ctx, l, out);
+                b.right.manage(conf, ctx, r, out);
             },
         }
     }
@@ -393,7 +398,7 @@ pub fn add(self: *@This(), ctx: Tiler.TileContext, win: WT) Tiler.Error!void {
     };
 
     // smart splitting (as seen in hyprland for example)
-    if (ctx.cursorPos) |cur| {
+    if (self.config.split_override orelse ctx.cursorPos) |cur| {
         log.info("adding with cursor pos {}", .{cur});
         log.info("target: {}, {}", .{ target.pos, target.dim });
         const cond = cur < target.pos + (target.dim / @as(utils.Vec2f, @splat(2)));
@@ -423,7 +428,7 @@ pub fn manage(self: *@This(), ctx: Tiler.TileContext, bound: utils.Rect2, wins: 
     const tree = &(self.tree orelse return);
     const fbound = utils.Rect2f{ .dim = @floatFromInt(bound.dim), .pos = @floatFromInt(bound.pos) };
 
-    tree.manage(ctx, fbound, wins);
+    tree.manage(self.config, ctx, fbound, wins);
 }
 
 pub fn getWindow(self: *@This(), ctx: Tiler.TileContext, dir: Tiler.Dir) ?WT {
@@ -512,4 +517,8 @@ pub fn command(self: *@This(), ctx: Tiler.TileContext, cmd: Tiler.Command) Tiler
             n.Branch.direction = n.Branch.direction.other();
         },
     }
+}
+
+pub fn loadConfig(self: *@This(), config: Config) Config.Error!void {
+    self.config = try config.parseT(Conf);
 }

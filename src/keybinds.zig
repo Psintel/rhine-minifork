@@ -43,8 +43,6 @@ const syms: std.StaticStringMap(Sym) = .initComptime(kvs: {
     break :kvs out;
 });
 
-pub const Trigger = fn (b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Context) void;
-
 const log = std.log.scoped(.keybinds);
 
 const BindData = struct {
