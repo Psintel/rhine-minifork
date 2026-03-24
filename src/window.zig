@@ -28,48 +28,12 @@ title: ?[]const u8 = null,
 size: utils.Vec2 = @splat(1),
 float: bool = false, // is this window floating
 parent: ?*rwm.WindowV1 = null,
-fullscreen: enum {
-    no,
-    soon,
-    yes,
-    was,
-
-    pub fn toggle(self: *@This()) void {
-        switch (self.*) {
-            .no => self.* = .soon,
-            .yes => self.* = .was,
-            .soon => self.* = .no,
-            .was => self.* = .yes,
-        }
-    }
-
-    pub fn off(self: *@This()) void {
-        switch (self.*) {
-            .yes => self.* = .was,
-            .soon => self.* = .no,
-            .no, .was => {},
-        }
-    }
-
-    pub fn on(self: *@This()) void {
-        switch (self.*) {
-            .no => self.* = .soon,
-            .was => self.* = .yes,
-            .yes, .soon => {},
-        }
-    }
-
-    pub fn isOn(self: @This()) bool {
-        return switch (self) {
-            .yes, .soon => true,
-            .no, .was => false,
-        };
-    }
-} = .no,
+fullscreen: utils.Transaction = .no,
 
 // will we keep those?
 pos: Animations.Lerp(.move) = .{ .static = @splat(0) },
 goal_size: Animations.Lerp(.resize) = .{ .static = @splat(0) },
+active_resize: utils.Transaction = .no,
 
 // initialize window
 pub fn init(_: *Context, win: *rwm.WindowV1) !@This() {
@@ -277,7 +241,7 @@ pub fn byPointer(ctx: *Context, pos: utils.Vec2) ?*rwm.WindowV1 {
     for (ws_data.windows.keys()) |win| {
         const win_data = ctx.wins.get(win).?;
         const rec: utils.Rect2 = .{
-            .dim = win_data.size,
+            .dim = win_data.goal_size.current(ctx.anims),
             .pos = win_data.pos.current(ctx.anims),
         };
         if (rec.inside(pos)) return win;

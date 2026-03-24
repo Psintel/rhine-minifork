@@ -10,6 +10,45 @@ pub const Vec2f = Vec2T(f32);
 pub const Rect2 = Rect2T(i32);
 pub const Rect2f = Rect2T(f32);
 
+pub const Transaction = enum {
+    no,
+    soon,
+    yes,
+    was,
+
+    pub fn toggle(self: *@This()) void {
+        switch (self.*) {
+            .no => self.* = .soon,
+            .yes => self.* = .was,
+            .soon => self.* = .no,
+            .was => self.* = .yes,
+        }
+    }
+
+    pub fn off(self: *@This()) void {
+        switch (self.*) {
+            .yes => self.* = .was,
+            .soon => self.* = .no,
+            .no, .was => {},
+        }
+    }
+
+    pub fn on(self: *@This()) void {
+        switch (self.*) {
+            .no => self.* = .soon,
+            .was => self.* = .yes,
+            .yes, .soon => {},
+        }
+    }
+
+    pub fn isOn(self: @This()) bool {
+        return switch (self) {
+            .yes, .soon => true,
+            .no, .was => false,
+        };
+    }
+};
+
 fn Vec2T(T: type) type {
     return @Vector(2, T);
 }
