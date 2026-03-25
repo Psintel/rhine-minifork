@@ -3,17 +3,6 @@ const Build = std.Build;
 
 const Scanner = @import("wayland").Scanner;
 
-fn haveSysProtos(b: *Build) bool {
-    const pkg_config_exe = b.graph.env_map.get("PKG_CONFIG") orelse "pkg-config";
-    var code: u8 = undefined;
-    _ = b.runAllowFail(&[_][]const u8{
-        pkg_config_exe,
-        "river-protocols",
-        "--variable=pkgdatadir",
-    }, &code, .Ignore) catch return false;
-    return true;
-}
-
 pub fn build(b: *Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
@@ -34,31 +23,30 @@ pub fn build(b: *Build) !void {
 
     scanner.addSystemProtocol("staging/cursor-shape/cursor-shape-v1.xml");
 
+    const river_protos = rproto: {
+        const pkg_config_exe = b.graph.env_map.get("PKG_CONFIG") orelse "pkg-config";
+        var code: u8 = undefined;
+        const protos_path = b.runAllowFail(&[_][]const u8{
+            pkg_config_exe,
+            "river-protocols",
+            "--variable=pkgdatadir",
+        }, &code, .Ignore) catch return error.RiverProtosNotFound;
+        break :rproto std.mem.trim(u8, protos_path, &std.ascii.whitespace);
+    };
+
     inline for ([_][]const u8{
-        // window management
         "river-window-management-v1.xml",
         "river-layer-shell-v1.xml",
         "river-xkb-bindings-v1.xml",
-        // input stuff
-        "river-input-management-v1.xml",
-        "river-libinput-config-v1.xml",
-        "river-xkb-config-v1.xml",
     }) |proto| {
-            scanner.addSystemProtocol("../river-protocols/stable/" ++ proto);
+        scanner.addCustomProtocol(.{ .cwd_relative = b.pathJoin(&.{ river_protos , "stable", proto}) });
     }
 
     scanner.generate("wl_seat", 4);
     scanner.generate("wl_output", 4);
-    // scanner.generate("xdg_wm_base", 3);
-    // scanner.generate("ext_session_lock_manager_v1", 1);
-
     scanner.generate("river_window_manager_v1", 4);
     scanner.generate("river_layer_shell_v1", 1);
     scanner.generate("river_xkb_bindings_v1", 2);
-
-    scanner.generate("river_input_manager_v1", 1);
-    scanner.generate("river_libinput_config_v1", 1);
-    scanner.generate("river_xkb_config_v1", 1);
     scanner.generate("wp_cursor_shape_manager_v1", 1);
 
     const docs_obj = b.addObject(.{
