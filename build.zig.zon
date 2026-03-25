@@ -44,8 +44,8 @@
     .paths = .{
         "build.zig",
         "build.zig.zon",
+        "rhine.desktop",
         "src",
-        // For example...
         "LICENSE",
         "README.asciidoc",
     },

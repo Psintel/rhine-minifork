@@ -1,0 +1,5 @@
+[Desktop Entry]
+name=Rhine
+Comment=A modular Window Manager for River
+Exec=river -c rhine
+Type=Application

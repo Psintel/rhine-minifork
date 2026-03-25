@@ -103,7 +103,7 @@ pub fn build(b: *Build) !void {
     exe.linkSystemLibrary("wayland-client");
 
     b.installArtifact(exe);
-
+    b.installFile("rhine.desktop", "share/wayland-sessions/rhine.desktop");
     const run_cmd = b.addRunArtifact(exe);
 
     run_cmd.step.dependOn(b.getInstallStep());
