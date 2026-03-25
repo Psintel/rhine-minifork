@@ -179,9 +179,12 @@ What will rhine _not_ do (for now):
 
 == running rhine
 
-1. run current `main` branch version of `river`
-2. build and run `rhine`
-3. win
+1. have a `river` version `>=0.4.0` installed
+2. install `rhine`
+3. run `river` with `rhine` by doing one of the following:
+    ** run `river -c rhine`
+    ** put `exec rhine` in your river init file
+    ** use the provided `rhine.desktop` file as your wayland session
 
 == technical details
 
