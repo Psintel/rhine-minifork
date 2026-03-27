@@ -186,7 +186,10 @@ What will rhine _not_ do (for now):
     ** put `exec rhine` in your river init file
     ** use the provided `rhine.desktop` file as your wayland session
 
-== technical details
+== Missing a Feature?
+
+Rhine is not yet entirely complete but I use it every day.
+If you find anything missing, then ask on the https://web.libera.chat/?channels=#river[river irc] or open an issue.
 
 === protocols bound
 rhine binds the following protocols:
