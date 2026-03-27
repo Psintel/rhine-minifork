@@ -84,7 +84,7 @@ pub fn get(ctx: *Context, id: WS) !*Workspace {
 
     if (ctx.config.sub("layout_config")) |cf| {
         new.loadConfig(cf) catch |e| {
-            log.err("couldn't apply initial config to ws of tag {}: {}", .{layt orelse .bsp, e});
+            log.err("couldn't apply initial config to ws of tag {}: {}", .{ layt orelse .bsp, e });
         };
     } else |e| {
         log.err("invalid key \"layout_config\": {}", .{e});
@@ -119,7 +119,7 @@ pub fn setSize(self: *@This(), ctx: Tiler.TileContext, size: utils.Vec2f, anchor
     return self.tiler.vtable.setSize(self.tiler.context, ctx, size, anchor);
 }
 
-pub fn loadConfig(self: *@This(), conf: Config) !void{
+pub fn loadConfig(self: *@This(), conf: Config) !void {
     const lc = try conf.sub(@tagName(self.tiler.tag));
     return self.tiler.vtable.loadConfig(self.tiler.context, lc);
 }
@@ -176,3 +176,36 @@ pub fn isEmpty(self: @This()) bool {
     return self.windows.count() == 0 and self.floating.count() == 0;
 }
 
+pub fn getNext(ctx: *Context, current: WS) WS {
+    var next: ?Workspace.WS = null;
+    for (ctx.workspaces.keys()) |ws| {
+        if (ws <= current) continue;
+        if (ctx.workspaces.get(ws).?.isEmpty()) continue;
+
+        if (next) |n| {
+            if (ws < n) {
+                next = ws;
+            }
+        } else {
+            next = ws;
+        }
+    }
+    return next orelse current + 1;
+}
+
+pub fn getPrevious(ctx: *Context, current: WS) WS {
+    var next: ?Workspace.WS = null;
+    for (ctx.workspaces.keys()) |ws| {
+        if (ws >= current) continue;
+        if (ctx.workspaces.get(ws).?.isEmpty()) continue;
+
+        if (next) |n| {
+            if (ws > n) {
+                next = ws;
+            }
+        } else {
+            next = ws;
+        }
+    }
+    return next orelse current - 1;
+}

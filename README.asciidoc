@@ -52,6 +52,8 @@ keybinds are of the form `<modifiers>, <key>, <command>`. The same keybinds are 
 
 Commands are the basic user actions available in `rhine`.
 In the config file they appear in the following form
+Here `<workspace>` either refers to a workspace ID in the form of a signed 32-bit integer
+or a relative workspace specifier in the form of `Previous` or `Next`.
 
 [cols="m,a", frame=none, grid=none]
 |===
@@ -72,17 +74,17 @@ In the config file they appear in the following form
 | toggleWorkspace
 | switch back and forth between the current and previously focused workspace.
 
-| toggleSpecial, <workspace ID>
-| toggle `<workspace ID>` as overlay workspace.
+| toggleSpecial, <workspace>
+| toggle `<workspace>` as overlay workspace.
 
-| focusWorkspace, <workspace ID>
-| focus the workspace `<workspace ID>`.
+| focusWorkspace, <workspace>
+| focus the workspace `<workspace>`.
 
-| sendToWorkspace, <workspace ID>
-| send focused window to workspace `<workspace ID>`.
+| sendToWorkspace, <workspace>
+| send focused window to workspace `<workspace>`.
 
-| moveToWorkspace, <workspace ID>
-| equivalent to `sendFocusToWorkspace <workspace ID>` followed by `focusWorkspace <workspace ID>`.
+| moveToWorkspace, <workspace>
+| equivalent to `sendFocusToWorkspace <workspace>` followed by `focusWorkspace <workspace>`.
 
 | moveFocus, <Left\|Right\|Up\|Down>
 | move the seat's focus up, down, left, or right.

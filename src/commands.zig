@@ -47,6 +47,26 @@ pub const Queue = struct {
     }
 };
 
+const WsDir = enum { Previous, Next };
+
+const WsSpec = union(enum) {
+    abs: Workspace.WS,
+    rel: WsDir,
+
+    pub fn resolve(self: @This(), ctx: *Context, seat: *rwm.SeatV1) !Workspace.WS {
+        switch (self) {
+            .abs => |ws| return ws,
+            .rel => |dr| {
+                const current = Workspace.bySeat(ctx, seat) orelse return error.NoCurrentWorkspace;
+                return switch (dr) {
+                    .Previous => Workspace.getPrevious(ctx, current),
+                    .Next => Workspace.getNext(ctx, current),
+                };
+            },
+        }
+    }
+};
+
 pub const Command = union(enum) {
     killFocus: void,
     launch: []const u8,
@@ -54,11 +74,9 @@ pub const Command = union(enum) {
     toggleFloating: void,
     toggleWorkspace: void,
     toggleSpecial: Workspace.WS,
-    focusWorkspace: Workspace.WS,
-    sendToWorkspace: Workspace.WS,
-    nextWorkspace: void,
-    previousWorkspace: void,
-    moveToWorkspace: Workspace.WS,
+    focusWorkspace: WsSpec,
+    sendToWorkspace: WsSpec,
+    moveToWorkspace: WsSpec,
     moveFocus: Tiler.Dir,
     moveWindow: Tiler.Dir,
     layoutCommand: struct { Layouts.LayoutType, Tiler.Command },
@@ -71,7 +89,7 @@ pub const Command = union(enum) {
         ) orelse return error.InvalidTag;
 
         switch (tag) {
-            inline .killFocus, .toggleFullscreen, .toggleFloating, .toggleWorkspace, .exit, .nextWorkspace, .previousWorkspace => |t| return @unionInit(@This(), @tagName(t), {}),
+            inline .killFocus, .toggleFullscreen, .toggleFloating, .toggleWorkspace, .exit => |t| return @unionInit(@This(), @tagName(t), {}),
             .launch => return .{
                 .launch = args.next() orelse return error.NoLaunchArg,
             },
@@ -90,7 +108,11 @@ pub const Command = union(enum) {
                 return .{ .toggleSpecial = ws };
             },
             inline .sendToWorkspace, .focusWorkspace, .moveToWorkspace => |t| {
-                const ws = try std.fmt.parseInt(Workspace.WS, args.next() orelse return error.NoWsArg, 0);
+                const arg = args.next() orelse return error.NoWsArg;
+                const ws: WsSpec = if (std.fmt.parseInt(Workspace.WS, arg, 0)) |w|
+                    .{ .abs = w }
+                else |_|
+                    .{ .rel = meta.stringToEnum(WsDir, arg) orelse return error.ParseError };
 
                 return @unionInit(@This(), @tagName(t), ws);
             },
@@ -132,7 +154,7 @@ pub const Command = union(enum) {
                 const out = Output.bySeat(ctx, seat) orelse return;
                 const out_data = ctx.outs.get(out) orelse return;
                 const old = out_data.last_workspace orelse return;
-                try ctx.commands_queue.add(ctx.gpa, seat, .{ .focusWorkspace = old });
+                try ctx.commands_queue.add(ctx.gpa, seat, .{ .focusWorkspace = .{ .abs = old } });
             },
             .toggleSpecial => |ws| {
                 const out = Output.bySeat(ctx, seat) orelse return;
@@ -156,7 +178,8 @@ pub const Command = union(enum) {
                 seat_data.warp_to_window = seat_data.focus;
                 ctx.dirty = true;
             },
-            .focusWorkspace => |ws| {
+            .focusWorkspace => |_ws| {
+                const ws = try _ws.resolve(ctx, seat);
                 const out = Output.bySeat(ctx, seat) orelse return;
                 const out_data = ctx.outs.getPtr(out).?;
 
@@ -175,7 +198,8 @@ pub const Command = union(enum) {
                 seat_data.warp_to_window = seat_data.focus;
                 ctx.dirty = true;
             },
-            .sendToWorkspace => |ws| {
+            .sendToWorkspace => |_ws| {
+                const ws = try _ws.resolve(ctx, seat);
                 const focus = seat_data.focus orelse return;
                 const source = Window.getWorkspace(ctx, focus) orelse return;
 
@@ -231,43 +255,6 @@ pub const Command = union(enum) {
             .moveToWorkspace => |ws| {
                 try ctx.commands_queue.add(ctx.gpa, seat, .{ .sendToWorkspace = ws });
                 try ctx.commands_queue.add(ctx.gpa, seat, .{ .focusWorkspace = ws });
-            },
-            .nextWorkspace => {
-                const current = Workspace.bySeat(ctx, seat) orelse return error.NoCurrentWorkspace;
-                var next: ?Workspace.WS = null;
-                for (ctx.workspaces.keys()) |ws| {
-                    if (ws <= current) continue;
-                    if (ctx.workspaces.get(ws).?.isEmpty()) continue;
-
-                    if (next) |n| {
-                        if (ws < n) {
-                            next = ws;
-                        }
-                    } else {
-                        next = ws;
-                    }
-                }
-                const n = next orelse current + 1;
-                try ctx.commands_queue.add(ctx.gpa, seat, .{ .focusWorkspace = n });
-            },
-            .previousWorkspace => {
-                const current = Workspace.bySeat(ctx, seat) orelse return error.NoCurrentWorkspace;
-                var next: ?Workspace.WS = null;
-                for (ctx.workspaces.keys()) |ws| {
-                    if (ws >= current) continue;
-                    if (ctx.workspaces.get(ws).?.isEmpty()) continue;
-                    if (next) |n| {
-                        if (ws > n) {
-                            next = ws;
-                        }
-                    } else {
-                        next = ws;
-                    }
-                }
-
-                const n = next orelse current - 1;
-                if (n >= 0)
-                    try ctx.commands_queue.add(ctx.gpa, seat, .{ .focusWorkspace = n });
             },
             .layoutCommand => |_laycmd| {
                 const tag, const laycmd = _laycmd;

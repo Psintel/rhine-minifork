@@ -196,7 +196,7 @@ fn consume(reader: *std.Io.Reader, char: u8) !bool {
     return true;
 }
 
-fn parseEntry(allocator: mem.Allocator, reader: *std.Io.Reader) !Entry {
+pub fn parseEntry(allocator: mem.Allocator, reader: *std.Io.Reader) !Entry {
     const b = try reader.takeDelimiter('\n') orelse &.{};
     const trimmed = mem.trim(u8, b, " \t");
     return .{ .args = try allocator.dupe(u8, trimmed) };
@@ -365,7 +365,7 @@ pub fn parseT(self: Config, T: type) Error!T {
 
     const str = switch (@typeInfo(T)) {
         .@"struct" => |pl| pl,
-        else => return error.ParseError,
+        else => return error.ParseError, // <- should be a comptime error
     };
 
     if (str.is_tuple) @compileError("cannot parse config block into tuple");
