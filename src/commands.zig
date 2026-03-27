@@ -56,6 +56,8 @@ pub const Command = union(enum) {
     toggleSpecial: Workspace.WS,
     focusWorkspace: Workspace.WS,
     sendToWorkspace: Workspace.WS,
+    nextWorkspace: void,
+    previousWorkspace: void,
     moveToWorkspace: Workspace.WS,
     moveFocus: Tiler.Dir,
     moveWindow: Tiler.Dir,
@@ -69,7 +71,7 @@ pub const Command = union(enum) {
         ) orelse return error.InvalidTag;
 
         switch (tag) {
-            inline .killFocus, .toggleFullscreen, .toggleFloating, .toggleWorkspace, .exit => |t| return @unionInit(@This(), @tagName(t), {}),
+            inline .killFocus, .toggleFullscreen, .toggleFloating, .toggleWorkspace, .exit, .nextWorkspace, .previousWorkspace => |t| return @unionInit(@This(), @tagName(t), {}),
             .launch => return .{
                 .launch = args.next() orelse return error.NoLaunchArg,
             },
@@ -229,6 +231,43 @@ pub const Command = union(enum) {
             .moveToWorkspace => |ws| {
                 try ctx.commands_queue.add(ctx.gpa, seat, .{ .sendToWorkspace = ws });
                 try ctx.commands_queue.add(ctx.gpa, seat, .{ .focusWorkspace = ws });
+            },
+            .nextWorkspace => {
+                const current = Workspace.bySeat(ctx, seat) orelse return error.NoCurrentWorkspace;
+                var next: ?Workspace.WS = null;
+                for (ctx.workspaces.keys()) |ws| {
+                    if (ws <= current) continue;
+                    if (ctx.workspaces.get(ws).?.isEmpty()) continue;
+
+                    if (next) |n| {
+                        if (ws < n) {
+                            next = ws;
+                        }
+                    } else {
+                        next = ws;
+                    }
+                }
+                const n = next orelse current + 1;
+                try ctx.commands_queue.add(ctx.gpa, seat, .{ .focusWorkspace = n });
+            },
+            .previousWorkspace => {
+                const current = Workspace.bySeat(ctx, seat) orelse return error.NoCurrentWorkspace;
+                var next: ?Workspace.WS = null;
+                for (ctx.workspaces.keys()) |ws| {
+                    if (ws >= current) continue;
+                    if (ctx.workspaces.get(ws).?.isEmpty()) continue;
+                    if (next) |n| {
+                        if (ws > n) {
+                            next = ws;
+                        }
+                    } else {
+                        next = ws;
+                    }
+                }
+
+                const n = next orelse current - 1;
+                if (n >= 0)
+                    try ctx.commands_queue.add(ctx.gpa, seat, .{ .focusWorkspace = n });
             },
             .layoutCommand => |_laycmd| {
                 const tag, const laycmd = _laycmd;

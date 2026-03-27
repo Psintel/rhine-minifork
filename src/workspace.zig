@@ -119,6 +119,11 @@ pub fn setSize(self: *@This(), ctx: Tiler.TileContext, size: utils.Vec2f, anchor
     return self.tiler.vtable.setSize(self.tiler.context, ctx, size, anchor);
 }
 
+pub fn loadConfig(self: *@This(), conf: Config) !void{
+    const lc = try conf.sub(@tagName(self.tiler.tag));
+    return self.tiler.vtable.loadConfig(self.tiler.context, lc);
+}
+
 pub fn command(self: *@This(), ctx: Tiler.TileContext, cmd: Tiler.Command) Tiler.Error!void {
     return self.tiler.vtable.command(self.tiler.context, ctx, cmd);
 }
@@ -167,7 +172,7 @@ pub fn setTiling(self: *@This(), ctx: *Context, win: *rwm.WindowV1) !void {
     _ = self.floating.swapRemove(win);
 }
 
-pub fn loadConfig(self: *@This(), conf: Config) !void{
-    const lc = try conf.sub(@tagName(self.tiler.tag));
-    return self.tiler.vtable.loadConfig(self.tiler.context, lc);
+pub fn isEmpty(self: @This()) bool {
+    return self.windows.count() == 0 and self.floating.count() == 0;
 }
+

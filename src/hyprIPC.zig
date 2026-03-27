@@ -17,6 +17,8 @@ const Context = @import("context.zig");
 const Workspace = @import("workspace.zig");
 const Tiler = @import("tiler.zig");
 const Layouts = @import("layouts.zig");
+const Config = @import("config.zig");
+const commands = @import("commands.zig");
 
 const log = std.log;
 
@@ -151,14 +153,29 @@ fn handlePlain(ctx: *Context, reader: *std.Io.Reader, writer: *std.Io.Writer) !v
                     .focusWorkspace = id - 1,
                 });
             }
-
             try writer.print("ok", .{});
         }
+    } else if (mem.startsWith(u8, reader.buffered(), "/rhine")) {
+        _ = try reader.discardDelimiterInclusive(' ');
+        try handleCmd(ctx, reader.buffered());
+        try writer.print("ok", .{});
     } else {
         try writer.print("don't know how to respond :(\n\n", .{});
         log.info("unknown ipc request {s}", .{reader.buffered()});
     }
     try writer.flush();
+}
+
+fn handleCmd(ctx: *Context, word: []const u8) !void {
+    log.info("trying to parse command: {s}", .{word});
+    var r = std.Io.Reader.fixed(word);
+    const e = try Config.parseEntry(ctx.gpa, &r);
+    defer e.deinit(ctx.gpa);
+    var iter = e.iterate();
+    const c = try commands.Command.fromArg(&iter);
+
+    if (ctx.last_active) |s|
+        try ctx.commands_queue.add(ctx.gpa, s, c);
 }
 
 fn handleCon(serv: *net.Server, ctx: *Context) !void {
