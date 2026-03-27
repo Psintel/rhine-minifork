@@ -113,6 +113,7 @@ pub fn reload(self: *@This()) !void {
     self.anims = try Animations.load(&self.config);
 
     for (self.seats.keys()) |seat| {
+        try Seat.setup(seat, self);
         // reload keybinds
         keybinds.unregister(self, seat);
         try keybinds.registerAll(self, seat);

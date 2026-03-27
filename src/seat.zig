@@ -9,6 +9,7 @@ const Context = @import("context.zig");
 const Output = @import("output.zig");
 const Window = @import("window.zig");
 const Workspace = @import("workspace.zig");
+const Config = @import("config.zig");
 const keybinds = @import("keybinds.zig");
 const pointerbinds = @import("pointer_binds.zig");
 
@@ -46,15 +47,13 @@ pub fn listener(seat: *rwm.SeatV1, e: rwm.SeatV1.Event, ctx: *Context) void {
         },
         .pointer_enter => |win| {
             if (win.window) |w| {
-
-
                 const ws = Workspace.byWindow(ctx, w) orelse {
-                    log.err("seat {}: pointer entered window {} without workspace", .{seat.getId(), w.getId()});
+                    log.err("seat {}: pointer entered window {} without workspace", .{ seat.getId(), w.getId() });
                     return;
                 };
 
                 const out = Output.byWorkspace(ctx, ws) orelse {
-                    log.err("seat {}: pointer entered window {} shown on no output", .{seat.getId(), w.getId()});
+                    log.err("seat {}: pointer entered window {} shown on no output", .{ seat.getId(), w.getId() });
                     return;
                 };
 
@@ -91,6 +90,21 @@ pub fn listener(seat: *rwm.SeatV1, e: rwm.SeatV1.Event, ctx: *Context) void {
             log.warn("lmao! can't actually handle event {s}", .{@tagName(e)});
         },
     }
+}
+
+pub fn setup(seat: *rwm.SeatV1, ctx: *Context) !void {
+    const seats = try ctx.config.sub("seat");
+    const xcursor = try seats.sub("xcursor");
+    const name = if (try xcursor.getArgs("theme")) |a| a.args else ctx.child_env.get("XCURSOR_THEME");
+    const size = if (try xcursor.getArgs("size")) |s| s.args else ctx.child_env.get("XCURSOR_SIZE");
+
+    if (name) |n| if (size) |s| {
+            var buff: [0xff]u8 = @splat(0);
+            var fb = std.heap.FixedBufferAllocator.init(&buff);
+            const theme = try fb.allocator().dupeZ(u8, n);
+            log.info("{}: set cursor theme to {s}, {s}", .{seat.getId(), n, s});
+            seat.setXcursorTheme(theme, try std.fmt.parseInt(u32, s, 0));
+    };
 }
 
 pub fn anyPointerOp(ctx: *Context) bool {

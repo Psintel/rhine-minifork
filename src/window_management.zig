@@ -63,6 +63,9 @@ pub fn listen(iface: *rwm.WindowManagerV1, event: rwm.WindowManagerV1.Event, ctx
             ctx.seats.put(ctx.gpa, args.id, .{
                 .seat = null,
             }) catch return;
+            Seat.setup(args.id, ctx) catch |err|
+                log.err("{} when trying to apply config for seat {}", .{ err, args.id.getId() });
+
             args.id.setListener(*Context, Seat.listener, ctx);
             keybinds.registerAll(ctx, args.id) catch |err|
                 log.err("{} when trying to register keybinds for seat {}", .{ err, args.id.getId() });
@@ -224,7 +227,7 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, curr_time: i64) 
             .soon => {
                 win.informResizeStart();
                 wd.active_resize = .yes;
-            }
+            },
         }
 
         const goal = &wd.goal_size;
@@ -420,7 +423,7 @@ fn render(ctx: *Context) !void {
         if (meta.activeTag(wd.pos) == .transit) ctx.dirty = true;
         if (meta.activeTag(wd.goal_size) == .transit) ctx.dirty = true;
 
-        if (wd.pos.done(ctx.anims, curr_time) or Seat.anyPointerOp(ctx) ) {
+        if (wd.pos.done(ctx.anims, curr_time) or Seat.anyPointerOp(ctx)) {
             wd.pos.staticify();
         }
     }

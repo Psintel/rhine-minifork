@@ -101,6 +101,13 @@ windowrules [
     zenity, float
 ]
 
+seat {
+    xcursor {
+        theme Breeze_Hacked
+        size 24
+    }
+}
+
 keyboard {
     # layout en
     # variant
