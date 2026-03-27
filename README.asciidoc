@@ -45,7 +45,13 @@ keybinds are of the form `<modifiers>, <key>, <command>`. The same keybinds are 
 
 * `[modifiers]` is a `+`-separated list of the modifiers `super`, `shift`, `alt`, `ctrl` and `none`.
 * `[key]` is the name of a key as found in the `xkbcommon/xkbcommon-keysyms.h` header (with the `XKB_KEY_` part removed).
-* `[command]` is one of the options in the table below
+* `[command]` is a command
+
+
+=== Commands
+
+Commands are the basic user actions available in `rhine`.
+In the config file they appear in the following form
 
 [cols="m,a", frame=none, grid=none]
 |===
@@ -168,13 +174,40 @@ animations {
 | video::rhine/raw/branch/main/assets/sin.mp4[opts="autoplay"]
 |===
 
+== IPC
+
+`rhine` supports _some_ of https://wiki.hypr.land/Configuring/Using-hyprctl/[Hyprland's IPC] mechanism.
+The table below lists the available request and their differences.
+
+[cols="a,a"]
+|===
+| request | description
+
+| `dispatch`
+| only `workspace` is available
+| `workspaces` 
+| contains less information
+| `monitors`
+| contains less information
+| `clients`
+| contains less information
+|===
+
+Rhine also adds the following _new_ commands to the interface.
+
+[cols="a,a"]
+|===
+| request | description
+| `rhine`
+| run a `rhine` command from the table above
+|===
+
 == non-goals
 
 What will rhine _not_ do (for now):
 
 * ssd. all windows will be (for now) undecorated (aside from fun borders)
 * present the best floating/stacking experience
-
 
 
 == running rhine
