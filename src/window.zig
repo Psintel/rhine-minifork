@@ -185,20 +185,18 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
     }
 }
 
-pub fn setSize(self: *@This(), new: utils.Vec2, _now: ?i64) bool {
-    if (@reduce(.Or, new < @as(utils.Vec2, @splat(0)))) return false;
+pub fn setSize(self: *@This(), new: utils.Vec2, _now: ?i64) void {
+    if (@reduce(.Or, new < @as(utils.Vec2, @splat(0)))) return;
 
     const now = _now orelse time.microTimestamp();
 
-    if (meta.eql(new, self.goal_size.end())) return false;
+    if (meta.eql(new, self.goal_size.end())) return;
 
     self.goal_size = .{ .transit = .{
         .from = self.size,
         .to = new,
         .start = now,
     } };
-
-    return true;
 }
 
 pub fn setPos(self: *@This(), anims: Animations, new: utils.Vec2, _now: ?i64) void {

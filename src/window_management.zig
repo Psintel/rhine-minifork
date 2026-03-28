@@ -159,10 +159,11 @@ fn apply_tiler(ctx: *Context, curr_time: i64) !void {
         if (@reduce(.Or, man_state.dims.dim < @as(utils.Vec2, @splat(0)))) man_state.show = false;
 
         wd.setPos(ctx.anims, man_state.dims.pos, curr_time);
+        wd.setSize(man_state.dims.dim, curr_time);
     }
 }
 
-fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, curr_time: i64) void {
+fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, _: i64) void {
     for (ws.windows.keys()) |win| {
         const wd = ctx.wins.getPtr(win) orelse continue;
         const man_state = ctx.manage_states.get(win) orelse {
@@ -217,34 +218,9 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, curr_time: i64) 
             .right = true,
             .bottom = true,
         });
-
-        switch (wd.active_resize) {
-            .yes, .no => {},
-            .was => {
-                win.informResizeEnd();
-                wd.active_resize = .no;
-            },
-            .soon => {
-                win.informResizeStart();
-                wd.active_resize = .yes;
-            },
-        }
-
-        const goal = &wd.goal_size;
-        if (wd.setSize(man_state.dims.dim, curr_time)) {
-            const ts = @max(goal.max(), wd.size, @as(utils.Vec2, @splat(0)));
-            win.proposeDimensions(ts[0], ts[1]);
-        }
-
-        if (goal.done(ctx.anims, curr_time) or wd.active_resize != .no) {
-            goal.staticify();
-            const ts = @max(goal.get(ctx.anims, curr_time), @as(utils.Vec2, @splat(0)));
-            win.proposeDimensions(ts[0], ts[1]);
-        }
     }
 
     for (ws.floating.keys()) |win| {
-        const wd = ctx.wins.getPtr(win) orelse continue;
         const col: utils.Color = .gray;
 
         win.setBorders(
@@ -270,18 +246,6 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, curr_time: i64) 
             .bottom = false,
         });
 
-        // win.proposeDimensions(0, 0);
-        const goal = &wd.goal_size;
-        if (wd.setSize(wd.size, curr_time)) {
-            const ts = @max(goal.max(), wd.size, @as(utils.Vec2, @splat(0)));
-            win.proposeDimensions(ts[0], ts[1]);
-        }
-
-        if (goal.done(ctx.anims, curr_time)) {
-            goal.staticify();
-            const ts = @max(goal.get(ctx.anims, curr_time), @as(utils.Vec2, @splat(0)));
-            win.proposeDimensions(ts[0], ts[1]);
-        }
     }
 }
 
@@ -388,6 +352,40 @@ fn manage(ctx: *Context) !void {
             manage_ws(ctx, overlay, out, curr_time);
         }
     }
+
+    // manage size and position
+    var wins = ctx.wins.iterator();
+    while(wins.next()) |_w| {
+        const win = _w.key_ptr.*;
+        const wd = _w.value_ptr;
+
+        switch(wd.active_resize) {
+            .yes, .no => {},
+            .soon => {
+                wd.active_resize = .yes;
+                win.informResizeStart();
+            },
+            .was => {
+                wd.active_resize = .no;
+                win.informResizeEnd();
+            },
+        }
+
+        const goal = &wd.goal_size;
+        const max = @max(goal.max(), wd.size, @as(utils.Vec2, @splat(0)));
+
+        if (goal.done(ctx.anims, curr_time) or Seat.anyPointerOp(ctx)) {
+            goal.staticify();
+            const ts = @max(goal.get(ctx.anims, curr_time), @as(utils.Vec2, @splat(0)));
+            win.proposeDimensions(ts[0], ts[1]);
+        } else if (@reduce(.Or, wd.size < max)) {
+            win.proposeDimensions(max[0], max[1]);
+        }
+
+        if (wd.pos.done(ctx.anims, curr_time) or Seat.anyPointerOp(ctx)) {
+            wd.pos.staticify();
+        }
+    }
 }
 
 fn render(ctx: *Context) !void {
@@ -410,11 +408,7 @@ fn render(ctx: *Context) !void {
         }
 
         const tp = wd.pos.get(ctx.anims, curr_time);
-        const size: utils.Vec2 =
-        // if (wd.goal_size.done(ctx.anims, curr_time))
-        //     @splat(0)
-        // else
-            @max(wd.goal_size.get(ctx.anims, curr_time), @as(utils.Vec2, @splat(0)));
+        const size: utils.Vec2 = @max(wd.goal_size.get(ctx.anims, curr_time), @as(utils.Vec2, @splat(0)));
 
         wd.node.setPosition(tp[0], tp[1]);
         w.setContentClipBox(0, 0, size[0], size[1]);
@@ -422,10 +416,6 @@ fn render(ctx: *Context) !void {
 
         if (meta.activeTag(wd.pos) == .transit) ctx.dirty = true;
         if (meta.activeTag(wd.goal_size) == .transit) ctx.dirty = true;
-
-        if (wd.pos.done(ctx.anims, curr_time) or Seat.anyPointerOp(ctx)) {
-            wd.pos.staticify();
-        }
     }
 
     // put focus on top

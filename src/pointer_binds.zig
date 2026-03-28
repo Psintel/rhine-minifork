@@ -169,7 +169,7 @@ const resize = struct {
         errdefer ctx.gpa.destroy(ct);
 
         const win = Window.byPointer(ctx, pos) orelse return error.StartError;
-        const win_data = ctx.wins.get(win) orelse return error.StartError;
+        const win_data = ctx.wins.getPtr(win) orelse return error.StartError;
         const win_pos = win_data.pos.get(ctx.anims, std.time.milliTimestamp());
         const dir = pos - win_pos - win_data.size / @as(utils.Vec2, @splat(2));
 
@@ -183,6 +183,16 @@ const resize = struct {
             },
         };
         log.info("starting resize op", .{});
+
+        if (win_data.float) return win_data.active_resize.on();
+
+        if (Workspace.byWindow(ctx, win)) |ws| {
+            const ws_data = ctx.workspaces.getPtr(ws) orelse return;
+            for (ws_data.windows.keys()) |w| {
+                const wd = ctx.wins.getPtr(w) orelse continue;
+                wd.active_resize.on();
+            }
+        }
     }
 
     fn update(_win: ?*anyopaque, ctx: *Context, delta: utils.Vec2) void {
@@ -204,14 +214,14 @@ const resize = struct {
                 if (ct.anchor.h == .right) 1 else 0,
                 if (ct.anchor.v == .bottom) 1 else 0,
             };
-            win_data.pos = .{ .static = ct.win_pos + mpos * delta };
-            win_data.size = @max(new_size, @as(utils.Vec2, @splat(1)));
+            const t = std.time.microTimestamp();
+            win_data.setPos(ctx.anims, ct.win_pos + mpos * delta, t);
+            win_data.setSize(@max(new_size, @as(utils.Vec2, @splat(1))), t);
         } else {
             const ws = out_data.workspace;
             const ws_data = ctx.workspaces.getPtr(ws) orelse return;
             const goal: utils.Vec2f = @floatFromInt(new_size);
             const out_size: utils.Vec2f = @floatFromInt(out_data.size.?);
-            win_data.goal_size = .{ .static = new_size };
             ws_data.setSize(.{
                 .gpa = ctx.gpa,
                 .focus = ct.win,
@@ -223,6 +233,17 @@ const resize = struct {
         const ptr = _win orelse return;
         const ct: *Ctx = @ptrCast(@alignCast(ptr));
         defer ctx.gpa.destroy(ct);
+        const win_data = ctx.wins.getPtr(ct.win) orelse return;
+
+        if (win_data.float) return win_data.active_resize.off();
+
+        if (Workspace.byWindow(ctx, ct.win)) |ws| {
+            const ws_data = ctx.workspaces.getPtr(ws) orelse return;
+            for (ws_data.windows.keys()) |w| {
+                const wd = ctx.wins.getPtr(w) orelse continue;
+                wd.active_resize.on();
+            }
+        }
     }
 };
 
