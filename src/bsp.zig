@@ -35,20 +35,11 @@ pub const Command = enum(u32) {
     changeSplit,
 };
 
-fn scale(i: i32, f: f32) i32 {
-    return @intFromFloat(@as(f32, @floatFromInt(i)) * f);
-}
-
-fn vscale(i: utils.Vec2, f: utils.Vec2f) utils.Vec2 {
-    return @intFromFloat(@as(utils.Vec2f, @floatFromInt(i)) * f);
-}
-
 pub fn splitDim(v: utils.Vec2f, OR: subTile.Mode, ratio: f32) utils.Vec2f {
     const fac: utils.Vec2f = switch (OR) {
         .V => .{ ratio, 1 },
         .H => .{ 1, ratio },
     };
-
     return v * fac;
 }
 

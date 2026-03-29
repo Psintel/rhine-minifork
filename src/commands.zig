@@ -232,6 +232,7 @@ pub const Command = union(enum) {
                 const win_data = ctx.wins.getPtr(win) orelse return;
                 const ws_id = Window.getWorkspace(ctx, win) orelse return error.OrphanedFocus;
                 const ws = ctx.workspaces.getPtr(ws_id).?;
+
                 if (ws.getWindow(.{
                     .focus = seat_data.focus,
                     .gpa = ctx.gpa,

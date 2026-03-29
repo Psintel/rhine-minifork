@@ -23,8 +23,9 @@ There is an example link:rhine/src/branch/main/config.rh[config.rh] at the root 
 === input devices & output layout
 
 Rhine will *not* configure your input devices or outputs (monitors).
-* input config is what https://codeberg.org/Sivecano/channel[channel] is for.
-* monitor config can be done with a number of tools like wlr-randr or kanshi.
+
+* input config is what https://codeberg.org/Sivecano/channel[channel] is for
+* monitor config can be done with a number of tools like https://sr.ht/~emersion/wlr-randr[wlr-randr] or https://gitlab.freedesktop.org/emersion/kanshi[kanshi]
 
 === layouts
 
