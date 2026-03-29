@@ -52,6 +52,9 @@ keybinds [
     super, Down, moveFocus, Down
     super, Up, moveFocus, Up
 
+    ctrl+super, Left, focusWorkspace, Previous
+    ctrl+super, Right, focusWorkspace, Next
+
     super+shift, h, moveWindow, Left
     super+shift, l, moveWindow, Right
     super+shift, j, moveWindow, Down
@@ -108,10 +111,19 @@ seat {
     }
 }
 
+startup [
+    dbus-update-activation-environment --all --systemd
+    kanshi
+    awww-daemon
+    swayidle
+]
+
+# Input config needs https://codeberg.org/Sivecano/channel to work
 keyboard {
-    # layout en
-    # variant
-    # options grp:ctrl_space_toggle
+    layout us
+    variant
+    # rules
+    options grp:ctrl_space_toggle
     repeat {
         rate 25
         delay 550
@@ -122,10 +134,3 @@ touchpad {
     natural_scroll true
     tap_to_click true
 }
-
-startup [
-    dbus-update-activation-environment --all --systemd
-    kanshi
-    awww-daemon
-    swayidle
-]

@@ -1,17 +1,14 @@
 = TODO
-* add veriant tag to tiler
-    ** maybe even devirtualize tilers in favour of tagged unions
-        *** this might make future shared object loading ambitions harder
-    ** tiler specific commands are currently handled without checking that we're sending the command to a compatible target. that's a problem
+* xkill opearion
+* maybe devirtualize tilers in favour of tagged unions
+    ** this might make future shared object loading ambitions harder
 * update to version 4 of window-management-v1
     ** store identifiers for wm session restore
     ** set cursor shapes based on context
 * tiler API overhaul
     ** re-introduce distinction between render and manage better
-    ** window highlights won't be managed by the tiler
     ** reduce API surface by removing the context object
     ** maybe remove focus move?
-    ** communicate window resizing somehow
 * special workspaces
     ** autostart clients
     ** maybe have a focused workspace per seat
