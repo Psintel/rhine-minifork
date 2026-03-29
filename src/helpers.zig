@@ -22,20 +22,13 @@ pub fn spawnChild(ctx: *Context, command: []const u8, setsid: bool) !void {
     const env = try std.process.createEnvironFromMap(alloc, &ctx.child_env, .{});
     const pid = try std.posix.fork();
 
-    var args = [_:null]?[*:0]const u8{ "sh", "-c", undefined };
-    args[args.len - 1] = try alloc.dupeZ(u8, command);
+    const args = [_:null]?[*:0]const u8{ "sh", "-c", try alloc.dupeZ(u8, command) };
 
     if (pid == 0) {
         if (setsid) _ = posix.setsid() catch posix.exit(1);
         const devNull = posix.open("/dev/null", .{ .ACCMODE = .WRONLY }, 0) catch posix.exit(1);
         posix.dup2(devNull, posix.STDERR_FILENO) catch posix.exit(1);
         posix.dup2(devNull, posix.STDOUT_FILENO) catch posix.exit(1);
-        const sig_dfl = posix.Sigaction{
-            .handler = .{ .handler = posix.SIG.DFL },
-            .mask = posix.sigemptyset(),
-            .flags = 0,
-        };
-        posix.sigaction(posix.SIG.PIPE, &sig_dfl, null);
         posix.execveZ("/bin/sh", &args, env) catch posix.exit(1);
     }
 }

@@ -16,6 +16,7 @@ const Config = @import("config.zig");
 const Context = @import("context.zig");
 const HyprIPC = @import("hyprIPC.zig");
 const Inotify = @import("inotify.zig");
+const SignalListener = @import("signal_listener.zig");
 const Layouts = @import("layouts.zig");
 
 pub const std_options: std.Options = .{
@@ -88,6 +89,8 @@ pub fn main() !void {
     const config = try std.fs.cwd().openFile(config_path, .{});
     var inotify: Inotify = try .init(.{ .nonblock = true });
     defer inotify.deinit();
+    const signal_listener: SignalListener = try .init(.{ .CHLD = true }, .{ .NONBLOCK = true });
+    defer signal_listener.deinit();
 
     const wid = try inotify.watch(config_path, .{ .MODIFY = true });
 
@@ -124,6 +127,11 @@ pub fn main() !void {
             .fd = inotify.inot_file.handle,
             .revents = undefined,
         },
+        .{
+            .events = linux.POLL.IN,
+            .fd = signal_listener.file.handle,
+            .revents = undefined,
+        },
     };
 
     var reg: Registry = .{};
@@ -156,6 +164,11 @@ pub fn main() !void {
     helpers.startup(&ctx);
 
     while (ctx.running) {
+        while (try signal_listener.readSignal()) |sig| {
+            var a:u32 = undefined;
+            _ = linux.waitpid(@intCast(sig.pid), &a, linux.W.NOHANG);
+        }
+
         {
             var reload_conf = false;
             while (try inotify.nextEvent()) |e| {
