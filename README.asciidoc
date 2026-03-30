@@ -264,3 +264,4 @@ The following list should make it easier to contribute to rhine, if one so wishe
     ** src/commands.zig for adding more commands
     ** adding more tiler layouts (they are specified in srd/layouts.zig)
     ** adding more pointer operations (found in src/pointer_ops.zig)
+* to figure out my longer-term ambitions, check TODO.asciidoc
