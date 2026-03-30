@@ -97,7 +97,7 @@ or a relative workspace specifier in the form of `Previous` or `Next`.
 | move the seat's focus up, down, left, or right.
 
 | moveWindow, <Left\|Right\|Up\|Down>
-| move the focused window up, down, left, or right.
+| move the focused window up, down, left, or right. floating windows will be moved by 25 pixels.
 
 | layoutCommand, <layout>, <command> [, args]
 | run the layout-specific command <command> of layout <layout> with given arguments.

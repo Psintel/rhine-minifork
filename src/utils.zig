@@ -73,7 +73,11 @@ fn Rect2T(T: type) type {
             },
         };
 
-        pub fn inside(self: @This(), pos: Vec2) bool {
+        pub fn constrain(self: @This(), pos: Vec2T(T)) Vec2T(T) {
+            return @min(self.pos + self.dim, @max(self.pos, pos));
+        }
+
+        pub fn inside(self: @This(), pos: Vec2T(T)) bool {
             const near = self.pos;
             const far = self.pos + self.dim;
 

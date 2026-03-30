@@ -246,10 +246,36 @@ pub const Command = union(enum) {
             },
             .moveWindow => |dir| {
                 const win = seat_data.focus orelse return;
+                const win_data = ctx.wins.getPtr(win) orelse return;
                 const ws_id = Window.getWorkspace(ctx, win) orelse return error.OrphanedFocus;
                 const ws = ctx.workspaces.getPtr(ws_id).?;
 
-                ws.move(.{ .gpa = ctx.gpa, .focus = win }, dir);
+                if (win_data.float) {
+                    const t = std.time.microTimestamp();
+                    const out = Output.byWorkspace(ctx, ws_id) orelse return;
+                    const out_data = ctx.outs.get(out) orelse return;
+                    const out_area = out_data.getArea();
+                    const pos = win_data.pos.get(ctx.anims, t);
+                    const size = win_data.size;
+                    const constr_area = utils.Rect2{
+                        .pos = out_area.pos,
+                        .dim = out_area.dim - size,
+                    };
+                    const dir_sign: utils.Vec2 = switch (dir) {
+                        .Left => .{ -1, 0 },
+                        .Right => .{ 1, 0 },
+                        .Up => .{ 0, -1 },
+                        .Down => .{ 0, 1 },
+                    };
+
+                    const dir_vec: utils.Vec2 = @as(utils.Vec2, @splat(25)) * dir_sign;
+                    const new_pos = constr_area.constrain(pos + dir_vec);
+
+                    win_data.pos = .{ .static = new_pos };
+                } else {
+                    ws.move(.{ .gpa = ctx.gpa, .focus = win }, dir);
+                }
+
                 seat_data.warp_to_window = win;
                 ctx.dirty = true;
             },
