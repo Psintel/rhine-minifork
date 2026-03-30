@@ -52,16 +52,25 @@ const BindData = struct {
 
 var bindDatas: utils.WLHashMap(rwm.XkbBindingV1, BindData) = .empty;
 
-pub const Bind = struct {
-    mods: rwm.SeatV1.Modifiers,
-    key: Sym,
-    cmd: command.Command,
+pub const Mods = struct {
+    shift: bool = false,
+    ctrl: bool = false,
+    mod1: bool = false,
+    mod3: bool = false,
+    mod4: bool = false,
+    mod5: bool = false,
 
-    pub fn fromEntry(entry: Config.Entry) !@This() {
-        var args = entry.iterate();
+    pub fn toSeatMods(self: @This()) rwm.SeatV1.Modifiers {
+        var out = rwm.SeatV1.Modifiers{};
+        inline for (comptime meta.fieldNames(@This())) |f| {
+            @field(out, f) = @field(self, f);
+        }
+        return out;
+    }
 
-        var iter = std.mem.tokenizeScalar(u8, args.next() orelse return error.NoMod, '+');
-        var mods = rwm.SeatV1.Modifiers{};
+    pub fn parse(str: []const u8) !@This() {
+        var iter = std.mem.tokenizeScalar(u8, str, '+');
+        var mods = @This(){};
 
         while (iter.next()) |m| {
             if (mem.eql(u8, m, "alt")) {
@@ -78,6 +87,20 @@ pub const Bind = struct {
                 return error.ParseError;
             }
         }
+
+        return mods;
+    }
+};
+
+pub const Bind = struct {
+    mods: Mods,
+    key: Sym,
+    cmd: command.Command,
+
+    pub fn fromEntry(entry: Config.Entry) !@This() {
+        var args = entry.iterate();
+
+        const mods = try Mods.parse(args.next() orelse return error.NoMod);
 
         const key = args.next() orelse return error.NoKey;
         const keyval = syms.get(key) orelse {
@@ -110,7 +133,7 @@ pub fn registerAll(ctx: *Context, seat: *rwm.SeatV1) !void {
 
     for (conf) |entry| {
         const b = Bind.fromEntry(entry) catch |e| {
-            log.err("error parsing keybind : {}", .{ e});
+            log.err("error parsing keybind : {}", .{e});
             continue;
         };
 
@@ -123,7 +146,7 @@ pub fn registerAll(ctx: *Context, seat: *rwm.SeatV1) !void {
 
 fn registerBind(ctx: *Context, seat: *rwm.SeatV1, b: Bind) !void {
     const sc = ctx.seats.getPtr(seat).?;
-    const nb = try ctx.bind.getXkbBinding(seat, b.key, b.mods);
+    const nb = try ctx.bind.getXkbBinding(seat, b.key, b.mods.toSeatMods());
     errdefer nb.destroy();
     try sc.binds.append(ctx.gpa, nb);
     errdefer _ = sc.binds.pop();

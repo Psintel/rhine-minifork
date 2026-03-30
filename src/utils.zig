@@ -1,3 +1,6 @@
+const wayland = @import("wayland");
+const wl = wayland.client.wl;
+
 const std = @import("std");
 const math = std.math;
 const meta = std.meta;
@@ -140,6 +143,13 @@ pub const Color = struct {
         .a = 0xFFFF_FFFF,
     };
 };
+
+pub fn handleIface(reg:* wl.Registry, glob: @TypeOf(@as(wl.Registry.Event, undefined).global), iface: type) ?*iface {
+    if (mem.orderZ(u8, glob.interface, iface.interface.name) == .eq) {
+        return reg.bind(glob.name, iface, iface.interface.version) catch null;
+    }
+    return null;
+}
 
 pub fn IdHashMap(K: type, V: type) type {
     return std.ArrayHashMapUnmanaged(K, V, struct {

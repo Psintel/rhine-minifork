@@ -17,6 +17,7 @@ const Context = @import("context.zig");
 const Tiler = @import("tiler.zig");
 const Layouts = @import("layouts.zig");
 const Config = @import("config.zig");
+const pointer_ops = @import("pointer_ops.zig");
 
 const log = std.log.scoped(.Commands);
 
@@ -69,6 +70,7 @@ const WsSpec = union(enum) {
 
 pub const Command = union(enum) {
     killFocus: void,
+    xkill: void,
     launch: []const u8,
     toggleFullscreen: void,
     toggleFloating: void,
@@ -80,6 +82,7 @@ pub const Command = union(enum) {
     moveFocus: Tiler.Dir,
     moveWindow: Tiler.Dir,
     layoutCommand: struct { Layouts.LayoutType, Tiler.Command },
+    startPointerOp: pointer_ops.OpType,
     exit: void,
 
     pub fn fromArg(args: *Config.Entry.Iterator) !@This() {
@@ -89,7 +92,7 @@ pub const Command = union(enum) {
         ) orelse return error.InvalidTag;
 
         switch (tag) {
-            inline .killFocus, .toggleFullscreen, .toggleFloating, .toggleWorkspace, .exit => |t| return @unionInit(@This(), @tagName(t), {}),
+            inline .killFocus, .xkill, .toggleFullscreen, .toggleFloating, .toggleWorkspace, .exit => |t| return @unionInit(@This(), @tagName(t), {}),
             .launch => return .{
                 .launch = args.next() orelse return error.NoLaunchArg,
             },
@@ -116,6 +119,10 @@ pub const Command = union(enum) {
 
                 return @unionInit(@This(), @tagName(t), ws);
             },
+            .startPointerOp => {
+                const arg = args.next() orelse return error.NoOpArg;
+                return .{ .startPointerOp = meta.stringToEnum(pointer_ops.OpType, arg) orelse return error.ParseError };
+            },
             .layoutCommand => {
                 return .{ .layoutCommand = try Layouts.parseCommand(args) };
             },
@@ -132,6 +139,9 @@ pub const Command = union(enum) {
                     log.info("marked window {} for closure", .{w.getId()});
                     ctx.dirty = true;
                 }
+            },
+            .xkill => {
+                try pointer_ops.startOp(ctx, seat, .xkill);
             },
             .launch => |command| {
                 try helpers.disownChild(ctx, command);
@@ -293,6 +303,9 @@ pub const Command = union(enum) {
                     .focus = seat_data.focus,
                 }, laycmd);
                 ctx.dirty = true;
+            },
+            .startPointerOp => |op| {
+                try pointer_ops.startOp(ctx, seat, op);
             },
             .exit => {
                 ctx.wm.exitSession();

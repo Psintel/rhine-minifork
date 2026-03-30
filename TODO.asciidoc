@@ -1,5 +1,4 @@
 = TODO
-* xkill opearion
 * maybe devirtualize tilers in favour of tagged unions
     ** this might make future shared object loading ambitions harder
 * update to version 4 of window-management-v1

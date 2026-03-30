@@ -104,6 +104,11 @@ windowrules [
     zenity, float
 ]
 
+pointer_binds [
+    super      , Left, startPointerOp, move
+    super+shift, Left, startPointerOp, resize
+]
+
 seat {
     xcursor {
         theme Breeze_Hacked

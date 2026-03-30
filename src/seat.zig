@@ -1,4 +1,5 @@
 const std = @import("std");
+const mem = std.mem;
 const wayland = @import("wayland");
 const utils = @import("utils.zig");
 
@@ -12,8 +13,35 @@ const Workspace = @import("workspace.zig");
 const Config = @import("config.zig");
 const keybinds = @import("keybinds.zig");
 const pointerbinds = @import("pointer_binds.zig");
+const pointer_operations = @import("pointer_ops.zig");
 
 const log = std.log.scoped(.seat);
+
+pub const Wl = struct {
+    const Caps = struct {
+        pointer: bool = false,
+        keyboard: bool = false,
+        touch: bool = false,
+    };
+
+    name: ?[]const u8 = null,
+    capabilities: Caps = .{},
+
+    pub fn listener(seat: *wl.Seat, e: wl.Seat.Event, ctx: *Context) void {
+        const data = ctx.wl_seats.getPtr(seat).?;
+        switch (e) {
+            .capabilities => |c| {
+                inline for (comptime std.meta.fieldNames(Caps)) |f|
+                    @field(&data.capabilities, f) = @field(c.capabilities, f);
+            },
+            .name => |n| data.name = ctx.gpa.dupe(u8, std.mem.sliceTo(n.name, 0)) catch null,
+        }
+    }
+
+    pub fn deinit(self: Wl, gpa: mem.Allocator) void {
+        if (self.name) |n| gpa.free(n);
+    }
+};
 
 seat: ?u32, // unsure what this is supposed to be
 focus: ?*rwm.WindowV1 = null,
@@ -26,7 +54,7 @@ pointer_binds: std.ArrayList(*rwm.PointerBindingV1) = .empty,
 // warp pointer to focus in next manage
 warp_to_window: ?*rwm.WindowV1 = null,
 
-pointer_op: ?pointerbinds.PointerOp = null,
+pointer_op: ?pointer_operations.PointerOp = null,
 
 pub fn listener(seat: *rwm.SeatV1, e: rwm.SeatV1.Event, ctx: *Context) void {
     const seat_data = ctx.seats.getPtr(seat).?;
@@ -99,11 +127,11 @@ pub fn setup(seat: *rwm.SeatV1, ctx: *Context) !void {
     const size = if (try xcursor.getArgs("size")) |s| s.args else ctx.child_env.get("XCURSOR_SIZE");
 
     if (name) |n| if (size) |s| {
-            var buff: [0xff]u8 = @splat(0);
-            var fb = std.heap.FixedBufferAllocator.init(&buff);
-            const theme = try fb.allocator().dupeZ(u8, n);
-            log.info("{}: set cursor theme to {s}, {s}", .{seat.getId(), n, s});
-            seat.setXcursorTheme(theme, try std.fmt.parseInt(u32, s, 0));
+        var buff: [0xff]u8 = @splat(0);
+        var fb = std.heap.FixedBufferAllocator.init(&buff);
+        const theme = try fb.allocator().dupeZ(u8, n);
+        log.info("{}: set cursor theme to {s}, {s}", .{ seat.getId(), n, s });
+        seat.setXcursorTheme(theme, try std.fmt.parseInt(u32, s, 0));
     };
 }
 

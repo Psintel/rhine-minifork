@@ -109,13 +109,14 @@ pub fn deinit(self: *const @This(), ctx: *Context, win: *rwm.WindowV1) void {
     self.node.destroy();
 
     _ = ctx.manage_states.swapRemove(win);
+
+    if (self.app_id) |appid| ctx.gpa.free(appid);
+    if (self.title) |title| ctx.gpa.free(title);
+
     const ws = Workspace.byWindow(ctx, win) orelse {
         log.err("window {} does not have a workspace", .{win});
         return;
     };
-
-    if (self.app_id) |appid| ctx.gpa.free(appid);
-    if (self.title) |title| ctx.gpa.free(title);
 
     const ws_data = ctx.workspaces.getPtr(ws).?;
 
@@ -218,6 +219,7 @@ pub fn getWorkspace(ctx: *Context, win: *rwm.WindowV1) ?Workspace.WS {
 
     while (iter.next()) |ws| {
         if (ws.value_ptr.windows.contains(win)) return ws.key_ptr.*;
+        if (ws.value_ptr.floating.contains(win)) return ws.key_ptr.*;
     }
 
     return null;

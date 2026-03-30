@@ -136,6 +136,7 @@ pub fn deinit(self: *@This(), ctx: *Context) void {
     Layouts.delete(ctx.gpa, self.tiler);
 
     self.windows.deinit(ctx.gpa);
+    self.floating.deinit(ctx.gpa);
 }
 
 pub fn byWindow(ctx: *Context, win: *rwm.WindowV1) ?WS {

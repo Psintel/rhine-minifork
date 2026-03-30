@@ -59,19 +59,19 @@ pub fn deinit(self: *@This()) void {
     while (wins.next()) |w| {
         w.value_ptr.deinit(self, w.key_ptr.*);
     }
-    self.wins.clearAndFree(self.gpa);
+    self.wins.deinit(self.gpa);
 
     var outs = self.outs.iterator();
     while (outs.next()) |o| {
         Output.deinit(self, o.key_ptr.*);
     }
-    self.outs.clearAndFree(self.gpa);
+    self.outs.deinit(self.gpa);
 
     var seats = self.seats.iterator();
     while (seats.next()) |s| {
         s.value_ptr.deinit(self, s.key_ptr.*);
     }
-    self.seats.clearAndFree(self.gpa);
+    self.seats.deinit(self.gpa);
 
     for (self.workspaces.values()) |*w| {
         w.deinit(self);

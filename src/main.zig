@@ -11,6 +11,7 @@ const rwm = wayland.client.river;
 const commands = @import("commands.zig");
 const helpers = @import("helpers.zig");
 const window_managment = @import("window_management.zig");
+const utils = @import("utils.zig");
 
 const Config = @import("config.zig");
 const Context = @import("context.zig");
