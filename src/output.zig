@@ -26,14 +26,15 @@ pub fn init(ctx: *Context, out: *rwm.OutputV1) !void {
     const shell = try ctx.shell.getOutput(out);
     errdefer shell.destroy();
 
+    try ctx.shell_outs.put(ctx.gpa, shell, out);
+    errdefer _ = ctx.shell_outs.swapRemove(shell);
+
     try ctx.outs.put(ctx.gpa, out, .{
         .workspace = Workspace.getFirst(ctx),
         .shell_out = shell,
     });
 
-    const self = ctx.outs.getPtr(out).?;
-
-    shell.setListener(*Output, shellListener, self);
+    shell.setListener(*Context, shellListener, ctx);
     out.setListener(*Context, Output.listener, ctx);
 }
 
@@ -46,7 +47,6 @@ pub fn listener(out: *rwm.OutputV1, e: rwm.OutputV1.Event, ctx: *Context) void {
                 dim.width,
                 dim.height,
             };
-            // since we are tiling screenspace, a resize dirties the manage state
             ctx.dirty = true;
         },
         .position => |pos| {
@@ -54,9 +54,11 @@ pub fn listener(out: *rwm.OutputV1, e: rwm.OutputV1.Event, ctx: *Context) void {
                 pos.x,
                 pos.y,
             };
+            ctx.dirty = true;
         },
         .removed => {
             deinit(ctx, out);
+            ctx.dirty = true;
         },
         else => {
             log.warn("lmao! can't actually handle event {s}", .{@tagName(e)});
@@ -64,16 +66,20 @@ pub fn listener(out: *rwm.OutputV1, e: rwm.OutputV1.Event, ctx: *Context) void {
     }
 }
 
-pub fn shellListener(_: *rwm.LayerShellOutputV1, event: rwm.LayerShellOutputV1.Event, data: *Output) void {
+pub fn shellListener(shell: *rwm.LayerShellOutputV1, event: rwm.LayerShellOutputV1.Event, ctx: *Context) void {
+    const out = ctx.shell_outs.get(shell) orelse return;
+    const out_data = ctx.outs.getPtr(out) orelse return;
     switch (event) {
         .non_exclusive_area => |area| {
-            data.exclusive_area = .{ .pos = .{
+            out_data.exclusive_area = .{ .pos = .{
                 area.x,
                 area.y,
             }, .dim = .{
                 area.width,
                 area.height,
             } };
+
+            log.info("set non_exclusive area to {}", .{out_data.exclusive_area.?});
         },
     }
 }
@@ -148,6 +154,7 @@ pub fn setWorkspace(self: *Output, ctx: *Context, ws: Workspace.WS) void {
 pub fn deinit(ctx: *Context, out: *rwm.OutputV1) void {
     const self = ctx.outs.getPtr(out).?;
     const shell = self.shell_out;
+    _ = ctx.shell_outs.swapRemove(shell);
     shell.destroy();
     _ = ctx.outs.swapRemove(out);
     out.destroy();

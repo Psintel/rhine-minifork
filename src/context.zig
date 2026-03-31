@@ -35,6 +35,7 @@ child_env: std.process.EnvMap,
 // global state
 wins: utils.WLHashMap(rwm.WindowV1, Window) = .empty,
 outs: utils.WLHashMap(rwm.OutputV1, Output) = .empty,
+shell_outs: utils.WLHashMap(rwm.LayerShellOutputV1, *rwm.OutputV1) = .empty,
 seats: utils.WLHashMap(rwm.SeatV1, Seat) = .empty,
 workspaces: std.AutoArrayHashMapUnmanaged(Workspace.WS, Workspace) = .empty,
 config: Config,
@@ -83,6 +84,7 @@ pub fn deinit(self: *@This()) void {
 
     self.wins.deinit(self.gpa);
     self.outs.deinit(self.gpa);
+    self.shell_outs.deinit(self.gpa);
     self.seats.deinit(self.gpa);
     self.config.deinit(self.gpa);
 
