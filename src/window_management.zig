@@ -111,6 +111,9 @@ fn apply_tiler(ctx: *Context, curr_time: i64) !void {
             if (!ctx.wins.contains(f)) seat.?.focus = null;
         }
 
+        // this stays until I figure out a better way of doing this
+        out_data.shell_out.setDefault();
+
         for (ws.floating.keys()) |w| {
             const wd = ctx.wins.getPtr(w) orelse continue;
             if (!wd.float) {

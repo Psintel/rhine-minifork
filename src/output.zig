@@ -28,7 +28,7 @@ pub fn init(ctx: *Context, out: *rwm.OutputV1) !void {
 
     try ctx.outs.put(ctx.gpa, out, .{
         .workspace = Workspace.getFirst(ctx),
-        .shell_out = undefined,
+        .shell_out = shell,
     });
 
     const self = ctx.outs.getPtr(out).?;
@@ -146,9 +146,9 @@ pub fn setWorkspace(self: *Output, ctx: *Context, ws: Workspace.WS) void {
 }
 
 pub fn deinit(ctx: *Context, out: *rwm.OutputV1) void {
-    // const self = ctx.outs.getPtr(out).?;
-    // const shell = self.shell_out;
-    // shell.destroy(); // this segfaults.. why?
+    const self = ctx.outs.getPtr(out).?;
+    const shell = self.shell_out;
+    shell.destroy();
     _ = ctx.outs.swapRemove(out);
     out.destroy();
 }
