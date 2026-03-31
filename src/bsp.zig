@@ -33,6 +33,7 @@ const Conf = struct {
 
 pub const Command = enum(u32) {
     changeSplit,
+    swapAllSplits,
 };
 
 pub fn splitDim(v: utils.Vec2f, OR: subTile.Mode, ratio: f32) utils.Vec2f {
@@ -498,6 +499,17 @@ pub fn setSize(self: *@This(), ctx: Tiler.TileContext, size: utils.Vec2f, anchor
     _ = tree.setSize(win, size, anchor, .unit);
 }
 
+fn swapAllSplits(self: *subTile) void {
+    switch (self.*) {
+        .Leaf => {},
+        .Branch => |*b| {
+            b.direction = b.direction.other();
+            swapAllSplits(b.left);
+            swapAllSplits(b.right);
+        },
+    }
+}
+
 pub fn command(self: *@This(), ctx: Tiler.TileContext, cmd: Tiler.Command) Tiler.Error!void {
     const tree = &(self.tree orelse return);
     const op: Command = std.enums.fromInt(Command, cmd.command) orelse return error.InvalidCommand;
@@ -507,6 +519,7 @@ pub fn command(self: *@This(), ctx: Tiler.TileContext, cmd: Tiler.Command) Tiler
             const n = tree.parent(f) orelse return;
             n.Branch.direction = n.Branch.direction.other();
         },
+        .swapAllSplits => swapAllSplits(tree),
     }
 }
 
