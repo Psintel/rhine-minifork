@@ -74,7 +74,6 @@ comptime {
     }
 }
 
-
 const move = struct {
     const Ctx = struct {
         win: *rwm.WindowV1,
@@ -190,9 +189,8 @@ const resize = struct {
                 if (ct.anchor.h == .right) 1 else 0,
                 if (ct.anchor.v == .bottom) 1 else 0,
             };
-            const t = std.time.microTimestamp();
-            win_data.setPos(ctx.anims, ct.win_pos + mpos * delta, t);
-            win_data.setSize(@max(new_size, @as(utils.Vec2, @splat(1))), t);
+            win_data.pos = .{ .static = ct.win_pos + mpos * delta };
+            win_data.goal_size = .{ .static = @max(new_size, @as(utils.Vec2, @splat(1))) };
         } else {
             const ws = out_data.workspace;
             const ws_data = ctx.workspaces.getPtr(ws) orelse return;

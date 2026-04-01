@@ -125,6 +125,7 @@ pub const Easing = struct {
                 if (FT == void)
                     return .{ .fun = @unionInit(Inner, @tagName(t), {}) };
 
+                // TODO: throw error if we're left with uninitialized fields
                 var mod: FT = undefined;
 
                 inline for (comptime meta.fields(FT)) |f| {

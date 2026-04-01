@@ -166,7 +166,7 @@ fn apply_tiler(ctx: *Context, curr_time: i64) !void {
     }
 }
 
-fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, _: i64) void {
+fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: i64) void {
     for (ws.windows.keys()) |win| {
         const wd = ctx.wins.getPtr(win) orelse continue;
         const man_state = ctx.manage_states.get(win) orelse {
@@ -225,6 +225,17 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, _: i64) void {
 
     for (ws.floating.keys()) |win| {
         const col: utils.Color = .gray;
+        const wd = ctx.wins.getPtr(win) orelse continue;
+
+        if (wd.parent) |p| {
+            const paren = ctx.wins.get(p) orelse continue;
+            if (meta.activeTag(wd.pos) != .static)
+            wd.setPos(
+                ctx.anims,
+                paren.pos.get(ctx.anims, t) + (paren.size - wd.size) / @as(utils.Vec2, @splat(2)),
+                t,
+            );
+        }
 
         win.setBorders(
             .{ .top = true, .bottom = true, .left = true, .right = true },
@@ -248,7 +259,6 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, _: i64) void {
             .right = false,
             .bottom = false,
         });
-
     }
 }
 
@@ -358,11 +368,11 @@ fn manage(ctx: *Context) !void {
 
     // manage size and position
     var wins = ctx.wins.iterator();
-    while(wins.next()) |_w| {
+    while (wins.next()) |_w| {
         const win = _w.key_ptr.*;
         const wd = _w.value_ptr;
 
-        switch(wd.active_resize) {
+        switch (wd.active_resize) {
             .yes, .no => {},
             .soon => {
                 wd.active_resize = .yes;
