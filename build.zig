@@ -49,33 +49,6 @@ pub fn build(b: *Build) !void {
     scanner.generate("river_xkb_bindings_v1", 2);
     scanner.generate("wp_cursor_shape_manager_v1", 1);
 
-    const docs_obj = b.addObject(.{
-        .name = "wayland",
-        .root_module = wayland,
-    });
-
-    const doc_cmd = b.addSystemCommand(&.{
-        "python",
-        "-m",
-        "http.server",
-        "8080",
-        "--bind",
-        "127.0.0.1",
-        "--directory",
-    });
-
-    doc_cmd.addDirectoryArg(docs_obj.getEmittedDocs());
-
-    b.step("show-wayland", "Show docs for generated wayland bindings").dependOn(&doc_cmd.step);
-
-    const install_docs = b.addInstallDirectory(.{
-        .install_dir = .prefix,
-        .install_subdir = "docs", // will also be the main namespace in the docs
-        .source_dir = docs_obj.getEmittedDocs(),
-    });
-
-    b.step("docs", "Build docs").dependOn(&install_docs.step);
-
     const exe = b.addExecutable(.{
         .name = "rhine",
         .root_module = b.createModule(.{
