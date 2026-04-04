@@ -114,7 +114,15 @@ const move = struct {
         const to_ws = Workspace.byPointer(ctx, end_pos) orelse return;
         const to_ws_data = ctx.workspaces.getPtr(to_ws) orelse return;
 
-        if (ws_data.floating.contains(ct.win) or !ws_data.windows.contains(ct.win)) return;
+        // floating case
+        if (ws_data.floating.swapRemove(ct.win)) {
+            to_ws_data.floating.put(ctx.gpa, ct.win, {}) catch ctx.orphan(ct.win);
+            return;
+        }
+
+        // tiling case
+        if (!ws_data.windows.contains(ct.win)) return;
+
         var tc: Tiler.TileContext = .{
             .gpa = ctx.gpa,
             .cursorPos = Output.relPos(ctx, end_pos),

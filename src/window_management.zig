@@ -227,6 +227,20 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: i64) void {
         const col: utils.Color = .gray;
         const wd = ctx.wins.getPtr(win) orelse continue;
 
+        switch (wd.fullscreen) {
+            .no, .yes => {},
+            .soon => {
+                win.fullscreen(out);
+                win.informFullscreen();
+                wd.fullscreen = .yes;
+            },
+            .was => {
+                win.exitFullscreen();
+                win.informNotFullscreen();
+                wd.fullscreen = .no;
+            },
+        }
+
         if (wd.parent) |p| {
             const paren = ctx.wins.get(p) orelse continue;
             if (meta.activeTag(wd.pos) != .static)
@@ -450,7 +464,7 @@ fn render(ctx: *Context) !void {
 
         // put float on top
         for (wsd.floating.keys()) |w| {
-            const wd = ctx.wins.getPtr(w).?;
+            const wd = ctx.wins.getPtr(w) orelse continue;
             wd.node.placeTop();
         }
 

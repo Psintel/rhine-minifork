@@ -120,6 +120,18 @@ pub fn listener(seat: *rwm.SeatV1, e: rwm.SeatV1.Event, ctx: *Context) void {
     }
 }
 
+pub fn byFocus(ctx: *Context, win: *rwm.WindowV1) ?*rwm.SeatV1 {
+    var iter = ctx.seats.iterator();
+    while(iter.next()) |_seat| {
+        const seat = _seat.key_ptr.*;
+        const seat_data = _seat.value_ptr;
+
+        if (seat_data.focus == win) return seat;
+    }
+
+    return null;
+}
+
 pub fn setup(seat: *rwm.SeatV1, ctx: *Context) !void {
     const seats = try ctx.config.sub("seat");
     const xcursor = try seats.sub("xcursor");

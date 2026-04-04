@@ -220,9 +220,17 @@ pub const Command = union(enum) {
                     return;
                 };
 
+                const s = ctx.workspaces.getPtr(source).?;
+
                 log.info("sending workspace {}", .{ws});
 
-                const s = ctx.workspaces.getPtr(source).?;
+                // floating case
+                if (s.floating.swapRemove(focus)) {
+                    w.floating.put(ctx.gpa, focus, {}) catch ctx.orphan(focus);
+                    return;
+                }
+
+                // tiling case
                 const tc: Tiler.TileContext = .{
                     .cursorPos = Output.relPos(ctx, seat_data.pointer_pos),
                     .focus = seat_data.focus,
