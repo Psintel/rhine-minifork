@@ -68,8 +68,30 @@ const WsSpec = union(enum) {
     }
 };
 
+const WinSpec = union(enum) {
+    focus: void,
+
+    pub fn parse(args: *Config.Entry.Iterator) !@This() {
+        const arg = args.next() orelse return error.ParseError;
+        const t = meta.stringToEnum(meta.Tag(@This()), arg) orelse return error.ParseError;
+
+        switch (t) {
+            .focus => return .{ .focus = {} },
+        }
+    }
+
+    pub fn resolve(self: @This(), ctx: *Context, seat: *rwm.SeatV1) ?*rwm.WindowV1 {
+        const seat_data = ctx.seats.get(seat) orelse return null;
+        switch (self) {
+            .focus => return seat_data.focus,
+        }
+    }
+};
+
 pub const Command = union(enum) {
-    killFocus: void,
+    close: WinSpec,
+    kill: WinSpec,
+    murder: WinSpec,
     xkill: void,
     launch: []const u8,
     toggleFullscreen: void,
@@ -92,7 +114,8 @@ pub const Command = union(enum) {
         ) orelse return error.InvalidTag;
 
         switch (tag) {
-            inline .killFocus, .xkill, .toggleFullscreen, .toggleFloating, .toggleWorkspace, .exit => |t| return @unionInit(@This(), @tagName(t), {}),
+            inline .close, .kill, .murder => |t| return @unionInit(@This(), @tagName(t), try .parse(args)),
+            inline .xkill, .toggleFullscreen, .toggleFloating, .toggleWorkspace, .exit => |t| return @unionInit(@This(), @tagName(t), {}),
             .launch => return .{
                 .launch = args.next() orelse return error.NoLaunchArg,
             },
@@ -133,11 +156,33 @@ pub const Command = union(enum) {
         const seat_data = ctx.seats.getPtr(seat) orelse return error.NoSeat;
         log.info("dispatching command {} on seat {}", .{ cmd, seat.getId() });
         switch (cmd) {
-            .killFocus => {
-                if (seat_data.focus) |w| {
+            .close => |win| {
+                if (win.resolve(ctx, seat)) |w| {
                     try ctx.should_close.append(ctx.gpa, w);
                     log.info("marked window {} for closure", .{w.getId()});
                     ctx.dirty = true;
+                }
+            },
+            .kill => |win| {
+                if (win.resolve(ctx, seat)) |w| {
+                    const win_data = ctx.wins.get(w) orelse return error.NotFound;
+                    if (win_data.unreliable_pid) |pid| {
+                        log.info("sent SIGTERM to {}", .{w.getId()});
+                        try std.posix.kill(pid, std.posix.SIG.TERM);
+                    } else {
+                        log.err("can't kill {} does not have pid", .{w.getId()});
+                    }
+                }
+            },
+            .murder => |win| {
+                if (win.resolve(ctx, seat)) |w| {
+                    const win_data = ctx.wins.get(w) orelse return error.NotFound;
+                    if (win_data.unreliable_pid) |pid| {
+                        log.info("sent SIGTERM to {}", .{w.getId()});
+                        try std.posix.kill(pid, std.posix.SIG.KILL);
+                    } else {
+                        log.err("can't kill {} does not have pid", .{w.getId()});
+                    }
                 }
             },
             .xkill => {

@@ -29,6 +29,7 @@ size: utils.Vec2 = @splat(1),
 float: bool = false, // is this window floating
 parent: ?*rwm.WindowV1 = null,
 fullscreen: utils.Transaction = .no,
+unreliable_pid: ?i32 = null,
 
 // will we keep those?
 pos: Animations.Lerp(.move) = .{ .static = @splat(0) },
@@ -179,6 +180,9 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
                 win_data.title = ctx.gpa.dupe(u8, new) catch return;
                 if (_old) |old| ctx.gpa.free(old);
             }
+        },
+        .unreliable_pid => |pid| {
+            win_data.unreliable_pid = pid.unreliable_pid;
         },
         else => {
             log.warn("lmao! can't actually handle event {s}", .{@tagName(event)});

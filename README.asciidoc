@@ -66,8 +66,14 @@ or a relative workspace specifier in the form of `Previous` or `Next`.
 |===
 | Command | Description
 
-| killFocus
-| kill the focused window
+| close, focus
+| close the focused window
+
+| kill, focus
+| send SIGTERM to the process owning the focused window politely asking the process to die
+
+| murder, focus
+| send SIGKILL to the process owning the focused window killing it
 
 | launch, <shell command>
 | launch the command `<shell command>` using `sh -c`
