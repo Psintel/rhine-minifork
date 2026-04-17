@@ -109,12 +109,6 @@ pointer_binds [
     super+shift, Left, startPointerOp, resize
 ]
 
-seat {
-    xcursor {
-        theme Breeze_Hacked
-        size 24
-    }
-}
 
 startup [
     dbus-update-activation-environment --all --systemd
@@ -123,7 +117,11 @@ startup [
     swayidle
 ]
 
-# Input config needs https://codeberg.org/Sivecano/channel to work
+xcursor {
+    theme Breeze_Hacked
+    size 24
+}
+
 keyboard {
     layout us
     variant
