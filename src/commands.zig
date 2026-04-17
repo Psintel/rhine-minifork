@@ -51,20 +51,39 @@ pub const Queue = struct {
 const WsDir = enum { Previous, Next };
 
 const WsSpec = union(enum) {
-    abs: Workspace.WS,
-    rel: WsDir,
+    Abs: Workspace.WS,
+    Rel: WsDir,
+    PrevActive: void,
 
     pub fn resolve(self: @This(), ctx: *Context, seat: *rwm.SeatV1) !Workspace.WS {
         switch (self) {
-            .abs => |ws| return ws,
-            .rel => |dr| {
+            .Abs => |ws| return ws,
+            .Rel => |dr| {
                 const current = Workspace.bySeat(ctx, seat) orelse return error.NoCurrentWorkspace;
                 return switch (dr) {
                     .Previous => Workspace.getPrevious(ctx, current),
                     .Next => Workspace.getNext(ctx, current),
                 };
             },
+            .PrevActive => {
+                const out = Output.bySeat(ctx, seat) orelse return error.NotFound;
+                const out_data = ctx.outs.get(out) orelse return error.NotFound;
+                return out_data.last_workspace orelse error.NotFound;
+            },
         }
+    }
+
+    pub fn parse(args: *Config.Entry.Iterator) !@This() {
+        const Tag = meta.Tag(@This());
+        const arg = args.next() orelse return error.NoWsArg;
+        return if (std.fmt.parseInt(Workspace.WS, arg, 0)) |w|
+            .{ .Abs = w }
+        else |_| if (meta.stringToEnum(WsDir, arg)) |rel|
+            .{ .Rel = rel }
+        else if (meta.stringToEnum(Tag, arg) == .PrevActive)
+            .{ .PrevActive = {} }
+        else
+            error.ParseError;
     }
 };
 
@@ -88,15 +107,15 @@ const WinSpec = union(enum) {
     }
 };
 
+const ToggleCmd = enum {Enable, Disable, Toggle};
+
 pub const Command = union(enum) {
     close: WinSpec,
     kill: WinSpec,
     murder: WinSpec,
-    xkill: void,
     launch: []const u8,
-    toggleFullscreen: void,
-    toggleFloating: void,
-    toggleWorkspace: void,
+    toggleFullscreen: WinSpec,
+    toggleFloating: WinSpec,
     toggleSpecial: Workspace.WS,
     focusWorkspace: WsSpec,
     sendToWorkspace: WsSpec,
@@ -104,7 +123,7 @@ pub const Command = union(enum) {
     moveFocus: Tiler.Dir,
     moveWindow: Tiler.Dir,
     layoutCommand: struct { Layouts.LayoutType, Tiler.Command },
-    startPointerOp: pointer_ops.OpType,
+    pointerOp: pointer_ops.OpType,
     exit: void,
 
     pub fn fromArg(args: *Config.Entry.Iterator) !@This() {
@@ -114,8 +133,8 @@ pub const Command = union(enum) {
         ) orelse return error.InvalidTag;
 
         switch (tag) {
-            inline .close, .kill, .murder => |t| return @unionInit(@This(), @tagName(t), try .parse(args)),
-            inline .xkill, .toggleFullscreen, .toggleFloating, .toggleWorkspace, .exit => |t| return @unionInit(@This(), @tagName(t), {}),
+            inline .close, .kill, .murder, .toggleFullscreen, .toggleFloating => |t| return @unionInit(@This(), @tagName(t), try .parse(args)),
+            inline .exit => |t| return @unionInit(@This(), @tagName(t), {}),
             .launch => return .{
                 .launch = args.next() orelse return error.NoLaunchArg,
             },
@@ -134,17 +153,11 @@ pub const Command = union(enum) {
                 return .{ .toggleSpecial = ws };
             },
             inline .sendToWorkspace, .focusWorkspace, .moveToWorkspace => |t| {
-                const arg = args.next() orelse return error.NoWsArg;
-                const ws: WsSpec = if (std.fmt.parseInt(Workspace.WS, arg, 0)) |w|
-                    .{ .abs = w }
-                else |_|
-                    .{ .rel = meta.stringToEnum(WsDir, arg) orelse return error.ParseError };
-
-                return @unionInit(@This(), @tagName(t), ws);
+                return @unionInit(@This(), @tagName(t), try .parse(args));
             },
-            .startPointerOp => {
+            .pointerOp => {
                 const arg = args.next() orelse return error.NoOpArg;
-                return .{ .startPointerOp = meta.stringToEnum(pointer_ops.OpType, arg) orelse return error.ParseError };
+                return .{ .pointerOp = meta.stringToEnum(pointer_ops.OpType, arg) orelse return error.ParseError };
             },
             .layoutCommand => {
                 return .{ .layoutCommand = try Layouts.parseCommand(args) };
@@ -185,9 +198,6 @@ pub const Command = union(enum) {
                     }
                 }
             },
-            .xkill => {
-                try pointer_ops.startOp(ctx, seat, .xkill);
-            },
             .launch => |command| {
                 try helpers.disownChild(ctx, command);
             },
@@ -203,13 +213,6 @@ pub const Command = union(enum) {
                 win_data.float = !win_data.float;
                 log.info("toggled floating state of {}", .{focus.getId()});
                 ctx.dirty = true;
-            },
-            .toggleWorkspace => {
-                log.info("toggle keybinds", .{});
-                const out = Output.bySeat(ctx, seat) orelse return;
-                const out_data = ctx.outs.get(out) orelse return;
-                const old = out_data.last_workspace orelse return;
-                try ctx.commands_queue.add(ctx.gpa, seat, .{ .focusWorkspace = .{ .abs = old } });
             },
             .toggleSpecial => |ws| {
                 const out = Output.bySeat(ctx, seat) orelse return;
@@ -357,7 +360,7 @@ pub const Command = union(enum) {
                 }, laycmd);
                 ctx.dirty = true;
             },
-            .startPointerOp => |op| {
+            .pointerOp => |op| {
                 try pointer_ops.startOp(ctx, seat, op);
             },
             .exit => {

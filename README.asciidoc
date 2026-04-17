@@ -50,9 +50,9 @@ This sets environment variables for all children of rhine.
 
 keybinds are of the form `<modifiers>, <key>, <command>`. The same keybinds are currently registered for each seat.
 
-* `[modifiers]` is a `+`-separated list of the modifiers `super`, `shift`, `alt`, `ctrl` and `none`.
-* `[key]` is the name of a key as found in the `xkbcommon/xkbcommon-keysyms.h` header (with the `XKB_KEY_` part removed).
-* `[command]` is a command
+    * `<modifiers>` is a `+`-separated list of the modifiers `super`, `shift`, `alt`, `ctrl` and `none`.
+    * `<key>` is the name of a key as found in the `xkbcommon/xkbcommon-keysyms.h` header (with the `XKB_KEY_` part removed).
+    * `<command>` is a command
 
 
 === Commands
