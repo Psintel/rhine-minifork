@@ -88,35 +88,35 @@ const WsSpec = union(enum) {
 };
 
 const WinSpec = union(enum) {
-    focus: void,
+    Focus: void,
 
     pub fn parse(args: *Config.Entry.Iterator) !@This() {
         const arg = args.next() orelse return error.ParseError;
         const t = meta.stringToEnum(meta.Tag(@This()), arg) orelse return error.ParseError;
 
         switch (t) {
-            .focus => return .{ .focus = {} },
+            .Focus => return .{ .Focus = {} },
         }
     }
 
     pub fn resolve(self: @This(), ctx: *Context, seat: *rwm.SeatV1) ?*rwm.WindowV1 {
         const seat_data = ctx.seats.get(seat) orelse return null;
         switch (self) {
-            .focus => return seat_data.focus,
+            .Focus => return seat_data.focus,
         }
     }
 };
 
-const ToggleCmd = enum {Enable, Disable, Toggle};
+const ToggleCmd = enum { enable, disable, toggle };
 
 pub const Command = union(enum) {
     close: WinSpec,
     kill: WinSpec,
     murder: WinSpec,
     launch: []const u8,
-    toggleFullscreen: WinSpec,
-    toggleFloating: WinSpec,
-    toggleSpecial: Workspace.WS,
+    fullscreen: struct { ToggleCmd, WinSpec },
+    floating: struct { ToggleCmd, WinSpec },
+    overlay: struct { ToggleCmd, Workspace.WS },
     focusWorkspace: WsSpec,
     sendToWorkspace: WsSpec,
     moveToWorkspace: WsSpec,
@@ -133,34 +133,22 @@ pub const Command = union(enum) {
         ) orelse return error.InvalidTag;
 
         switch (tag) {
-            inline .close, .kill, .murder, .toggleFullscreen, .toggleFloating => |t| return @unionInit(@This(), @tagName(t), try .parse(args)),
             inline .exit => |t| return @unionInit(@This(), @tagName(t), {}),
             .launch => return .{
-                .launch = args.next() orelse return error.NoLaunchArg,
+                .launch = args.rest(),
             },
-            inline .moveFocus, .moveWindow => |t| return @unionInit(
-                @This(),
-                @tagName(t),
-                meta.stringToEnum(
-                    Tiler.Dir,
-                    args.next() orelse return error.NoMoveArg,
-                ) orelse return error.InvalidDirection,
-            ),
-            .toggleSpecial => {
+            .overlay => {
+                const toggle = try args.parseT(ToggleCmd);
                 const ws = try std.fmt.parseInt(Workspace.WS, args.next() orelse return error.NoWsArg, 0);
                 if (ws >= 0) return error.PositiveSpecialWorkspace;
 
-                return .{ .toggleSpecial = ws };
-            },
-            inline .sendToWorkspace, .focusWorkspace, .moveToWorkspace => |t| {
-                return @unionInit(@This(), @tagName(t), try .parse(args));
-            },
-            .pointerOp => {
-                const arg = args.next() orelse return error.NoOpArg;
-                return .{ .pointerOp = meta.stringToEnum(pointer_ops.OpType, arg) orelse return error.ParseError };
+                return .{ .overlay = .{ toggle, ws } };
             },
             .layoutCommand => {
                 return .{ .layoutCommand = try Layouts.parseCommand(args) };
+            },
+            inline else => |t| {
+                return @unionInit(@This(), @tagName(t), try args.parseT(@FieldType(Command, @tagName(t))));
             },
         }
     }
@@ -201,31 +189,50 @@ pub const Command = union(enum) {
             .launch => |command| {
                 try helpers.disownChild(ctx, command);
             },
-            .toggleFullscreen => {
-                const focus = seat_data.focus orelse return;
-                const win_data = ctx.wins.getPtr(focus) orelse return;
-                win_data.fullscreen.toggle();
+            .fullscreen => |args| {
+                const state, const target = args;
+                const win = target.resolve(ctx, seat) orelse return;
+                const win_data = ctx.wins.getPtr(win) orelse return;
+                switch (state) {
+                    .enable => win_data.fullscreen.on(),
+                    .disable => win_data.fullscreen.off(),
+                    .toggle => win_data.fullscreen.toggle(),
+                }
                 ctx.dirty = true;
             },
-            .toggleFloating => {
-                const focus = seat_data.focus orelse return;
-                const win_data = ctx.wins.getPtr(focus) orelse return;
-                win_data.float = !win_data.float;
-                log.info("toggled floating state of {}", .{focus.getId()});
+            .floating => |args| {
+                const state, const target = args;
+                const win = target.resolve(ctx, seat) orelse return;
+                const win_data = ctx.wins.getPtr(win) orelse return;
+                win_data.float = switch (state) {
+                    .enable => true,
+                    .disable => false,
+                    .toggle => !win_data.float,
+                };
+                log.info("set floating state of {} to {}", .{ win.getId(), win_data.float });
                 ctx.dirty = true;
             },
-            .toggleSpecial => |ws| {
+            .overlay => |args| {
+                const state, const ws = args;
                 const out = Output.bySeat(ctx, seat) orelse return;
                 const out_data = ctx.outs.getPtr(out).?;
 
                 var target_ws: Workspace.WS = undefined;
 
-                if (out_data.overlay == ws) {
-                    out_data.overlay = null;
-                    target_ws = out_data.workspace;
-                } else {
-                    out_data.overlay = ws;
-                    target_ws = ws;
+                ovrl: switch (state) {
+                    .enable => {
+                        out_data.overlay = ws;
+                        target_ws = ws;
+                    },
+                    .disable => {
+                        out_data.overlay = null;
+                        target_ws = out_data.workspace;
+                    },
+
+                    .toggle => {
+                        if (out_data.overlay == ws) continue :ovrl .disable;
+                        continue :ovrl .enable;
+                    },
                 }
 
                 log.info("toggled special workspace {}", .{ws});

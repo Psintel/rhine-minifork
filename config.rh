@@ -31,17 +31,17 @@ animations {
 
 # alt, s, tiler, bsp, togglesplit
 keybinds [
-    super, q, close, focus
+    super, q, close, Focus
     super, m, exit
     super, Escape, pointerOp, xkill
     super, Return, launch, foot
     super, d, launch, fuzzel
-    super, f, toggleFullscreen, focus
+    super, f, fullscreen, toggle, Focus
     super, Tab, focusWorkspace, PrevActive
-    super, v, toggleFloating, focus
+    super, v, floating, toggle, Focus
     super, s, layoutCommand, bsp, changeSplit
     super+shift, s, layoutCommand, bsp, swapAllSplits
-    none, F12, toggleSpecial, -1
+    none, F12, overlay, toggle, -1
     super, F12, sendToWorkspace, -1
 
     super, h, moveFocus, Left

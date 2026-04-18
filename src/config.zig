@@ -71,6 +71,61 @@ pub const Entry = struct {
         pub fn nextAssume(self: *@This()) ![]const u8 {
             return self.next() orelse error.TooFewArgs;
         }
+
+        pub fn rest(self: *@This()) []const u8 {
+            return self.iter.rest();
+        }
+
+        pub fn parseT(self: *@This(), T: type) !T {
+            if (meta.hasFn(T, "parse")) return T.parse(self);
+
+            switch (@typeInfo(T)) {
+                .void => return {},
+                .int => {
+                    return fmt.parseInt(T, try self.nextAssume(), 0) catch error.ParseError;
+                },
+                .float => {
+                    return fmt.parseFloat(T, try self.nextAssume()) catch error.ParseError;
+                },
+                .@"enum" => {
+                    return meta.stringToEnum(T, try self.nextAssume()) orelse error.ParseError;
+                },
+                .@"union" => {
+                    const tag = try self.parseT(meta.Tag(T));
+                    switch (tag) {
+                        inline else => |t| {
+                            const pl = @FieldType(T, @tagName(t));
+                            return @unionInit(T, @tagName(t), try self.parseT(pl));
+                        },
+                    }
+                },
+                .@"struct" => |s| {
+                    if (!s.is_tuple)
+                        @compileError(fmt.comptimePrint("cannot parse non-tuple struct {} automatically", .{T}));
+
+                    var out: T = undefined;
+                    inline for (&out) |*a| a.* = try self.parseT(@TypeOf(a.*));
+                    return out;
+                },
+                .bool => {
+                    const trimmed = mem.trim(u8, try self.nextAssume(), &std.ascii.whitespace);
+                    if (mem.eql(u8, trimmed, "true")) return true;
+                    if (mem.eql(u8, trimmed, "false")) return false;
+                    return error.ParseError;
+                },
+                .array => |a| {
+                    var out: T = undefined;
+                    for (&out) |*entry| entry.* = try self.parseT(a.child);
+                    return out;
+                },
+                .vector => |v| {
+                    var out: T = undefined;
+                    inline for (0..v.len) |i| out[i] = try self.parseT(v.child);
+                    return out;
+                },
+                else => @compileError(fmt.comptimePrint("cannot parse type {}", .{T})),
+            }
+        }
     };
 
     pub fn iterate(self: Entry) Iterator {
@@ -81,45 +136,8 @@ pub const Entry = struct {
 
     pub fn parseT(self: Entry, T: type) Error!T {
         if (meta.hasFn(T, "parse")) return T.parse(self);
-
-        switch (@typeInfo(T)) {
-            .array => |a| {
-                const l = try self.argList(a.len);
-                var out: T = undefined;
-                for (l, &out) |str, *entry| entry.* = try parseSingle(str, a.child);
-                return out;
-            },
-            .vector => |v| {
-                const l = try self.argList(v.len);
-                var out: T = undefined;
-                for (l, 0..) |str, i| out[i] = try parseSingle(str, v.child);
-                return out;
-            },
-            else => {
-                return parseSingle(self.args, T);
-            },
-        }
-    }
-
-    fn parseSingle(str: []const u8, T: type) Error!T {
-        switch (@typeInfo(T)) {
-            .int => {
-                return fmt.parseInt(T, str, 0) catch error.ParseError;
-            },
-            .float => {
-                return fmt.parseFloat(T, str) catch error.ParseError;
-            },
-            .@"enum" => {
-                return meta.stringToEnum(T, str) orelse error.ParseError;
-            },
-            .bool => {
-                const trimmed = mem.trim(u8, str, &std.ascii.whitespace);
-                if (mem.eql(u8, trimmed, "true")) return true;
-                if (mem.eql(u8, trimmed, "false")) return false;
-                return error.ParseError;
-            },
-            else => @compileError(fmt.comptimePrint("cannot parse type {} from string", .{T})),
-        }
+        var iter = self.iterate();
+        return iter.parseT(T);
     }
 
     pub fn deinit(self: @This(), allocator: mem.Allocator) void {
