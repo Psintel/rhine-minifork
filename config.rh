@@ -126,6 +126,7 @@ xcursor {
 
 
 
+# requires https://codeberg.org/Sivecano/channel
 input {
     profiles {
         keyboard {
