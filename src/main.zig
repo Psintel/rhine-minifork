@@ -199,7 +199,9 @@ pub fn main() !void {
             while (ctx.commands_queue.list.pop()) |n| {
                 const cmd: *commands.QueueItem = @fieldParentPtr("link", n);
                 defer ctx.gpa.destroy(cmd);
-                try cmd.command.dispatch(&ctx, cmd.seat);
+                cmd.command.dispatch(&ctx, cmd.seat) catch |e| {
+                    log.err("command dispatch failed with {}", .{e});
+                };
             }
         }
 
