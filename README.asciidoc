@@ -147,10 +147,12 @@ Does nothing on a mismatching layout
 
 | exit
 | Quit River
-|==
+|===
 
 ==== Pointer Operations
+
 A pointer operation is one of the following:
+
 [cols="m,a"]
 |===
 | Pointer Oepration | Description
