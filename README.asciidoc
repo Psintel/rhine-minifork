@@ -54,40 +54,73 @@ keybinds are of the form `<modifiers>, <key>, <command>`. The same keybinds are 
     * `<key>` is the name of a key as found in the `xkbcommon/xkbcommon-keysyms.h` header (with the `XKB_KEY_` part removed).
     * `<command>` is a command
 
+=== pointer bindings
+
+In the `pointer_binds` list pointer bindings are specified.
+they are of the form `<modifiers>, <button>, <command>`
+
+* `<modifiers>` is a `+`-separated list of the modifiers `super`, `shift`, `alt`, `ctrl` and `none`.
+* `<button>` is the name of the mouse butto. one of `Left`,`Right`,`Middle`,`Side`,`Extra`,`Forward`,`Back` or `Task`.
+* `<command>` is a command
+
+
 
 === Commands
 
 Commands are the basic user actions available in `rhine`.
-In the config file they appear in the following form
-Here `<workspace>` either refers to a workspace ID in the form of a signed 32-bit integer
-or a relative workspace specifier in the form of `Previous` or `Next`.
+They appear in the config file and in the IPC.
+
+==== Specifiers
+different command arguments are specified in different ways:
+[cols="m,a,a"]
+|===
+|Descriptor | Meaning | Options
+
+| <window>
+| Specify a window
+| the focused window can be selected as `Focus`
+
+| <workspace>
+| Specify a workspace
+| this is either given by a signed 32-bit integer referring to the ID of the workspace, `Previous`/`Next` to refer
+to the workspace with highest/lowest ID which is lower/higher than that of the currently focused workpspace or
+`PrevActive` to refer to the workspace last previously shown on the currently focues workspace.
+
+| <toggle command>
+| Specify how to change a binary state, this can refer to things like fullscreen or floating status
+| one of `enable`, `disable` or `toggle`
+
+| <dir>
+| A direction (usually relative to the focused window)
+| one of `Left`, `Right`, `Up` or `Down`
+
+|===
+
+==== Command
 
 [cols="m,a", frame=none, grid=none]
 |===
 | Command | Description
 
-| close, focus
-| close the focused window
+| close, <window>
+| close window <window>
 
-| kill, focus
-| send SIGTERM to the process owning the focused window politely asking the process to die
+| kill, <window>
+| send SIGTERM to the process owning window <window> politely asking the process to die
 
-| murder, focus
-| send SIGKILL to the process owning the focused window killing it
+| murder, Focus
+| send SIGKILL to the process owning window <window>, killing it
 
 | launch, <shell command>
 | launch the command `<shell command>` using `sh -c`
 
-| toggleFullscreen
-| toggle fullscreen state of the focused window
+| fullscreen, <toggle>, <window>
+| change fullscreen state window `<window>`
 
-| toggleFloating
-| toggle the focused window between a floating and tiling state
+| floating, <toggle>, <window>
+| change floating state window `<window>`
 
-| toggleWorkspace
-| switch back and forth between the current and previously focused workspace.
-
-| toggleSpecial, <workspace>
+| overlay, <toggle>, <workspace>
 | toggle `<workspace>` as overlay workspace.
 
 | focusWorkspace, <workspace>
@@ -97,19 +130,39 @@ or a relative workspace specifier in the form of `Previous` or `Next`.
 | send focused window to workspace `<workspace>`.
 
 | moveToWorkspace, <workspace>
-| equivalent to `sendFocusToWorkspace <workspace>` followed by `focusWorkspace <workspace>`.
+| equivalent to `sendTo <workspace>` followed by `focusWorkspace <workspace>`.
 
-| moveFocus, <Left\|Right\|Up\|Down>
+| moveFocus, <dir>
 | move the seat's focus up, down, left, or right.
 
-| moveWindow, <Left\|Right\|Up\|Down>
+| moveWindow, <dir>
 | move the focused window up, down, left, or right. floating windows will be moved by 25 pixels.
 
 | layoutCommand, <layout>, <command> [, args]
 | run the layout-specific command <command> of layout <layout> with given arguments.
+Does nothing on a mismatching layout
+
+| pointerOp, <pointer operation>
+| start the specfied pointer operation.
 
 | exit
 | Quit River
+|==
+
+==== Pointer Operations
+A pointer operation is one of the following:
+[cols="m,a"]
+|===
+| Pointer Oepration | Description
+
+| move
+| interactively move the focused window
+
+| resize
+| interactively resize focused window
+
+| xkill
+| close the window under the cursor once the button is released
 |===
 
 ==== Layout-specific commands
