@@ -50,9 +50,9 @@ This sets environment variables for all children of rhine.
 
 keybinds are of the form `<modifiers>, <key>, <command>`. The same keybinds are currently registered for each seat.
 
-* `[modifiers]` is a `+`-separated list of the modifiers `super`, `shift`, `alt`, `ctrl` and `none`.
-* `[key]` is the name of a key as found in the `xkbcommon/xkbcommon-keysyms.h` header (with the `XKB_KEY_` part removed).
-* `[command]` is a command
+    * `<modifiers>` is a `+`-separated list of the modifiers `super`, `shift`, `alt`, `ctrl` and `none`.
+    * `<key>` is the name of a key as found in the `xkbcommon/xkbcommon-keysyms.h` header (with the `XKB_KEY_` part removed).
+    * `<command>` is a command
 
 
 === Commands
@@ -66,8 +66,14 @@ or a relative workspace specifier in the form of `Previous` or `Next`.
 |===
 | Command | Description
 
-| killFocus
-| kill the focused window
+| close, focus
+| close the focused window
+
+| kill, focus
+| send SIGTERM to the process owning the focused window politely asking the process to die
+
+| murder, focus
+| send SIGKILL to the process owning the focused window killing it
 
 | launch, <shell command>
 | launch the command `<shell command>` using `sh -c`

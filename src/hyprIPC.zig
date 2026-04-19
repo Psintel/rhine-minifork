@@ -150,7 +150,7 @@ fn handlePlain(ctx: *Context, reader: *std.Io.Reader, writer: *std.Io.Writer) !v
 
             if (ctx.last_active) |last| {
                 try ctx.commands_queue.add(ctx.gpa, last, .{
-                    .focusWorkspace = .{ .abs = id - 1 },
+                    .focusWorkspace = .{ .Abs = id - 1 },
                 });
             }
             try writer.print("ok", .{});

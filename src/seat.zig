@@ -133,8 +133,7 @@ pub fn byFocus(ctx: *Context, win: *rwm.WindowV1) ?*rwm.SeatV1 {
 }
 
 pub fn setup(seat: *rwm.SeatV1, ctx: *Context) !void {
-    const seats = try ctx.config.sub("seat");
-    const xcursor = try seats.sub("xcursor");
+    const xcursor = try ctx.config.sub("xcursor");
     const name = if (try xcursor.getArgs("theme")) |a| a.args else ctx.child_env.get("XCURSOR_THEME");
     const size = if (try xcursor.getArgs("size")) |s| s.args else ctx.child_env.get("XCURSOR_SIZE");
 

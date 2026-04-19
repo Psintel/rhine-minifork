@@ -65,11 +65,66 @@ pub const Entry = struct {
 
         pub fn next(self: *@This()) ?[]const u8 {
             const nextval = self.iter.next() orelse return null;
-            return mem.trim(u8, nextval, " \t");
+            return mem.trim(u8, nextval, &std.ascii.whitespace);
         }
 
         pub fn nextAssume(self: *@This()) ![]const u8 {
             return self.next() orelse error.TooFewArgs;
+        }
+
+        pub fn rest(self: *@This()) []const u8 {
+            return self.iter.rest();
+        }
+
+        pub fn parseT(self: *@This(), T: type) !T {
+            if (meta.hasFn(T, "parse")) return T.parse(self);
+
+            switch (@typeInfo(T)) {
+                .void => return {},
+                .int => {
+                    return fmt.parseInt(T, try self.nextAssume(), 0) catch error.ParseError;
+                },
+                .float => {
+                    return fmt.parseFloat(T, try self.nextAssume()) catch error.ParseError;
+                },
+                .@"enum" => {
+                    return meta.stringToEnum(T, try self.nextAssume()) orelse error.ParseError;
+                },
+                .@"union" => {
+                    const tag = try self.parseT(meta.Tag(T));
+                    switch (tag) {
+                        inline else => |t| {
+                            const pl = @FieldType(T, @tagName(t));
+                            return @unionInit(T, @tagName(t), try self.parseT(pl));
+                        },
+                    }
+                },
+                .@"struct" => |s| {
+                    if (!s.is_tuple)
+                        @compileError(fmt.comptimePrint("cannot parse non-tuple struct {} automatically", .{T}));
+
+                    var out: T = undefined;
+                    inline for (&out) |*a| a.* = try self.parseT(@TypeOf(a.*));
+                    return out;
+                },
+                .bool => {
+                    const trimmed = mem.trim(u8, try self.nextAssume(), &std.ascii.whitespace);
+                    if (mem.eql(u8, trimmed, "true")) return true;
+                    if (mem.eql(u8, trimmed, "false")) return false;
+                    return error.ParseError;
+                },
+                .array => |a| {
+                    var out: T = undefined;
+                    for (&out) |*entry| entry.* = try self.parseT(a.child);
+                    return out;
+                },
+                .vector => |v| {
+                    var out: T = undefined;
+                    inline for (0..v.len) |i| out[i] = try self.parseT(v.child);
+                    return out;
+                },
+                else => @compileError(fmt.comptimePrint("cannot parse type {}", .{T})),
+            }
         }
     };
 
@@ -81,39 +136,8 @@ pub const Entry = struct {
 
     pub fn parseT(self: Entry, T: type) Error!T {
         if (meta.hasFn(T, "parse")) return T.parse(self);
-
-        switch (@typeInfo(T)) {
-            .array => |a| {
-                const l = try self.argList(a.len);
-                var out: T = undefined;
-                for (l, &out) |str, *entry| entry.* = try parseSingle(str, a.child);
-                return out;
-            },
-            .vector => |v| {
-                const l = try self.argList(v.len);
-                var out: T = undefined;
-                for (l, 0..) |str, i| out[i] = try parseSingle(str, v.child);
-                return out;
-            },
-            else => {
-                return parseSingle(self.args, T);
-            },
-        }
-    }
-
-    fn parseSingle(str: []const u8, T: type) Error!T {
-        switch (@typeInfo(T)) {
-            .int => {
-                return fmt.parseInt(T, str, 0) catch error.ParseError;
-            },
-            .float => {
-                return fmt.parseFloat(T, str) catch error.ParseError;
-            },
-            .@"enum" => {
-                return meta.stringToEnum(T, str) orelse error.ParseError;
-            },
-            else => @compileError(fmt.comptimePrint("cannot parse type {} from string", .{T})),
-        }
+        var iter = self.iterate();
+        return iter.parseT(T);
     }
 
     pub fn deinit(self: @This(), allocator: mem.Allocator) void {
@@ -137,6 +161,32 @@ pub const Value = union(enum) {
     fn parseListT(list: []Entry, T: type) Error!T {
         _ = list;
         unreachable;
+    }
+
+    pub fn merge(self: *Value, other: Value, gpa: mem.Allocator) !void {
+        if (meta.activeTag(self.*) != meta.activeTag(other)) return error.ParseError;
+        switch (self.*) {
+            .config => |c| {
+                var iter = other.config.values.iterator();
+                while (iter.next()) |n| {
+                    const key = n.key_ptr.*;
+                    const val = n.value_ptr.*;
+                    if (c.values.getPtr(key)) |old| {
+                        try old.merge(val, gpa);
+                    } else {
+                        try c.values.put(gpa, key, val);
+                    }
+                }
+            },
+            .list => |l| {
+                const new = Value{ .list = try mem.concat(gpa, Entry, &.{ l, other.list }) };
+                errdefer new.deinit();
+                self.deinit(gpa);
+                self.* = new;
+            },
+
+            .args => return error.ParseError,
+        }
     }
 
     pub fn deinit(self: Value, allocator: std.mem.Allocator) void {
@@ -198,7 +248,8 @@ fn consume(reader: *std.Io.Reader, char: u8) !bool {
 
 pub fn parseEntry(allocator: mem.Allocator, reader: *std.Io.Reader) !Entry {
     const b = try reader.takeDelimiter('\n') orelse &.{};
-    const trimmed = mem.trim(u8, b, " \t");
+    const uncommented = mem.sliceTo(b, '#');
+    const trimmed = mem.trim(u8, uncommented, &std.ascii.whitespace);
     return .{ .args = try allocator.dupe(u8, trimmed) };
 }
 
@@ -280,9 +331,12 @@ pub fn parse(allocator: mem.Allocator, reader: *std.io.Reader) !Config {
         }
         errdefer val.deinit(allocator);
 
-        // TODO: decide if I want to do differently
-        if (out.values.contains(key)) return error.ParseError;
-        try out.values.put(allocator, key, val);
+        if (out.values.getPtr(key)) |v| {
+            try v.merge(val, allocator);
+            val.deinit(allocator);
+        } else {
+            try out.values.put(allocator, key, val);
+        }
     }
 }
 
@@ -365,7 +419,8 @@ pub fn parseT(self: Config, T: type) Error!T {
 
     const str = switch (@typeInfo(T)) {
         .@"struct" => |pl| pl,
-        else => return error.ParseError, // <- should be a comptime error
+        else => return error.ParseError,
+        // else => @compileError(fmt.comptimePrint("cannot parse top-level config into non-struct type {}", .{T})),
     };
 
     if (str.is_tuple) @compileError("cannot parse config block into tuple");
@@ -383,7 +438,8 @@ pub fn parseT(self: Config, T: type) Error!T {
                     try v.parseT(field.type)
                 else if (field.default_value_ptr) |v|
                     @as(*const field.type, @ptrCast(@alignCast(v))).*
-                else return error.ParseError;
+                else
+                    return error.NoDefaultValue;
             },
         }
     }

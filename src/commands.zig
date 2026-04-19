@@ -51,38 +51,79 @@ pub const Queue = struct {
 const WsDir = enum { Previous, Next };
 
 const WsSpec = union(enum) {
-    abs: Workspace.WS,
-    rel: WsDir,
+    Abs: Workspace.WS,
+    Rel: WsDir,
+    PrevActive: void,
 
     pub fn resolve(self: @This(), ctx: *Context, seat: *rwm.SeatV1) !Workspace.WS {
         switch (self) {
-            .abs => |ws| return ws,
-            .rel => |dr| {
+            .Abs => |ws| return ws,
+            .Rel => |dr| {
                 const current = Workspace.bySeat(ctx, seat) orelse return error.NoCurrentWorkspace;
                 return switch (dr) {
                     .Previous => Workspace.getPrevious(ctx, current),
                     .Next => Workspace.getNext(ctx, current),
                 };
             },
+            .PrevActive => {
+                const out = Output.bySeat(ctx, seat) orelse return error.NotFound;
+                const out_data = ctx.outs.get(out) orelse return error.NotFound;
+                return out_data.last_workspace orelse error.NotFound;
+            },
+        }
+    }
+
+    pub fn parse(args: *Config.Entry.Iterator) !@This() {
+        const Tag = meta.Tag(@This());
+        const arg = args.next() orelse return error.NoWsArg;
+        return if (std.fmt.parseInt(Workspace.WS, arg, 0)) |w|
+            .{ .Abs = w }
+        else |_| if (meta.stringToEnum(WsDir, arg)) |rel|
+            .{ .Rel = rel }
+        else if (meta.stringToEnum(Tag, arg) == .PrevActive)
+            .{ .PrevActive = {} }
+        else
+            error.ParseError;
+    }
+};
+
+const WinSpec = union(enum) {
+    Focus: void,
+
+    pub fn parse(args: *Config.Entry.Iterator) !@This() {
+        const arg = args.next() orelse return error.ParseError;
+        const t = meta.stringToEnum(meta.Tag(@This()), arg) orelse return error.ParseError;
+
+        switch (t) {
+            .Focus => return .{ .Focus = {} },
+        }
+    }
+
+    pub fn resolve(self: @This(), ctx: *Context, seat: *rwm.SeatV1) ?*rwm.WindowV1 {
+        const seat_data = ctx.seats.get(seat) orelse return null;
+        switch (self) {
+            .Focus => return seat_data.focus,
         }
     }
 };
 
+const ToggleCmd = enum { enable, disable, toggle };
+
 pub const Command = union(enum) {
-    killFocus: void,
-    xkill: void,
+    close: WinSpec,
+    kill: WinSpec,
+    murder: WinSpec,
     launch: []const u8,
-    toggleFullscreen: void,
-    toggleFloating: void,
-    toggleWorkspace: void,
-    toggleSpecial: Workspace.WS,
+    fullscreen: struct { ToggleCmd, WinSpec },
+    floating: struct { ToggleCmd, WinSpec },
+    overlay: struct { ToggleCmd, Workspace.WS },
     focusWorkspace: WsSpec,
     sendToWorkspace: WsSpec,
     moveToWorkspace: WsSpec,
     moveFocus: Tiler.Dir,
     moveWindow: Tiler.Dir,
     layoutCommand: struct { Layouts.LayoutType, Tiler.Command },
-    startPointerOp: pointer_ops.OpType,
+    pointerOp: pointer_ops.OpType,
     exit: void,
 
     pub fn fromArg(args: *Config.Entry.Iterator) !@This() {
@@ -92,39 +133,22 @@ pub const Command = union(enum) {
         ) orelse return error.InvalidTag;
 
         switch (tag) {
-            inline .killFocus, .xkill, .toggleFullscreen, .toggleFloating, .toggleWorkspace, .exit => |t| return @unionInit(@This(), @tagName(t), {}),
+            inline .exit => |t| return @unionInit(@This(), @tagName(t), {}),
             .launch => return .{
-                .launch = args.next() orelse return error.NoLaunchArg,
+                .launch = args.rest(),
             },
-            inline .moveFocus, .moveWindow => |t| return @unionInit(
-                @This(),
-                @tagName(t),
-                meta.stringToEnum(
-                    Tiler.Dir,
-                    args.next() orelse return error.NoMoveArg,
-                ) orelse return error.InvalidDirection,
-            ),
-            .toggleSpecial => {
+            .overlay => {
+                const toggle = try args.parseT(ToggleCmd);
                 const ws = try std.fmt.parseInt(Workspace.WS, args.next() orelse return error.NoWsArg, 0);
                 if (ws >= 0) return error.PositiveSpecialWorkspace;
 
-                return .{ .toggleSpecial = ws };
-            },
-            inline .sendToWorkspace, .focusWorkspace, .moveToWorkspace => |t| {
-                const arg = args.next() orelse return error.NoWsArg;
-                const ws: WsSpec = if (std.fmt.parseInt(Workspace.WS, arg, 0)) |w|
-                    .{ .abs = w }
-                else |_|
-                    .{ .rel = meta.stringToEnum(WsDir, arg) orelse return error.ParseError };
-
-                return @unionInit(@This(), @tagName(t), ws);
-            },
-            .startPointerOp => {
-                const arg = args.next() orelse return error.NoOpArg;
-                return .{ .startPointerOp = meta.stringToEnum(pointer_ops.OpType, arg) orelse return error.ParseError };
+                return .{ .overlay = .{ toggle, ws } };
             },
             .layoutCommand => {
                 return .{ .layoutCommand = try Layouts.parseCommand(args) };
+            },
+            inline else => |t| {
+                return @unionInit(@This(), @tagName(t), try args.parseT(@FieldType(Command, @tagName(t))));
             },
         }
     }
@@ -133,51 +157,82 @@ pub const Command = union(enum) {
         const seat_data = ctx.seats.getPtr(seat) orelse return error.NoSeat;
         log.info("dispatching command {} on seat {}", .{ cmd, seat.getId() });
         switch (cmd) {
-            .killFocus => {
-                if (seat_data.focus) |w| {
+            .close => |win| {
+                if (win.resolve(ctx, seat)) |w| {
                     try ctx.should_close.append(ctx.gpa, w);
                     log.info("marked window {} for closure", .{w.getId()});
                     ctx.dirty = true;
                 }
             },
-            .xkill => {
-                try pointer_ops.startOp(ctx, seat, .xkill);
+            .kill => |win| {
+                if (win.resolve(ctx, seat)) |w| {
+                    const win_data = ctx.wins.get(w) orelse return error.NotFound;
+                    if (win_data.unreliable_pid) |pid| {
+                        log.info("sent SIGTERM to {}", .{w.getId()});
+                        try std.posix.kill(pid, std.posix.SIG.TERM);
+                    } else {
+                        log.err("can't kill {} does not have pid", .{w.getId()});
+                    }
+                }
+            },
+            .murder => |win| {
+                if (win.resolve(ctx, seat)) |w| {
+                    const win_data = ctx.wins.get(w) orelse return error.NotFound;
+                    if (win_data.unreliable_pid) |pid| {
+                        log.info("sent SIGTERM to {}", .{w.getId()});
+                        try std.posix.kill(pid, std.posix.SIG.KILL);
+                    } else {
+                        log.err("can't kill {} does not have pid", .{w.getId()});
+                    }
+                }
             },
             .launch => |command| {
                 try helpers.disownChild(ctx, command);
             },
-            .toggleFullscreen => {
-                const focus = seat_data.focus orelse return;
-                const win_data = ctx.wins.getPtr(focus) orelse return;
-                win_data.fullscreen.toggle();
+            .fullscreen => |args| {
+                const state, const target = args;
+                const win = target.resolve(ctx, seat) orelse return;
+                const win_data = ctx.wins.getPtr(win) orelse return;
+                switch (state) {
+                    .enable => win_data.fullscreen.on(),
+                    .disable => win_data.fullscreen.off(),
+                    .toggle => win_data.fullscreen.toggle(),
+                }
                 ctx.dirty = true;
             },
-            .toggleFloating => {
-                const focus = seat_data.focus orelse return;
-                const win_data = ctx.wins.getPtr(focus) orelse return;
-                win_data.float = !win_data.float;
-                log.info("toggled floating state of {}", .{focus.getId()});
+            .floating => |args| {
+                const state, const target = args;
+                const win = target.resolve(ctx, seat) orelse return;
+                const win_data = ctx.wins.getPtr(win) orelse return;
+                win_data.float = switch (state) {
+                    .enable => true,
+                    .disable => false,
+                    .toggle => !win_data.float,
+                };
+                log.info("set floating state of {} to {}", .{ win.getId(), win_data.float });
                 ctx.dirty = true;
             },
-            .toggleWorkspace => {
-                log.info("toggle keybinds", .{});
-                const out = Output.bySeat(ctx, seat) orelse return;
-                const out_data = ctx.outs.get(out) orelse return;
-                const old = out_data.last_workspace orelse return;
-                try ctx.commands_queue.add(ctx.gpa, seat, .{ .focusWorkspace = .{ .abs = old } });
-            },
-            .toggleSpecial => |ws| {
+            .overlay => |args| {
+                const state, const ws = args;
                 const out = Output.bySeat(ctx, seat) orelse return;
                 const out_data = ctx.outs.getPtr(out).?;
 
                 var target_ws: Workspace.WS = undefined;
 
-                if (out_data.overlay == ws) {
-                    out_data.overlay = null;
-                    target_ws = out_data.workspace;
-                } else {
-                    out_data.overlay = ws;
-                    target_ws = ws;
+                ovrl: switch (state) {
+                    .enable => {
+                        out_data.overlay = ws;
+                        target_ws = ws;
+                    },
+                    .disable => {
+                        out_data.overlay = null;
+                        target_ws = out_data.workspace;
+                    },
+
+                    .toggle => {
+                        if (out_data.overlay == ws) continue :ovrl .disable;
+                        continue :ovrl .enable;
+                    },
                 }
 
                 log.info("toggled special workspace {}", .{ws});
@@ -312,7 +367,7 @@ pub const Command = union(enum) {
                 }, laycmd);
                 ctx.dirty = true;
             },
-            .startPointerOp => |op| {
+            .pointerOp => |op| {
                 try pointer_ops.startOp(ctx, seat, op);
             },
             .exit => {

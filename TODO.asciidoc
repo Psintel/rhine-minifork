@@ -1,13 +1,10 @@
 = TODO
-* maybe devirtualize tilers in favour of tagged unions
-    ** this might make future shared object loading ambitions harder
-* update to version 4 of window-management-v1
-    ** store identifiers for wm session restore
-    ** set cursor shapes based on context
-* tiler API overhaul
-    ** re-introduce distinction between render and manage better
-    ** reduce API surface by removing the context object
-    ** maybe remove focus move?
+* layer shell components should go on the active monitor
+* multi-monitor should be made to suck less
+    ** allow moving ws from one output to another
+    ** open windows where the cursor is
+* store identifiers for wm session restore
+* set cursor shapes based on context
 * special workspaces
     ** autostart clients
     ** maybe have a focused workspace per seat
@@ -16,19 +13,15 @@
     ** allows for scrollers
     ** should I have a more flexible solution?
 * config
-    ** cursor gestures
     ** window rules
         *** improve matching and globbing
             *** regex?
 * floating windows
-    ** maybe improve initial position
     ** improve pop-up heuristics
 * implement a bar ipc
     ** hyrpland!
         *** do some sort of RCU thingy to prevent races
         *** implement json support
-    ** my own?
-    ** sway?
 
 = Nice to Have
 * show keyboard layout to user
@@ -37,6 +30,7 @@
 = Ambitions
 * multi-touch gestures (also tiling specific)
     ** waiting for protocol
+    ** sidestep a protocol and just use libinput directly (migration should be cheap(-ish))
 * workspace switching animation
 * each tiler gets its own memory arena
 * C abi for tilers

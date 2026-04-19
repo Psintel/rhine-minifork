@@ -31,15 +31,17 @@ animations {
 
 # alt, s, tiler, bsp, togglesplit
 keybinds [
-    super, q, killFocus
+    super, q, close, Focus
     super, m, exit
+    super, Escape, pointerOp, xkill
     super, Return, launch, foot
     super, d, launch, fuzzel
-    super, f, toggleFullscreen
-    super, Tab, toggleWorkspace
-    super, v, toggleFloating
+    super, f, fullscreen, toggle, Focus
+    super, Tab, focusWorkspace, PrevActive
+    super, v, floating, toggle, Focus
     super, s, layoutCommand, bsp, changeSplit
-    none, F12, toggleSpecial, -1
+    super+shift, s, layoutCommand, bsp, swapAllSplits
+    none, F12, overlay, toggle, -1
     super, F12, sendToWorkspace, -1
 
     super, h, moveFocus, Left
@@ -105,16 +107,10 @@ windowrules [
 ]
 
 pointer_binds [
-    super      , Left, startPointerOp, move
-    super+shift, Left, startPointerOp, resize
+    super      , Left, pointerOp, move
+    super+shift, Left, pointerOp, resize
 ]
 
-seat {
-    xcursor {
-        theme Breeze_Hacked
-        size 24
-    }
-}
 
 startup [
     dbus-update-activation-environment --all --systemd
@@ -123,19 +119,49 @@ startup [
     swayidle
 ]
 
-# Input config needs https://codeberg.org/Sivecano/channel to work
-keyboard {
-    layout us
-    variant
-    # rules
-    options grp:ctrl_space_toggle
-    repeat {
-        rate 25
-        delay 550
-    }
+xcursor {
+    theme Breeze_Hacked
+    size 24
 }
 
-touchpad {
-    natural_scroll true
-    tap_to_click true
+
+
+input {
+    profiles {
+        keyboard {
+            keyboard {
+                layout us, ch
+                variant , de
+                # layout
+                # rules
+                options grp:ctrl_space_toggle,apple:alupckeys,compose:rctrl
+                repeat {
+                    rate 25
+                    delay 550
+                }
+            }
+        }
+
+        touchpad {
+            pointer {
+                scroll_factor 1
+                # map_to rect, 0, 0, 200, 200
+            }
+
+            libinput {
+                natural_scroll true
+                # this could be two_finger, edge, no_scroll or on_button_down
+                scroll_method two_finger
+                tap_to_click true
+                click_method clickfinger
+                disable_while_typing true
+                accel_profile flat
+            }
+        }
+    }
+
+    rules [
+        type, keyboard, keyboard
+        name, *ouchpad, touchpad
+    ]
 }
