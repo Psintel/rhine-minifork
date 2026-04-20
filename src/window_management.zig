@@ -244,11 +244,11 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: i64) void {
         if (wd.parent) |p| {
             const paren = ctx.wins.get(p) orelse continue;
             if (meta.activeTag(wd.pos) != .static)
-            wd.setPos(
-                ctx.anims,
-                paren.pos.get(ctx.anims, t) + (paren.size - wd.size) / @as(utils.Vec2, @splat(2)),
-                t,
-            );
+                wd.setPos(
+                    ctx.anims,
+                    paren.pos.get(ctx.anims, t) + (paren.size - wd.size) / @as(utils.Vec2, @splat(2)),
+                    t,
+                );
         }
 
         win.setBorders(
@@ -356,6 +356,14 @@ fn manage(ctx: *Context) !void {
         } else {
             seat.clearFocus();
         }
+    }
+
+    // set the layer shell default to the output last used by the last active seat
+    if (ctx.last_active) |seat| layer_shell_pos: {
+        const seat_data = ctx.seats.get(seat) orelse break :layer_shell_pos;
+        const out = Output.byPointer(ctx, seat_data.pointer_pos) orelse break :layer_shell_pos;
+        const out_data = ctx.outs.get(out) orelse break :layer_shell_pos;
+        out_data.shell_out.setDefault();
     }
 
     for (ctx.should_close.items) |w| {

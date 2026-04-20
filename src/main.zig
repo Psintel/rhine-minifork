@@ -19,33 +19,41 @@ const HyprIPC = @import("hyprIPC.zig");
 const Inotify = @import("inotify.zig");
 const SignalListener = @import("signal_listener.zig");
 const Layouts = @import("layouts.zig");
+const Seat = @import("seat.zig");
 
 pub const std_options: std.Options = .{
     .log_level = .info,
 };
 
 const Registry = struct {
+    gpa: mem.Allocator,
     wm: ?*rwm.WindowManagerV1 = null,
     shell: ?*rwm.LayerShellV1 = null,
     bindings: ?*rwm.XkbBindingsV1 = null,
+    seats: utils.WLHashMap(wl.Seat, Seat.Wl) = .empty,
 
     pub fn register(registry: *wl.Registry, event: wl.Registry.Event, context: *@This()) void {
         switch (event) {
             .global => |global| {
-                if (mem.orderZ(u8, global.interface, rwm.WindowManagerV1.interface.name) == .eq) {
-                    context.wm = registry.bind(global.name, rwm.WindowManagerV1, 4) catch return;
+                if (utils.handleIface(registry, global, rwm.WindowManagerV1, 4)) |wm| {
+                    context.wm = wm;
                     log.info("registered window manager interface with version {}", .{global.version});
-                } else if (mem.orderZ(u8, global.interface, rwm.LayerShellV1.interface.name) == .eq) {
-                    context.shell = registry.bind(global.name, rwm.LayerShellV1, 1) catch return;
+                } else if (utils.handleIface(registry, global, rwm.LayerShellV1, 1)) |ls| {
+                    context.shell = ls;
                     log.info("registered layer shell interface with version {}", .{global.version});
-                } else if (mem.orderZ(u8, global.interface, rwm.XkbBindingsV1.interface.name) == .eq) {
-                    context.bindings = registry.bind(global.name, rwm.XkbBindingsV1, 1) catch return;
+                } else if (utils.handleIface(registry, global, rwm.XkbBindingsV1, 2)) |xkb| {
+                    context.bindings = xkb;
                     log.info("registered xkb bindings interface with version {}", .{global.version});
+                } else if (utils.handleIface(registry, global, wl.Seat, 4)) |seat| {
+                    context.seats.put(context.gpa, seat, .{}) catch return;
+                    log.info("registered seat with version {}", .{global.version});
                 } else {
                     log.info("not registering interface {s}", .{global.interface});
                 }
             },
-            .global_remove => {},
+            .global_remove => |gr| {
+                log.warn("ignored global removal of: {}", .{gr.name});
+            },
         }
     }
 };
@@ -135,7 +143,7 @@ pub fn main() !void {
         },
     };
 
-    var reg: Registry = .{};
+    var reg: Registry = .{ .gpa = alloc };
     registry.setListener(*Registry, Registry.register, &reg);
 
     if (display.roundtrip() != .SUCCESS) return error.RoundTripFailed;
@@ -148,8 +156,13 @@ pub fn main() !void {
         .shell = try unwrapIFace(reg.shell),
         .config = try Config.parse(alloc, &reader_object.interface),
         .events = events,
+        .wl_seats = reg.seats,
     };
     defer ctx.deinit();
+
+    for (ctx.wl_seats.keys()) |seat| {
+        seat.setListener(*Context, Seat.Wl.listener, &ctx);
+    }
 
     const ipc = try HyprIPC.init(&ctx);
     defer ipc.deinit(&ctx);
@@ -166,7 +179,7 @@ pub fn main() !void {
 
     while (ctx.running) {
         while (try signal_listener.readSignal()) |sig| {
-            var a:u32 = undefined;
+            var a: u32 = undefined;
             _ = linux.waitpid(@intCast(sig.pid), &a, linux.W.NOHANG);
         }
 
@@ -223,6 +236,6 @@ pub fn main() !void {
                 return error.ReadEvent;
         }
 
-        if (display.dispatchPending() != .SUCCESS) return error.DispatchError;
+        if (display.dispatchPending() != .SUCCESS) return error.Dispatch;
     }
 }

@@ -144,9 +144,17 @@ pub const Color = struct {
     };
 };
 
-pub fn handleIface(reg:* wl.Registry, glob: @TypeOf(@as(wl.Registry.Event, undefined).global), iface: type) ?*iface {
+pub fn handleIface(reg: *wl.Registry, glob: @TypeOf(@as(wl.Registry.Event, undefined).global), iface: type, version: u32) ?*iface {
     if (mem.orderZ(u8, glob.interface, iface.interface.name) == .eq) {
-        return reg.bind(glob.name, iface, iface.interface.version) catch null;
+        // fail if we can't satisfy our version
+        if (glob.version < version) {
+            std.log.err(
+                "only have version {} of interface {s} when at least {} is required",
+                .{ glob.version, glob.interface, version },
+            );
+            std.posix.exit(1);
+        }
+        return reg.bind(glob.name, iface, version) catch null;
     }
     return null;
 }
