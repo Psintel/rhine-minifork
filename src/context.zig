@@ -37,6 +37,8 @@ wins: utils.WLHashMap(rwm.WindowV1, Window) = .empty,
 outs: utils.WLHashMap(rwm.OutputV1, Output) = .empty,
 shell_outs: utils.WLHashMap(rwm.LayerShellOutputV1, *rwm.OutputV1) = .empty,
 seats: utils.WLHashMap(rwm.SeatV1, Seat) = .empty,
+wl_seats: utils.WlGlobal(wl.Seat, Seat.Wl) = .{},
+wl_outs: utils.WlGlobal(wl.Output, Output.Wl) = .{},
 workspaces: std.AutoArrayHashMapUnmanaged(Workspace.WS, Workspace) = .empty,
 config: Config,
 rules: std.ArrayList(Rules) = .empty,
@@ -74,6 +76,7 @@ pub fn deinit(self: *@This()) void {
     }
     self.seats.deinit(self.gpa);
 
+
     for (self.workspaces.values()) |*w| {
         w.deinit(self);
     }
@@ -109,6 +112,44 @@ pub fn loadEnv(self: *@This()) !void {
 
         try self.child_env.putMove(key, val);
     }
+}
+
+pub fn regListener(reg: *wl.Registry, e: wl.Registry.Event, ctx: *@This()) void {
+    switch (e) {
+        .global => |glob| {
+            if (utils.handleIface(reg, glob, wl.Seat, 4)) |seat| {
+                ctx.wl_seats.map.put(ctx.gpa, glob.name, seat) catch return;
+                ctx.wl_seats.data.put(ctx.gpa, seat, .{ .global = glob.name }) catch return;
+                seat.setListener(*@This(), Seat.Wl.listener, ctx);
+            }
+        },
+        .global_remove => |rem| {
+            if (ctx.wl_seats.map.fetchSwapRemove(rem.name)) |kv| {
+                const seat = kv.value;
+                defer seat.destroy();
+                if (ctx.wl_seats.data.fetchSwapRemove(seat)) |data| data.value.deinit(ctx.gpa);
+                return;
+            }
+        },
+    }
+}
+
+pub fn addSeat(self: *@This(), reg: *wl.Registry, _seat: u32) !void {
+    const seat = try reg.bind(_seat, wl.Seat, 4);
+    errdefer seat.destroy();
+    try self.wl_seats.map.put(self.gpa, _seat, seat);
+    errdefer _ = self.wl_seats.map.swapRemove(_seat);
+    try self.wl_seats.data.put(self.gpa, seat, .{ .global = _seat });
+    seat.setListener(*@This(), Seat.Wl.listener, self);
+}
+
+pub fn addOut(self: *@This(), reg: *wl.Registry, _out: u32) !void {
+    const out = try reg.bind(_out, wl.Output, 4);
+    errdefer out.destroy();
+    try self.wl_outs.map.put(self.gpa, _out, out);
+    errdefer _ = self.wl_outs.map.swapRemove(_out);
+    try self.wl_outs.data.put(self.gpa, out, .{ .global = _out });
+    out.setListener(*@This(), Output.Wl.listener, self);
 }
 
 pub fn reload(self: *@This()) !void {

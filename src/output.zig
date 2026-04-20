@@ -1,4 +1,5 @@
 const std = @import("std");
+const mem = std.mem;
 const meta = std.meta;
 const wayland = @import("wayland");
 const log = std.log.scoped(.output);
@@ -17,10 +18,74 @@ exclusive_area: ?utils.Rect2 = null,
 workspace: Workspace.WS,
 last_workspace: ?Workspace.WS = null,
 
-// special overlay workspace TODO:implement
 overlay: ?Workspace.WS = null,
-
 shell_out: *rwm.LayerShellOutputV1,
+
+pub const Wl = struct {
+    global: u32,
+    ready: bool = false, // data only valid to read if this is true
+    geometry: struct {
+        pos: utils.Vec2,
+        pdim: utils.Vec2,
+        subpx: wl.Output.Subpixel,
+        trafo: wl.Output.Transform,
+    } = undefined,
+    mode: struct {
+        dim: utils.Vec2,
+        refresh: i32,
+    } = undefined,
+    name: ?[]u8 = null,
+    model: ?[]u8 = null,
+    make: ?[]u8 = null,
+    description: ?[]u8 = null,
+    scale: i32 = 1,
+
+    pub fn listener(out: *wl.Output, e: wl.Output.Event, ctx: *Context) void {
+        const data = ctx.wl_outs.data.getPtr(out) orelse return;
+        data.ready = false;
+        switch (e) {
+            .name => |n| {
+                if (data.name) |nm| ctx.gpa.free(nm);
+                data.name = ctx.gpa.dupe(u8, mem.sliceTo(n.name, 0)) catch return;
+            },
+            .description => |desc| {
+                if (data.description) |ds| ctx.gpa.free(ds);
+                data.description = ctx.gpa.dupe(u8, mem.sliceTo(desc.description, 0)) catch return;
+            },
+            .mode => |m| {
+                data.mode = .{
+                    .dim = .{ m.width, m.height },
+                    .refresh = m.refresh,
+                };
+            },
+            .geometry => |geo| {
+                data.geometry = .{
+                    .pos = .{ geo.x, geo.y },
+                    .pdim = .{ geo.physical_width, geo.physical_height },
+                    .subpx = geo.subpixel,
+                    .trafo = geo.transform,
+                };
+
+                if (data.make) |mk| ctx.gpa.free(mk);
+                data.make = ctx.gpa.dupe(u8, mem.sliceTo(geo.make, 0)) catch return;
+
+                if (data.model) |md| ctx.gpa.free(md);
+                data.model = ctx.gpa.dupe(u8, mem.sliceTo(geo.model, 0)) catch return;
+            },
+            .scale => |s| {
+                data.scale = s.factor;
+            },
+            .done => data.ready = true,
+        }
+    }
+
+    pub fn deinit(self: @This(), gpa: mem.Allocator) void {
+        if (self.name) |nm| gpa.free(nm);
+        if (self.model) |md| gpa.free(md);
+        if (self.make) |mk| gpa.free(mk);
+        if (self.description) |desc| gpa.free(desc);
+    }
+};
 
 pub fn init(ctx: *Context, out: *rwm.OutputV1) !void {
     const shell = try ctx.shell.getOutput(out);

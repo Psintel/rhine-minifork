@@ -30,9 +30,10 @@ const Registry = struct {
     wm: ?*rwm.WindowManagerV1 = null,
     shell: ?*rwm.LayerShellV1 = null,
     bindings: ?*rwm.XkbBindingsV1 = null,
-    seats: utils.WLHashMap(wl.Seat, Seat.Wl) = .empty,
+    seats: std.AutoArrayHashMapUnmanaged(u32, void) = .empty,
+    outs: std.AutoArrayHashMapUnmanaged(u32, void) = .empty,
 
-    pub fn register(registry: *wl.Registry, event: wl.Registry.Event, context: *@This()) void {
+    pub fn listener(registry: *wl.Registry, event: wl.Registry.Event, context: *@This()) void {
         switch (event) {
             .global => |global| {
                 if (utils.handleIface(registry, global, rwm.WindowManagerV1, 4)) |wm| {
@@ -44,16 +45,37 @@ const Registry = struct {
                 } else if (utils.handleIface(registry, global, rwm.XkbBindingsV1, 2)) |xkb| {
                     context.bindings = xkb;
                     log.info("registered xkb bindings interface with version {}", .{global.version});
-                } else if (utils.handleIface(registry, global, wl.Seat, 4)) |seat| {
-                    context.seats.put(context.gpa, seat, .{}) catch return;
-                    log.info("registered seat with version {}", .{global.version});
+                } else if (utils.checkIface(global, wl.Seat, 4)) |seat| {
+                    context.seats.put(context.gpa, seat, {}) catch return;
+                    log.info("remembering seat with version {}", .{global.version});
+                } else if (utils.checkIface(global, wl.Output, 4)) |out| {
+                    context.outs.put(context.gpa, out, {}) catch return;
+                    log.info("remembering out with version {}", .{global.version});
                 } else {
                     log.info("not registering interface {s}", .{global.interface});
                 }
             },
             .global_remove => |gr| {
-                log.warn("ignored global removal of: {}", .{gr.name});
+                if (context.seats.swapRemove(gr.name)) {
+                    log.info("removed seat {}", .{gr.name});
+                } else if (context.outs.swapRemove(gr.name)) {
+                    log.info("removed out {}", .{gr.name});
+                } else {
+                    log.warn("ignored global removal of: {}", .{gr.name});
+                }
             },
+        }
+    }
+};
+
+const RegUnion = union(enum) {
+    reg: *Registry,
+    ctx: *Context,
+
+    pub fn listener(reg: *wl.Registry, event: wl.Registry.Event, un: *@This()) void {
+        switch (un.*) {
+            .reg => |r| Registry.listener(reg, event, r),
+            .ctx => |c| Context.regListener(reg, event, c),
         }
     }
 };
@@ -144,7 +166,10 @@ pub fn main() !void {
     };
 
     var reg: Registry = .{ .gpa = alloc };
-    registry.setListener(*Registry, Registry.register, &reg);
+
+    var regU: RegUnion = .{ .reg = &reg };
+
+    registry.setListener(*RegUnion, RegUnion.listener, &regU);
 
     if (display.roundtrip() != .SUCCESS) return error.RoundTripFailed;
 
@@ -156,13 +181,12 @@ pub fn main() !void {
         .shell = try unwrapIFace(reg.shell),
         .config = try Config.parse(alloc, &reader_object.interface),
         .events = events,
-        .wl_seats = reg.seats,
     };
     defer ctx.deinit();
 
-    for (ctx.wl_seats.keys()) |seat| {
-        seat.setListener(*Context, Seat.Wl.listener, &ctx);
-    }
+    regU = .{ .ctx = &ctx };
+    for (reg.seats.keys()) |_seat| try ctx.addSeat(registry, _seat);
+    for (reg.outs.keys()) |_out| try ctx.addOut(registry, _out);
 
     const ipc = try HyprIPC.init(&ctx);
     defer ipc.deinit(&ctx);

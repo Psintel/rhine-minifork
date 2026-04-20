@@ -24,11 +24,12 @@ pub const Wl = struct {
         touch: bool = false,
     };
 
+    global: u32,
     name: ?[]const u8 = null,
     capabilities: Caps = .{},
 
     pub fn listener(seat: *wl.Seat, e: wl.Seat.Event, ctx: *Context) void {
-        const data = ctx.wl_seats.getPtr(seat).?;
+        const data = ctx.wl_seats.data.getPtr(seat) orelse return;
         switch (e) {
             .capabilities => |c| {
                 inline for (comptime std.meta.fieldNames(Caps)) |f|
@@ -64,8 +65,7 @@ pub fn listener(seat: *rwm.SeatV1, e: rwm.SeatV1.Event, ctx: *Context) void {
     switch (e) {
         .wl_seat => |wl_seat| {
             std.log.info("associating seat with seat", .{});
-            const mod = ctx.seats.getPtr(seat).?;
-            mod.seat = wl_seat.name;
+            seat_data.seat = wl_seat.name;
         },
         .window_interaction => |win| {
             if (win.window) |w| {

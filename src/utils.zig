@@ -144,7 +144,7 @@ pub const Color = struct {
     };
 };
 
-pub fn handleIface(reg: *wl.Registry, glob: @TypeOf(@as(wl.Registry.Event, undefined).global), iface: type, version: u32) ?*iface {
+pub fn checkIface(glob: @TypeOf(@as(wl.Registry.Event, undefined).global), iface: type, version: u32) ?u32 {
     if (mem.orderZ(u8, glob.interface, iface.interface.name) == .eq) {
         // fail if we can't satisfy our version
         if (glob.version < version) {
@@ -154,8 +154,14 @@ pub fn handleIface(reg: *wl.Registry, glob: @TypeOf(@as(wl.Registry.Event, undef
             );
             std.posix.exit(1);
         }
-        return reg.bind(glob.name, iface, version) catch null;
+        return glob.name;
     }
+
+    return null;
+}
+
+pub fn handleIface(reg: *wl.Registry, glob: @TypeOf(@as(wl.Registry.Event, undefined).global), iface: type, version: u32) ?*iface {
+    if (checkIface(glob, iface, version)) |n| return reg.bind(n, iface, version) catch null;
     return null;
 }
 
@@ -180,4 +186,18 @@ pub fn maybe(I: type, O: type, v: ?I, f: fn (I) ?O) ?O {
         return f(rv)
     else
         return null;
+}
+
+pub fn WlGlobal(global: type, container:type) type {
+    return struct {
+        map: std.AutoArrayHashMapUnmanaged(u32, *global) = .empty,
+        data: WLHashMap(global, container) = .empty,
+
+        pub fn deinit(self: @This(), gpa: mem.Allocator) void {
+            for (self.data.values()) |s| s.deinit(gpa);
+            for (self.wl_seats.map.values()) |s| s.destroy();
+            self.data.deinit(gpa);
+            self.map.deinit(gpa);
+        }
+    };
 }
