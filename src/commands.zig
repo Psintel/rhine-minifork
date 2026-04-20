@@ -48,9 +48,9 @@ pub const Queue = struct {
     }
 };
 
-const WsDir = enum { Previous, Next };
-
 const WsSpec = union(enum) {
+    const WsDir = enum { Previous, Next };
+
     Abs: Workspace.WS,
     Rel: WsDir,
     PrevActive: void,
@@ -375,4 +375,18 @@ pub const Command = union(enum) {
             },
         }
     }
+
+    pub fn fromEntry(entry: Config.Entry) !@This() {
+        var iter = entry.iterate();
+        return .fromArg(&iter);
+    }
+
+    test fromArg {
+        const testing = std.testing;
+        try testing.expectEqual(Command{.exit = {}}, fromEntry(.{.args = "exit"}) );
+    }
 };
+
+test {
+    _ = Command;
+}
