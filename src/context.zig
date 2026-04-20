@@ -4,11 +4,13 @@ const mem = std.mem;
 
 const wl = wayland.client.wl;
 const rwm = wayland.client.river;
+const wp = wayland.client.wp;
 
 const utils = @import("utils.zig");
 const Window = @import("window.zig");
 const Output = @import("output.zig");
 const Seat = @import("seat.zig");
+const Pointer = @import("pointer.zig");
 const Workspace = @import("workspace.zig");
 const Rules = @import("rules.zig");
 const Config = @import("config.zig");
@@ -26,6 +28,7 @@ gpa: mem.Allocator,
 wm: *rwm.WindowManagerV1,
 shell: *rwm.LayerShellV1,
 bind: *rwm.XkbBindingsV1,
+cursor_shape: *wp.CursorShapeManagerV1,
 
 // state info
 running: bool = true,
@@ -37,6 +40,7 @@ wins: utils.WLHashMap(rwm.WindowV1, Window) = .empty,
 outs: utils.WLHashMap(rwm.OutputV1, Output) = .empty,
 shell_outs: utils.WLHashMap(rwm.LayerShellOutputV1, *rwm.OutputV1) = .empty,
 seats: utils.WLHashMap(rwm.SeatV1, Seat) = .empty,
+pointers: utils.WLHashMap(wl.Pointer, Pointer) = .empty,
 wl_seats: utils.WlGlobal(wl.Seat, Seat.Wl) = .{},
 wl_outs: utils.WlGlobal(wl.Output, Output.Wl) = .{},
 workspaces: std.AutoArrayHashMapUnmanaged(Workspace.WS, Workspace) = .empty,

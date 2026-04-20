@@ -4,11 +4,13 @@ const wayland = @import("wayland");
 const utils = @import("utils.zig");
 
 const wl = wayland.client.wl;
+const wp = wayland.client.wp;
 const rwm = wayland.client.river;
 
 const Context = @import("context.zig");
 const Output = @import("output.zig");
 const Window = @import("window.zig");
+const Pointer = @import("pointer.zig");
 const Workspace = @import("workspace.zig");
 const Config = @import("config.zig");
 const keybinds = @import("keybinds.zig");
@@ -19,7 +21,7 @@ const log = std.log.scoped(.seat);
 
 pub const Wl = struct {
     const Caps = struct {
-        pointer: bool = false,
+        pointer: ?*wl.Pointer = null,
         keyboard: bool = false,
         touch: bool = false,
     };
@@ -32,8 +34,22 @@ pub const Wl = struct {
         const data = ctx.wl_seats.data.getPtr(seat) orelse return;
         switch (e) {
             .capabilities => |c| {
-                inline for (comptime std.meta.fieldNames(Caps)) |f|
-                    @field(&data.capabilities, f) = @field(c.capabilities, f);
+                if (c.capabilities.pointer) {
+                    if (data.capabilities.pointer == null) {
+                        const ptr = seat.getPointer() catch return;
+                        Pointer.init(ctx, ptr) catch return;
+                        data.capabilities.pointer = ptr;
+                    }
+                } else {
+                    if (data.capabilities.pointer) |pt| {
+                        if (ctx.pointers.fetchSwapRemove(pt)) |ptr_data| ptr_data.value.deinit();
+                        pt.release();
+                    }
+                    data.capabilities.pointer = null;
+                }
+
+                data.capabilities.keyboard = c.capabilities.keyboard;
+                data.capabilities.touch = c.capabilities.touch;
             },
             .name => |n| data.name = ctx.gpa.dupe(u8, std.mem.sliceTo(n.name, 0)) catch null,
         }
@@ -44,17 +60,15 @@ pub const Wl = struct {
     }
 };
 
-seat: ?u32, // unsure what this is supposed to be
+seat: ?u32 = null,
 focus: ?*rwm.WindowV1 = null,
 pointer_pos: utils.Vec2 = @splat(0),
 
 binds: std.ArrayListUnmanaged(*rwm.XkbBindingV1) = .empty,
-
 pointer_binds: std.ArrayList(*rwm.PointerBindingV1) = .empty,
 
 // warp pointer to focus in next manage
 warp_to_window: ?*rwm.WindowV1 = null,
-
 pointer_op: ?pointer_operations.PointerOp = null,
 
 pub fn listener(seat: *rwm.SeatV1, e: rwm.SeatV1.Event, ctx: *Context) void {
@@ -122,7 +136,7 @@ pub fn listener(seat: *rwm.SeatV1, e: rwm.SeatV1.Event, ctx: *Context) void {
 
 pub fn byFocus(ctx: *Context, win: *rwm.WindowV1) ?*rwm.SeatV1 {
     var iter = ctx.seats.iterator();
-    while(iter.next()) |_seat| {
+    while (iter.next()) |_seat| {
         const seat = _seat.key_ptr.*;
         const seat_data = _seat.value_ptr;
 

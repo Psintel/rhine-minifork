@@ -22,6 +22,7 @@ pub fn build(b: *Build) !void {
     });
 
     scanner.addSystemProtocol("staging/cursor-shape/cursor-shape-v1.xml");
+    scanner.addSystemProtocol("stable/tablet/tablet-v2.xml");
 
     const river_protos = rproto: {
         const pkg_config_exe = b.graph.env_map.get("PKG_CONFIG") orelse "pkg-config";
@@ -44,6 +45,7 @@ pub fn build(b: *Build) !void {
 
     scanner.generate("wl_seat", 4);
     scanner.generate("wl_output", 4);
+    scanner.generate("wl_compositor", 4);
     scanner.generate("river_window_manager_v1", 4);
     scanner.generate("river_layer_shell_v1", 1);
     scanner.generate("river_xkb_bindings_v1", 2);

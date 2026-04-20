@@ -302,6 +302,16 @@ fn manage(ctx: *Context) !void {
             for (seat_data.binds.items) |b| b.enable();
             for (seat_data.pointer_binds.items) |b| b.enable();
         }
+        cursor: {
+            const glob = seat_data.seat orelse break :cursor;
+            const wl_seat = ctx.wl_seats.map.get(glob) orelse break :cursor;
+            const wl_seat_data = ctx.wl_seats.data.get(wl_seat) orelse break :cursor;
+            const pointer = wl_seat_data.capabilities.pointer orelse break :cursor;
+            const pointer_data = ctx.pointers.get(pointer) orelse break :cursor;
+
+            // it's ok to give garbage for serial
+            pointer_data.cursor_shape.setShape(0, if (seat_data.pointer_op) |op| op.shape else .default);
+        }
 
         if (seat_data.pointer_op) |*op| {
             op: switch (op.state) {

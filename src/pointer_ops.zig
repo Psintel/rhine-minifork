@@ -6,6 +6,7 @@ const meta = std.meta;
 const time = std.time;
 
 const wl = wayland.client.wl;
+const wp = wayland.client.wp;
 const rwm = wayland.client.river;
 
 const Context = @import("context.zig");
@@ -43,6 +44,7 @@ pub const PointerOp = struct {
 
     state: State = .start,
     delta: utils.Vec2 = @splat(0),
+    shape: wp.CursorShapeDeviceV1.Shape = .default,
 };
 
 pub fn startOp(ctx: *Context, seat: *rwm.SeatV1, op_type: OpType) !void {
@@ -58,6 +60,7 @@ pub fn startOp(ctx: *Context, seat: *rwm.SeatV1, op_type: OpType) !void {
                 .start = T.start,
                 .update = T.update,
                 .end = T.end,
+                .shape = if (@hasDecl(T, "shape")) T.shape else .default,
             };
         },
     }
@@ -81,6 +84,7 @@ const move = struct {
         pos: utils.Vec2,
     };
     pub const interaction_type: InteractionType = .hold;
+    pub const shape: wp.CursorShapeDeviceV1.Shape = .move;
 
     fn start(_ct: *anyopaque, ctx: *Context, pos: utils.Vec2) StartError!void {
         const ct: *Ctx = @ptrCast(@alignCast(_ct));
@@ -147,6 +151,7 @@ const resize = struct {
     };
 
     pub const interaction_type: InteractionType = .hold;
+    pub const shape: wp.CursorShapeDeviceV1.Shape = .all_scroll;
 
     fn start(_ct: *anyopaque, ctx: *Context, pos: utils.Vec2) StartError!void {
         const ct: *Ctx = @ptrCast(@alignCast(_ct));
@@ -233,6 +238,7 @@ const xkill = struct {
         start: utils.Vec2,
     };
     pub const interaction_type: InteractionType = .toggle;
+    pub const shape: wp.CursorShapeDeviceV1.Shape = .context_menu;
 
     fn start(_ct: ?*anyopaque, ctx: *Context, pos: utils.Vec2) StartError!void {
         const ptr = _ct orelse return error.StartError;

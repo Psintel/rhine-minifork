@@ -12,6 +12,7 @@ const Context = @import("context.zig");
 const Workspace = @import("workspace.zig");
 const Output = @This();
 
+wl_out: ?u32 = null,
 position: ?utils.Vec2 = null,
 size: ?utils.Vec2 = null,
 exclusive_area: ?utils.Rect2 = null,
@@ -125,8 +126,8 @@ pub fn listener(out: *rwm.OutputV1, e: rwm.OutputV1.Event, ctx: *Context) void {
             deinit(ctx, out);
             ctx.dirty = true;
         },
-        else => {
-            log.warn("lmao! can't actually handle event {s}", .{@tagName(e)});
+        .wl_output => |wl_out| {
+            data.wl_out = wl_out.name;
         },
     }
 }

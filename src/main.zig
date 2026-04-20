@@ -7,6 +7,7 @@ const log = std.log;
 const wayland = @import("wayland");
 const wl = wayland.client.wl;
 const rwm = wayland.client.river;
+const wp = wayland.client.wp;
 
 const commands = @import("commands.zig");
 const helpers = @import("helpers.zig");
@@ -30,6 +31,7 @@ const Registry = struct {
     wm: ?*rwm.WindowManagerV1 = null,
     shell: ?*rwm.LayerShellV1 = null,
     bindings: ?*rwm.XkbBindingsV1 = null,
+    cursor_shape: ?*wp.CursorShapeManagerV1 = null,
     seats: std.AutoArrayHashMapUnmanaged(u32, void) = .empty,
     outs: std.AutoArrayHashMapUnmanaged(u32, void) = .empty,
 
@@ -45,6 +47,9 @@ const Registry = struct {
                 } else if (utils.handleIface(registry, global, rwm.XkbBindingsV1, 2)) |xkb| {
                     context.bindings = xkb;
                     log.info("registered xkb bindings interface with version {}", .{global.version});
+                } else if (utils.handleIface(registry, global, wp.CursorShapeManagerV1, 1)) |cursor| {
+                    context.cursor_shape = cursor;
+                    log.info("registered cursor shape interface with version {}", .{global.version});
                 } else if (utils.checkIface(global, wl.Seat, 4)) |seat| {
                     context.seats.put(context.gpa, seat, {}) catch return;
                     log.info("remembering seat with version {}", .{global.version});
@@ -166,7 +171,6 @@ pub fn main() !void {
     };
 
     var reg: Registry = .{ .gpa = alloc };
-
     var regU: RegUnion = .{ .reg = &reg };
 
     registry.setListener(*RegUnion, RegUnion.listener, &regU);
@@ -179,6 +183,7 @@ pub fn main() !void {
         .wm = try unwrapIFace(reg.wm),
         .bind = try unwrapIFace(reg.bindings),
         .shell = try unwrapIFace(reg.shell),
+        .cursor_shape = try unwrapIFace(reg.cursor_shape),
         .config = try Config.parse(alloc, &reader_object.interface),
         .events = events,
     };
