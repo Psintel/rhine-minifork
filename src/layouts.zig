@@ -25,29 +25,18 @@ pub const Layout = layout: {
     const builtin = std.builtin;
 
     const fs = meta.fields(@TypeOf(layouts));
-    var es: [fs.len]builtin.Type.UnionField = undefined;
+    const names = meta.fieldNames(@TypeOf(layouts));
+    var types: [fs.len]type = undefined;
+    var attrs: [fs.len]builtin.Type.UnionField.Attributes = undefined;
 
-    for (fs, &es) |f, *e| {
-        e.* = .{
-            .name = f.name,
-            .type = @field(layouts, f.name),
-            .alignment = meta.alignment(f.type),
-        };
+    for (fs, &types, &attrs) |f, *t, *a| {
+        t.* = @field(layouts, f.name);
+        a.* = .{ .@"align" = meta.alignment(f.type) };
     }
-
-    const un: builtin.Type.Union = .{
-        .tag_type = LayoutType,
-        .decls = &.{},
-        .layout = .auto,
-        .fields = &es,
-    };
-
-    const retT = @Type(builtin.Type{ .@"union" = un });
-
-    break :layout retT;
+    break :layout @Union(.auto, LayoutType, names, &types, &attrs);
 };
 
-pub fn parseCommand(args: *Config.Entry.Iterator) !struct{ LayoutType, Tiler.Command} {
+pub fn parseCommand(args: *Config.Entry.Iterator) !struct { LayoutType, Tiler.Command } {
     const layout = meta.stringToEnum(LayoutType, try args.nextAssume()) orelse return error.InvalidLayout;
 
     switch (layout) {
@@ -58,7 +47,7 @@ pub fn parseCommand(args: *Config.Entry.Iterator) !struct{ LayoutType, Tiler.Com
             if (@hasDecl(Command, "parse"))
                 return Command.parse(args)
             else if (meta.stringToEnum(Command, try args.nextAssume())) |cmd|
-                return .{l, .{ .command = @intFromEnum(cmd), .payload = null }}
+                return .{ l, .{ .command = @intFromEnum(cmd), .payload = null } }
             else
                 return error.InvalidCommand;
         },

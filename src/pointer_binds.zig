@@ -74,7 +74,7 @@ pub fn listener(bind: *rwm.PointerBindingV1, event: rwm.PointerBindingV1.Event, 
 
     switch (event) {
         .pressed => {
-            ctx.commands_queue.addNoFail(ctx.gpa, dat.seat, dat.cmd);
+            ctx.commands_queue.addNoFail(ctx.gpa, ctx.io, dat.seat, dat.cmd);
             ctx.dirty = true;
         },
         .released => {},

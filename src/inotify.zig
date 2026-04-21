@@ -5,7 +5,9 @@ const posix = std.posix;
 const mem = std.mem;
 const linux = std.os.linux;
 
-inot_file: std.fs.File,
+const Io = std.Io;
+
+inot_file: Io.File,
 
 pub const WatchDescriptor = packed struct {
     id: i32,
@@ -77,18 +79,23 @@ const Flags = struct {
 };
 
 pub fn init(flags: Flags) !@This() {
+    const fd = posix.system.inotify_init1(flags.toInt());
+    if (fd < 0) return error.InitFailed;
     return .{ .inot_file = .{
-        .handle = try posix.inotify_init1(flags.toInt()),
+        .handle = fd,
+        .flags = .{ .nonblocking = flags.nonblock },
     } };
 }
 
-pub fn deinit(self: @This()) void {
-    self.inot_file.close();
+pub fn deinit(self: @This(), io: Io) void {
+    self.inot_file.close(io);
 }
 
 pub fn watch(self: @This(), path: []const u8, mask: Mask) !WatchDescriptor {
+    const id = posix.system.inotify_add_watch(self.inot_file.handle, &try posix.toPosixPath(path), @bitCast(mask));
+    if (id < 0) return error.Failed;
     return .{
-        .id = try posix.inotify_add_watch(self.inot_file.handle, path, @bitCast(mask)),
+        .id = id,
     };
 }
 
@@ -96,9 +103,9 @@ pub fn unwatch(self: @This(), watcher: WatchDescriptor) void {
     posix.inotify_rm_watch(self.inot_file.handle, watcher.id);
 }
 
-pub fn nextEvent(self: @This()) !?Event {
+pub fn nextEvent(self: @This(), io: Io) !?Event {
     var buf: [@sizeOf(RawEvent)]u8 = undefined;
-    var reader = self.inot_file.reader(&buf);
+    var reader = self.inot_file.reader(io, &buf);
 
     const raw = reader.interface.takeStruct(RawEvent, native) catch |e| switch (e) {
         error.ReadFailed => return null,

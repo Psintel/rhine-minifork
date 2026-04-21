@@ -28,12 +28,12 @@ pub const QueueItem = struct {
 };
 
 pub const Queue = struct {
-    mutex: std.Thread.Mutex.Recursive = .init,
+    mutex: std.Io.Mutex = .init,
     list: std.DoublyLinkedList = .{},
 
-    pub fn add(self: *@This(), alloc: mem.Allocator, seat: *rwm.SeatV1, cmd: Command) !void {
-        self.mutex.lock();
-        defer self.mutex.unlock();
+    pub fn add(self: *@This(), alloc: mem.Allocator, io: std.Io, seat: *rwm.SeatV1, cmd: Command) !void {
+        try self.mutex.lock(io);
+        defer self.mutex.unlock(io);
         const new = try alloc.create(QueueItem);
         new.* = .{
             .command = cmd,
@@ -43,8 +43,8 @@ pub const Queue = struct {
         self.list.prepend(&new.link);
     }
 
-    pub fn addNoFail(self: *@This(), alloc: mem.Allocator, seat: *rwm.SeatV1, cmd: Command) void {
-        self.add(alloc, seat, cmd) catch |e| log.err("{}: failed to add command {} to queue", .{ e, cmd });
+    pub fn addNoFail(self: *@This(), alloc: mem.Allocator, io: std.Io, seat: *rwm.SeatV1, cmd: Command) void {
+        self.add(alloc, io, seat, cmd) catch |e| log.err("{}: failed to add command {} to queue", .{ e, cmd });
     }
 };
 
@@ -324,7 +324,7 @@ pub const Command = union(enum) {
                 const ws = ctx.workspaces.getPtr(ws_id).?;
 
                 if (win_data.float) {
-                    const t = std.time.microTimestamp();
+                    const t = std.Io.Clock.awake.now(ctx.io);
                     const out = Output.byWorkspace(ctx, ws_id) orelse return;
                     const out_data = ctx.outs.get(out) orelse return;
                     const out_area = out_data.getArea();
@@ -353,8 +353,8 @@ pub const Command = union(enum) {
                 ctx.dirty = true;
             },
             .moveToWorkspace => |ws| {
-                try ctx.commands_queue.add(ctx.gpa, seat, .{ .sendToWorkspace = ws });
-                try ctx.commands_queue.add(ctx.gpa, seat, .{ .focusWorkspace = ws });
+                try ctx.commands_queue.add(ctx.gpa, ctx.io, seat, .{ .sendToWorkspace = ws });
+                try ctx.commands_queue.add(ctx.gpa, ctx.io, seat, .{ .focusWorkspace = ws });
             },
             .layoutCommand => |_laycmd| {
                 const tag, const laycmd = _laycmd;
@@ -383,7 +383,7 @@ pub const Command = union(enum) {
 
     test fromArg {
         const testing = std.testing;
-        try testing.expectEqual(Command{.exit = {}}, fromEntry(.{.args = "exit"}) );
+        try testing.expectEqual(Command{ .exit = {} }, fromEntry(.{ .args = "exit" }));
     }
 };
 

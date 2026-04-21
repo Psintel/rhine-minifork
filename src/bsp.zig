@@ -108,7 +108,7 @@ const subTile = union(enum) {
         }
 
         switch (t.*) {
-            .Leaf => |_| {
+            .Leaf => {
                 if (dir == .Up and descender.pos[1] + descender.dim[1] > bounds.pos[1]) return null;
                 if (dir == .Down and descender.pos[1] < bounds.pos[1] + bounds.dim[1]) return null;
                 if (dir == .Right and descender.pos[0] < bounds.pos[0] + bounds.dim[0]) return null;
@@ -156,7 +156,7 @@ const subTile = union(enum) {
 
     pub fn count(self: *@This()) usize {
         switch (self.*) {
-            .Leaf => |_| return 1,
+            .Leaf => return 1,
             .Branch => |b| return b.left.count() + b.right.count(),
         }
     }

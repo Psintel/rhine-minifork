@@ -1,6 +1,6 @@
 const std = @import("std");
 const mem = std.mem;
-const net = std.net;
+const net = std.Io.net;
 const posix = std.posix;
 const wayland = @import("wayland");
 
@@ -34,21 +34,21 @@ pub fn init(ctx: *Context) !@This() {
     const sockdirpath = try std.fmt.allocPrint(ctx.gpa, "hypr/{s}", .{name});
     defer ctx.gpa.free(sockdirpath);
 
-    const runtime = std.posix.getenv("XDG_RUNTIME_DIR") orelse return error.XDGNotFound;
+    const runtime = ctx.child_env.get("XDG_RUNTIME_DIR") orelse return error.XDGNotFound;
 
-    var dir = try std.fs.openDirAbsolute(runtime, .{});
-    defer dir.close();
-    try dir.makePath(sockdirpath);
+    var dir = try std.Io.Dir.openDirAbsolute(ctx.io, runtime, .{});
+    defer dir.close(ctx.io);
+    try dir.createDirPath(ctx.io, sockdirpath);
 
-    var sd = try dir.openDir(sockdirpath, .{});
-    defer sd.close();
+    var sd = try dir.openDir(ctx.io, sockdirpath, .{});
+    defer sd.close(ctx.io);
 
-    sd.deleteFile(".socket.sock") catch |e| switch (e) {
+    sd.deleteFile(ctx.io, ".socket.sock") catch |e| switch (e) {
         error.FileNotFound => {},
         else => return e,
     };
 
-    sd.deleteFile(".socket2.sock") catch |e| switch (e) {
+    sd.deleteFile(ctx.io, ".socket2.sock") catch |e| switch (e) {
         error.FileNotFound => {},
         else => return e,
     };
@@ -58,10 +58,10 @@ pub fn init(ctx: *Context) !@This() {
     };
 }
 
-fn path(self: @This(), allocator: mem.Allocator) ![]u8 {
+fn path(self: @This(), allocator: mem.Allocator, env: *std.process.Environ.Map) ![]u8 {
     // const sig = std.posix.getenv("HYPRLAND_INSTANCE_SIGNATURE") orelse return error.InstanceNotFound;
     const sig = self.signature;
-    const runtime = std.posix.getenv("XDG_RUNTIME_DIR") orelse return error.XDGNotFound;
+    const runtime = env.get("XDG_RUNTIME_DIR") orelse return error.XDGNotFound;
 
     return std.fmt.allocPrint(allocator, "{s}/hypr/{s}/.socket.sock", .{ runtime, sig });
 }
@@ -122,7 +122,7 @@ fn handlePlain(ctx: *Context, reader: *std.Io.Reader, writer: *std.Io.Writer) !v
         while (win_it.next()) |_win| {
             const win = _win.key_ptr.*;
             const win_dat = _win.value_ptr;
-            const pos = win_dat.pos.current(ctx.anims);
+            const pos = win_dat.pos.current(ctx.anims, ctx.io);
             const size = win_dat.size;
 
             const ws = Workspace.byWindow(ctx, win);
@@ -149,7 +149,7 @@ fn handlePlain(ctx: *Context, reader: *std.Io.Reader, writer: *std.Io.Writer) !v
             const id = try std.fmt.parseInt(Workspace.WS, id_s, 0);
 
             if (ctx.last_active) |last| {
-                try ctx.commands_queue.add(ctx.gpa, last, .{
+                try ctx.commands_queue.add(ctx.gpa, ctx.io, last, .{
                     .focusWorkspace = .{ .Abs = id - 1 },
                 });
             }
@@ -175,19 +175,18 @@ fn handleCmd(ctx: *Context, word: []const u8) !void {
     const c = try commands.Command.fromArg(&iter);
 
     if (ctx.last_active) |s|
-        try ctx.commands_queue.add(ctx.gpa, s, c);
+        try ctx.commands_queue.add(ctx.gpa, ctx.io, s, c);
 }
 
 fn handleCon(serv: *net.Server, ctx: *Context) !void {
-    const conn = try serv.accept();
+    const stream = try serv.accept(ctx.io);
+    defer stream.close(ctx.io);
     var buffer: [0x500]u8 = undefined;
 
-    const stream = conn.stream;
-    defer stream.close();
-    var writer_obj = stream.writer(buffer[0x100..]);
-    var reader_obj = stream.reader(buffer[0..0x100]);
+    var writer_obj = stream.writer(ctx.io, buffer[0x100..]);
+    var reader_obj = stream.reader(ctx.io, buffer[0..0x100]);
     const writer = &writer_obj.interface;
-    const reader: *std.Io.Reader = reader_obj.interface();
+    const reader = &reader_obj.interface;
 
     while (reader.bufferedLen() == 0) {
         try reader.fillMore();
@@ -201,7 +200,7 @@ fn handleCon(serv: *net.Server, ctx: *Context) !void {
         },
     }
     try writer.flush();
-    _ = try ctx.events.write("HEY!");
+    _ = try ctx.events.writeStreamingAll(ctx.io, "HEY!");
 }
 
 pub fn run(self: @This(), ctx: *Context) !void {
@@ -209,11 +208,11 @@ pub fn run(self: @This(), ctx: *Context) !void {
     var bufalloc: std.heap.FixedBufferAllocator = .init(&pathbuf);
     const alloc = bufalloc.allocator();
 
-    const sockpath = try path(self, alloc);
+    const sockpath = try path(self, alloc, ctx.child_env);
 
-    const addr = try net.Address.initUnix(sockpath);
-    var serv = try addr.listen(.{});
-    defer serv.deinit();
+    const addr: net.UnixAddress = try .init(sockpath);
+    var serv = try addr.listen(ctx.io, .{});
+    defer serv.deinit(ctx.io);
 
     while (true) {
         handleCon(&serv, ctx) catch |e| {
@@ -229,9 +228,9 @@ pub fn deinit(self: @This(), ctx: *Context) void {
     var bufalloc: std.heap.FixedBufferAllocator = .init(&pathbuf);
     const alloc = bufalloc.allocator();
 
-    const sockpath = path(self, alloc) catch return;
+    const sockpath = path(self, alloc, ctx.child_env) catch return;
 
-    std.fs.deleteFileAbsolute(sockpath) catch |e| switch (e) {
+    std.Io.Dir.deleteFileAbsolute(ctx.io, sockpath) catch |e| switch (e) {
         error.FileNotFound => {},
         else => return,
     };

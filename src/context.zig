@@ -23,6 +23,7 @@ const pointerbinds = @import("pointer_binds.zig");
 
 // base allocator
 gpa: mem.Allocator,
+io: std.Io,
 
 // protocol interfaces
 wm: *rwm.WindowManagerV1,
@@ -33,7 +34,7 @@ cursor_shape: *wp.CursorShapeManagerV1,
 // state info
 running: bool = true,
 locked: bool = false,
-child_env: std.process.EnvMap,
+child_env: *std.process.Environ.Map,
 
 // global state
 wins: utils.WLHashMap(rwm.WindowV1, Window) = .empty,
@@ -59,7 +60,7 @@ orphans: std.ArrayList(*rwm.WindowV1) = .empty, // initialized windows that need
 manage_states: Tiler.ManageMap = .empty,
 
 // weird posix thingy:
-events: std.fs.File,
+events: std.Io.File,
 
 pub fn deinit(self: *@This()) void {
     var wins = self.wins.iterator();

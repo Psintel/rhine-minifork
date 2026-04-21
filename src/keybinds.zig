@@ -119,7 +119,7 @@ pub fn trigger(b: *rwm.XkbBindingV1, event: rwm.XkbBindingV1.Event, ctx: *Contex
     const dat = bindDatas.get(b).?;
     switch (event) {
         .pressed => {
-            ctx.commands_queue.addNoFail(ctx.gpa, dat.seat, dat.cmd);
+            ctx.commands_queue.addNoFail(ctx.gpa, ctx.io, dat.seat, dat.cmd);
         },
         .released => {},
         .stop_repeat => {},

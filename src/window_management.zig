@@ -3,6 +3,7 @@ const mem = std.mem;
 const wayland = @import("wayland");
 const linux = std.os.linux;
 const meta = std.meta;
+const Io = std.Io;
 
 const wl = wayland.client.wl;
 const rwm = wayland.client.river;
@@ -31,6 +32,7 @@ const HyprIPC = @import("hyprIPC.zig");
 const Inotify = @import("inotify.zig");
 
 const log = std.log.scoped(.window_management);
+const clock: Io.Clock = .awake;
 
 pub fn listen(iface: *rwm.WindowManagerV1, event: rwm.WindowManagerV1.Event, ctx: *Context) void {
     switch (event) {
@@ -93,7 +95,7 @@ pub fn listen(iface: *rwm.WindowManagerV1, event: rwm.WindowManagerV1.Event, ctx
     }
 }
 
-fn apply_tiler(ctx: *Context, curr_time: i64) !void {
+fn apply_tiler(ctx: *Context, curr_time: Io.Timestamp) !void {
     var states = ctx.manage_states.iterator();
     while (states.next()) |rs| {
         rs.value_ptr.show = false;
@@ -166,7 +168,7 @@ fn apply_tiler(ctx: *Context, curr_time: i64) !void {
     }
 }
 
-fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: i64) void {
+fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: Io.Timestamp) void {
     for (ws.windows.keys()) |win| {
         const wd = ctx.wins.getPtr(win) orelse continue;
         const man_state = ctx.manage_states.get(win) orelse {
@@ -284,7 +286,7 @@ fn manage(ctx: *Context) !void {
     }
     ctx.should_open.clearAndFree(ctx.gpa);
 
-    const curr_time = std.time.microTimestamp();
+    const curr_time = clock.now(ctx.io);
 
     try apply_tiler(ctx, curr_time);
 
@@ -436,7 +438,7 @@ fn manage(ctx: *Context) !void {
 fn render(ctx: *Context) !void {
     const wins = ctx.wins.entries.len;
     if (wins == 0) return;
-    const curr_time = std.time.microTimestamp();
+    const curr_time = clock.now(ctx.io);
 
     var windows = ctx.wins.iterator();
     while (windows.next()) |_w| {

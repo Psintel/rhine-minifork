@@ -4,10 +4,10 @@ const posix = std.posix;
 const linux = std.os.linux;
 const meta = std.meta;
 const mem = std.mem;
-const fs = std.fs;
+const Io = std.Io;
 
 const SigEvent = @This();
-file: fs.File,
+file: Io.File,
 
 const Flags = struct {
     NONBLOCK: bool = false,
@@ -23,18 +23,17 @@ const Flags = struct {
     }
 };
 
-const a = type {i32, i32};
+const a = type{ i32, i32 };
 
 const Signals = sigs: {
     const Type = std.builtin.Type;
-    const _decls = meta.declarations(posix.SIG);
-    var darray: [_decls.len]Type.Declaration = undefined;
+    const _decls = meta.fields(posix.SIG);
+    var darray: [_decls.len]Type.EnumField = undefined;
     @memcpy(&darray, _decls);
-    var decls: []Type.Declaration = &darray;
+    var decls: []Type.EnumField = &darray;
     var i: usize = 0;
     while (i < decls.len) {
-        if (@TypeOf(@field(posix.SIG, decls[i].name)) != comptime_int or
-            mem.eql(u8, "BLOCK", decls[i].name) or
+        if (mem.eql(u8, "BLOCK", decls[i].name) or
             mem.eql(u8, "UNBLOCK", decls[i].name) or
             mem.eql(u8, "SETMASK", decls[i].name))
         {
@@ -44,23 +43,14 @@ const Signals = sigs: {
             i += 1;
         }
     }
-    var fields: [decls.len]std.builtin.Type.StructField = undefined;
-    for (decls, &fields) |decl, *field| {
-        field.* = .{
-            .alignment = @alignOf(bool),
-            .type = bool,
-            .is_comptime = false,
-            .default_value_ptr = @ptrCast(&false),
-            .name = decl.name,
-        };
+
+    var names: [decls.len][]const u8 = undefined;
+
+    for (decls, &names) |decl, *n| {
+        n.* = decl.name;
     }
 
-    break :sigs @Type(.{ .@"struct" = .{
-        .layout = .auto,
-        .decls = &.{},
-        .fields = &fields,
-        .is_tuple = false,
-    } });
+    break :sigs @Struct(.auto, null, &names, &@splat(bool), &@splat(.{ .default_value_ptr = &false }));
 };
 
 pub fn init(signals: Signals, flags: Flags) !@This() {
@@ -73,20 +63,23 @@ pub fn init(signals: Signals, flags: Flags) !@This() {
     }
     posix.sigprocmask(posix.SIG.BLOCK, &sigs, null);
 
-    return .{ .file = .{ .handle = try posix.signalfd(-1, &sigs, flags.toInt()) } };
+    return .{ .file = .{
+        .flags = .{ .nonblocking = flags.NONBLOCK },
+        .handle = try posix.signalfd(-1, &sigs, flags.toInt()),
+    } };
 }
 
-pub fn readSignal(self: @This()) !?linux.signalfd_siginfo {
+pub fn readSignal(self: @This(), io: Io) !?linux.signalfd_siginfo {
     var buff: [@sizeOf(linux.signalfd_siginfo)]u8 = undefined;
-    var reader = self.file.reader(&buff);
-    return reader.interface.takeStruct(linux.signalfd_siginfo, .little) catch |e| switch(e) {
+    var reader = self.file.reader(io, &buff);
+    return reader.interface.takeStruct(linux.signalfd_siginfo, .little) catch |e| switch (e) {
         error.ReadFailed => null,
         else => e,
     };
 }
 
-pub fn deinit(self: @This()) void {
-    self.file.close();
+pub fn deinit(self: @This(), io: Io) void {
+    self.file.close(io);
 }
 
 test "basic" {

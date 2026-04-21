@@ -25,13 +25,13 @@ pub fn build(b: *Build) !void {
     scanner.addSystemProtocol("stable/tablet/tablet-v2.xml");
 
     const river_protos = rproto: {
-        const pkg_config_exe = b.graph.env_map.get("PKG_CONFIG") orelse "pkg-config";
+        const pkg_config_exe = b.graph.environ_map.get("PKG_CONFIG") orelse "pkg-config";
         var code: u8 = undefined;
         const protos_path = b.runAllowFail(&[_][]const u8{
             pkg_config_exe,
             "river-protocols",
             "--variable=pkgdatadir",
-        }, &code, .Ignore) catch return error.RiverProtosNotFound;
+        }, &code, .{.ignore = {}}) catch return error.RiverProtosNotFound;
         break :rproto std.mem.trim(u8, protos_path, &std.ascii.whitespace);
     };
 
@@ -57,13 +57,13 @@ pub fn build(b: *Build) !void {
             .root_source_file = b.path("src/main.zig"),
             .target = target,
             .optimize = optimize,
+            .link_libc = true,
         }),
     });
 
     exe.root_module.addImport("tween", tween.module("mr_tween"));
     exe.root_module.addImport("wayland", wayland);
-    exe.linkLibC();
-    exe.linkSystemLibrary("wayland-client");
+    exe.root_module.linkSystemLibrary("wayland-client", .{});
 
     b.installArtifact(exe);
     b.installFile("rhine.desktop", "share/wayland-sessions/rhine.desktop");

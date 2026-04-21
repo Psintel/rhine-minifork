@@ -6,6 +6,7 @@ const math = std.math;
 const meta = std.meta;
 const mem = std.mem;
 const fmt = std.fmt;
+const posix = std.posix;
 const Animations = @import("animations.zig");
 
 pub const Vec2 = Vec2T(i32);
@@ -148,11 +149,10 @@ pub fn checkIface(glob: @TypeOf(@as(wl.Registry.Event, undefined).global), iface
     if (mem.orderZ(u8, glob.interface, iface.interface.name) == .eq) {
         // fail if we can't satisfy our version
         if (glob.version < version) {
-            std.log.err(
+            std.process.fatal(
                 "only have version {} of interface {s} when at least {} is required",
                 .{ glob.version, glob.interface, version },
             );
-            std.posix.exit(1);
         }
         return glob.name;
     }
@@ -188,7 +188,7 @@ pub fn maybe(I: type, O: type, v: ?I, f: fn (I) ?O) ?O {
         return null;
 }
 
-pub fn WlGlobal(global: type, container:type) type {
+pub fn WlGlobal(global: type, container: type) type {
     return struct {
         map: std.AutoArrayHashMapUnmanaged(u32, *global) = .empty,
         data: WLHashMap(global, container) = .empty,
@@ -200,4 +200,11 @@ pub fn WlGlobal(global: type, container:type) type {
             self.map.deinit(gpa);
         }
     };
+}
+
+pub fn pipe(flags: posix.O) ![2]posix.fd_t {
+    var out: [2]posix.fd_t = undefined;
+    if (posix.system.pipe2(&out, flags) != 0) return error.Error;
+
+    return out;
 }

@@ -94,7 +94,7 @@ const move = struct {
 
         ct.* = .{
             .win = win,
-            .start = ctx.wins.get(win).?.pos.current(ctx.anims),
+            .start = ctx.wins.get(win).?.pos.current(ctx.anims, ctx.io),
             .pos = pos,
         };
     }
@@ -159,7 +159,7 @@ const resize = struct {
 
         const win = Window.byPointer(ctx, pos) orelse return error.StartError;
         const win_data = ctx.wins.getPtr(win) orelse return error.StartError;
-        const win_pos = win_data.pos.get(ctx.anims, std.time.milliTimestamp());
+        const win_pos = win_data.pos.current(ctx.anims, ctx.io);
         const dir = pos - win_pos - win_data.size / @as(utils.Vec2, @splat(2));
 
         ct.* = .{

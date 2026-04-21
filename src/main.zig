@@ -96,24 +96,13 @@ fn unwrapIFace(iface: anytype) !@TypeOf(iface.?) {
     };
 }
 
-pub fn main() !void {
-    var gpa = std.heap.DebugAllocator(.{
-        .stack_trace_frames = 1000,
-        .retain_metadata = true,
-        .safety = true,
-        // .verbose_log = true,
-        .enable_memory_limit = true,
-    }).init;
-
-    gpa.requested_memory_limit = 1_000_000;
-
-    defer if (gpa.deinit() == .leak) log.err("got a memory leak", .{});
-
-    const alloc = gpa.allocator();
+pub fn main(init: std.process.Init) !void {
+    const alloc = init.gpa;
+    const io = init.io;
 
     const config_path = path: {
-        const home = std.posix.getenv("HOME").?;
-        const xdg_config_home = std.posix.getenv("XDG_CONFIG_HOME");
+        const home = init.environ_map.get("HOME").?;
+        const xdg_config_home = init.environ_map.get("XDG_CONFIG_HOME");
         const cfile = try if (xdg_config_home) |xdg|
             std.fmt.allocPrint(alloc, "{s}/river/config.rh", .{xdg})
         else
@@ -122,30 +111,30 @@ pub fn main() !void {
     };
     defer alloc.free(config_path);
 
-    const config = try std.fs.cwd().openFile(config_path, .{});
+    const config = try std.Io.Dir.cwd().openFile(init.io, config_path, .{});
     var inotify: Inotify = try .init(.{ .nonblock = true });
-    defer inotify.deinit();
+    defer inotify.deinit(io);
     const signal_listener: SignalListener = try .init(.{ .CHLD = true }, .{ .NONBLOCK = true });
-    defer signal_listener.deinit();
+    defer signal_listener.deinit(io);
 
     const wid = try inotify.watch(config_path, .{ .MODIFY = true });
 
     var buffer: [0x100]u8 = undefined;
-    var reader_object = config.reader(&buffer);
+    var reader_object = config.reader(io, &buffer);
 
     const display = try wl.Display.connect(null);
     defer display.disconnect();
     const registry = try display.getRegistry();
     defer registry.destroy();
 
-    const read, const write = try std.posix.pipe2(.{ .NONBLOCK = true });
+    const read, const write = try utils.pipe(.{ .NONBLOCK = true });
 
-    const event_read = std.fs.File{ .handle = read };
-    defer event_read.close();
-    var event_reader = event_read.reader(&.{});
+    const event_read = std.Io.File{ .handle = read, .flags = .{ .nonblocking = false } };
+    defer event_read.close(io);
+    var event_reader = event_read.reader(io, &.{});
 
-    const events: std.fs.File = .{ .handle = write };
-    defer events.close();
+    const events: std.Io.File = .{ .handle = write, .flags = .{ .nonblocking = false } };
+    defer events.close(io);
 
     var pollfds = [_]linux.pollfd{
         .{
@@ -179,7 +168,8 @@ pub fn main() !void {
 
     var ctx: Context = .{
         .gpa = alloc,
-        .child_env = try std.process.getEnvMap(alloc),
+        .io = io,
+        .child_env = init.environ_map,
         .wm = try unwrapIFace(reg.wm),
         .bind = try unwrapIFace(reg.bindings),
         .shell = try unwrapIFace(reg.shell),
@@ -207,14 +197,14 @@ pub fn main() !void {
     helpers.startup(&ctx);
 
     while (ctx.running) {
-        while (try signal_listener.readSignal()) |sig| {
+        while (try signal_listener.readSignal(io)) |sig| {
             var a: u32 = undefined;
             _ = linux.waitpid(@intCast(sig.pid), &a, linux.W.NOHANG);
         }
 
         {
             var reload_conf = false;
-            while (try inotify.nextEvent()) |e| {
+            while (try inotify.nextEvent(io)) |e| {
                 if (e.wd == wid) reload_conf = true;
             }
 
@@ -236,8 +226,8 @@ pub fn main() !void {
         }
 
         {
-            ctx.commands_queue.mutex.lock();
-            defer ctx.commands_queue.mutex.unlock();
+            try ctx.commands_queue.mutex.lock(io);
+            defer ctx.commands_queue.mutex.unlock(io);
             while (ctx.commands_queue.list.pop()) |n| {
                 const cmd: *commands.QueueItem = @fieldParentPtr("link", n);
                 defer ctx.gpa.destroy(cmd);

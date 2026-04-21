@@ -280,7 +280,7 @@ fn parseList(allocator: mem.Allocator, reader: *std.Io.Reader) ![]Entry {
     return out.toOwnedSlice(allocator);
 }
 
-pub fn parse(allocator: mem.Allocator, reader: *std.io.Reader) !Config {
+pub fn parse(allocator: mem.Allocator, reader: *std.Io.Reader) !Config {
     var out: Config = .{ .values = .empty };
     errdefer out.deinit(allocator);
 

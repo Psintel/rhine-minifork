@@ -27,6 +27,11 @@ const ease = tween.ease;
 
 const log = std.log.scoped(.animations);
 
+const Io = std.Io;
+const Clock = Io.Clock;
+
+const clock: Clock = .awake;
+
 const Vec2 = utils.Vec2;
 const Vec2f = utils.Vec2f;
 
@@ -37,14 +42,16 @@ pub const AnimationType = enum {
 
 pub const Animation = struct {
     easing: Easing,
-    duration: u63,
+    duration: Io.Duration,
 };
 
 const Animations = @This();
 
 animations: std.EnumArray(AnimationType, Animation) = .initFill(.{
-    .duration = 300_000,
-    .easing = .{ .fun = .{ .elasticOut = .{ .amplitude = 0.5, } } },
+    .duration = .fromMicroseconds(300_000),
+    .easing = .{ .fun = .{ .elasticOut = .{
+        .amplitude = 0.5,
+    } } },
 }),
 
 pub const Easing = struct {
@@ -67,39 +74,22 @@ pub const Easing = struct {
             want = want ++ .{data{ .name = dec.name, .params = params }};
         }
 
-        var fields: []const Type.UnionField = &.{};
-        var enums: Type.Enum = .{
-            .decls = &.{},
-            .is_exhaustive = true,
-            .fields = &.{},
-            .tag_type = void,
-        };
+        const TagI = meta.Int(.unsigned, math.log2_int_ceil(usize, want.len));
+
+        var efields: [want.len][]const u8 = undefined;
+        var evals: [want.len]TagI = undefined;
+        var utypes: [want.len]type = undefined;
+        var uattrs: [want.len]Type.UnionField.Attributes = undefined;
 
         for (want, 0..) |dec, i| {
-            var name: [dec.name.len:0]u8 = undefined;
-            @memcpy(&name, dec.name);
-            enums.fields = enums.fields ++ .{Type.EnumField{
-                .name = &name,
-                .value = i,
-            }};
-            const internal = if (dec.params.len == 2) dec.params[1].type orelse void else void;
-            fields = fields ++ .{Type.UnionField{
-                .alignment = @alignOf(internal),
-                .name = &name,
-                .type = internal,
-            }};
+            efields[i] = dec.name;
+            evals[i] = i;
+            utypes[i] = if (dec.params.len == 2) dec.params[1].type orelse void else void;
+            uattrs[i] = .{ .@"align" = @alignOf(utypes[i]) };
         }
 
-        enums.tag_type = meta.Int(.unsigned, math.log2_int_ceil(usize, want.len));
-
-        const E = @Type(Type{ .@"enum" = enums });
-        const uni = Type.Union{
-            .decls = &.{},
-            .fields = fields,
-            .layout = .auto,
-            .tag_type = E,
-        };
-        break :ez @Type(Type{ .@"union" = uni });
+        const E = @Enum(TagI, .exhaustive, &efields, &evals);
+        break :ez @Union(.auto, E, &efields, &utypes, &uattrs);
     };
     fun: Inner,
 
@@ -162,13 +152,14 @@ pub fn Lerp(kind: AnimationType) type {
         transit: struct {
             from: Vec2,
             to: Vec2,
-            start: i64,
+            start: Io.Timestamp,
 
-            pub fn timeGet(self: @This(), anims: Animations, t: i64) Vec2 {
+            pub fn timeGet(self: @This(), anims: Animations, t: Io.Timestamp) Vec2 {
                 const info = anims.animations.get(kind);
-                if (info.duration == 0 or info.duration <= t - self.start) return self.to;
-                const d: f32 = @floatFromInt(t - self.start);
-                const p: f32 = @floatFromInt(info.duration);
+                const endTime = self.start.addDuration(info.duration).withClock(clock);
+                if (info.duration.toMicroseconds() == 0 or endTime.compare(.lte, t.withClock(clock))) return self.to;
+                const d: f32 = @floatFromInt(self.start.durationTo(t).toMicroseconds());
+                const p: f32 = @floatFromInt(info.duration.toMicroseconds());
                 return ilerp(self.from, self.to, interp.clamp01(d / p), info.easing);
             }
         },
@@ -180,22 +171,22 @@ pub fn Lerp(kind: AnimationType) type {
             };
         }
 
-        pub fn current(self: @This(), anims: Animations) Vec2 {
-            return self.get(anims, std.time.microTimestamp());
+        pub fn current(self: @This(), anims: Animations, io: Io) Vec2 {
+            return self.get(anims, clock.now(io));
         }
 
-        pub fn get(self: @This(), anims: Animations, progtime: i64) Vec2 {
+        pub fn get(self: @This(), anims: Animations, time: Io.Timestamp) Vec2 {
             return switch (self) {
                 .static => |v| v,
-                .transit => |trans| trans.timeGet(anims, progtime),
+                .transit => |trans| trans.timeGet(anims, time),
             };
         }
 
-        pub fn done(self: @This(), anims: Animations, progtime: i64) bool {
+        pub fn done(self: @This(), anims: Animations, ts: Io.Timestamp) bool {
             const info = anims.animations.get(kind);
             return switch (self) {
                 .static => true,
-                .transit => |t| progtime - t.start >= info.duration,
+                .transit => |t| t.start.addDuration(info.duration).withClock(clock).compare(.lte, ts.withClock(clock)),
             };
         }
 
@@ -230,7 +221,7 @@ pub fn load(cfg: *const Config) !@This() {
     for (std.enums.values(AnimationType)) |atype| {
         const afield = out.animations.getPtr(atype);
         const data = try anims.sub(@tagName(atype));
-        if (try data.getSole("duration")) |dur| afield.duration = try fmt.parseInt(u63, dur, 0);
+        if (try data.getSole("duration")) |dur| afield.duration = .fromMicroseconds(try fmt.parseInt(u63, dur, 0));
         if (try data.getArgs("easing")) |ez| afield.easing = try .parse(ez);
     }
 

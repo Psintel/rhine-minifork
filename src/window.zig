@@ -17,8 +17,11 @@ const Output = @import("output.zig");
 const Window = @import("window.zig");
 const Rules = @import("rules.zig");
 const Animations = @import("animations.zig");
+const Io = std.Io;
+const Clock = Io.Clock;
 
 const log = std.log.scoped(.window);
+const clock: Clock = .awake;
 
 win: *rwm.WindowV1,
 node: *rwm.NodeV1,
@@ -43,6 +46,7 @@ pub fn init(_: *Context, win: *rwm.WindowV1) !@This() {
         .node = try win.getNode(),
     };
 }
+
 
 // assign window to workspace and do other setup
 // window rules will go here in the future
@@ -86,7 +90,7 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
 
     if (self.float) {
         if (self.parent) |p| {
-            const mics = std.time.microTimestamp();
+            const mics = clock.now(ctx.io);
             const paren = ctx.wins.getPtr(p).?;
             self.setPos(
                 ctx.anims,
@@ -190,10 +194,8 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
     }
 }
 
-pub fn setSize(self: *@This(), new: utils.Vec2, _now: ?i64) void {
+pub fn setSize(self: *@This(), new: utils.Vec2, now: Io.Timestamp) void {
     if (@reduce(.Or, new < @as(utils.Vec2, @splat(0)))) return;
-
-    const now = _now orelse time.microTimestamp();
 
     if (meta.eql(new, self.goal_size.end())) return;
 
@@ -204,9 +206,7 @@ pub fn setSize(self: *@This(), new: utils.Vec2, _now: ?i64) void {
     } };
 }
 
-pub fn setPos(self: *@This(), anims: Animations, new: utils.Vec2, _now: ?i64) void {
-    const now = _now orelse time.microTimestamp();
-
+pub fn setPos(self: *@This(), anims: Animations, new: utils.Vec2, now: Io.Timestamp) void {
     if (meta.eql(new, self.pos.end())) return;
 
     self.pos = .{
@@ -237,7 +237,7 @@ pub fn byPointer(ctx: *Context, pos: utils.Vec2) ?*rwm.WindowV1 {
         const win_data = ctx.wins.get(win).?;
         const rec: utils.Rect2 = .{
             .dim = win_data.size,
-            .pos = win_data.pos.current(ctx.anims),
+            .pos = win_data.pos.current(ctx.anims, ctx.io),
         };
         if (rec.inside(pos)) return win;
     }
@@ -245,8 +245,8 @@ pub fn byPointer(ctx: *Context, pos: utils.Vec2) ?*rwm.WindowV1 {
     for (ws_data.windows.keys()) |win| {
         const win_data = ctx.wins.get(win).?;
         const rec: utils.Rect2 = .{
-            .dim = win_data.goal_size.current(ctx.anims),
-            .pos = win_data.pos.current(ctx.anims),
+            .dim = win_data.goal_size.current(ctx.anims, ctx.io),
+            .pos = win_data.pos.current(ctx.anims, ctx.io),
         };
         if (rec.inside(pos)) return win;
     }

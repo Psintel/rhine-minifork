@@ -33,8 +33,8 @@
     // internet connectivity.
     .dependencies = .{
         .wayland = .{
-            .url = "git+https://codeberg.org/ifreund/zig-wayland?ref=v0.5.0#0b7fc007d6f402496e3ad2d6a7cc9118a2080aa9",
-            .hash = "wayland-0.5.0-lQa1knz8AQCh08NA8BeQrwJB9U3CfqcVAdHZYGRKIGuu",
+            .url = "git+https://codeberg.org/ifreund/zig-wayland#4a150a04f76f7329e80280661355c04328369d1f",
+            .hash = "wayland-0.6.0-dev-lQa1krD8AQBlMqwuhAMJjPQKXvpRByZBxxqMVAZ7yzbG",
         },
         .mr_tween = .{
             .url = "git+https://codeberg.org/Games-by-Mason/mr_tween.git?ref=v0.1.0#c20266b0629a828a2b166856b1b543cde7c9a898",
