@@ -49,6 +49,7 @@ config: Config,
 rules: std.ArrayList(Rules) = .empty,
 commands_queue: commands.Queue = .{},
 anims: Animations = .{},
+wm_options: WmOptions = .{},
 
 // short-lived state
 last_active: ?*rwm.SeatV1 = null, // last seat with activity
@@ -61,6 +62,11 @@ manage_states: Tiler.ManageMap = .empty,
 
 // weird posix thingy:
 events: std.Io.File,
+
+pub const WmOptions = struct {
+    float_move: f32 = 0.1,
+    follow_cursor: bool = true,
+};
 
 pub fn deinit(self: *@This()) void {
     var wins = self.wins.iterator();
@@ -80,7 +86,6 @@ pub fn deinit(self: *@This()) void {
         s.value_ptr.deinit(self, s.key_ptr.*);
     }
     self.seats.deinit(self.gpa);
-
 
     for (self.workspaces.values()) |*w| {
         w.deinit(self);
@@ -159,6 +164,8 @@ pub fn addOut(self: *@This(), reg: *wl.Registry, _out: u32) !void {
 
 pub fn reload(self: *@This()) !void {
     self.anims = try Animations.load(&self.config);
+    const wm_opts = try self.config.sub("window_management");
+    self.wm_options = try wm_opts.parseT(WmOptions);
 
     for (self.seats.keys()) |seat| {
         try Seat.setup(seat, self);

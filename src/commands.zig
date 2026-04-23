@@ -312,7 +312,8 @@ pub const Command = union(enum) {
                 }, dir)) |w| {
                     win_data.fullscreen.off();
                     seat_data.focus = w;
-                    seat_data.warp_to_window = w;
+                    if (ctx.wm_options.follow_cursor)
+                        seat_data.warp_to_window = w;
                     log.info("focus  window {}", .{w.getId()});
                     ctx.dirty = true;
                 }
@@ -341,7 +342,9 @@ pub const Command = union(enum) {
                         .Down => .{ 0, 1 },
                     };
 
-                    const dir_vec: utils.Vec2 = @as(utils.Vec2, @splat(25)) * dir_sign;
+                    const d: utils.Vec2 = @intFromFloat(@as(utils.Vec2f, @splat(ctx.wm_options.float_move)) * utils.int2Float(out_area.dim));
+
+                    const dir_vec: utils.Vec2 = d * dir_sign;
                     const new_pos = constr_area.constrain(pos + dir_vec);
 
                     win_data.pos = .{ .static = new_pos };

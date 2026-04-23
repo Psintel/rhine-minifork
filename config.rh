@@ -101,6 +101,11 @@ keybinds [
     super+ctrl, 0, sendToWorkspace, 9
 ]
 
+window_management {
+    follow_cursor true
+    float_move 0.1
+}
+
 windowrules [
     com.mitchellh.ghostty, workspace 1
     zenity, float
