@@ -3,7 +3,6 @@
     ** allow moving ws from one output to another
     ** open windows where the cursor is
 * store identifiers for wm session restore
-* set cursor shapes based on context
 * special workspaces
     ** autostart clients
     ** maybe have a focused workspace per seat
@@ -15,13 +14,6 @@
     ** window rules
         *** improve matching and globbing
             *** regex?
-* floating windows
-    ** improve pop-up heuristics
-* implement a bar ipc
-    ** hyrpland!
-        *** do some sort of RCU thingy to prevent races
-        *** implement json support
-
 = Nice to Have
 * show keyboard layout to user
 * nagbar (or similar) for config issues

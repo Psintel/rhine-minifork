@@ -6,6 +6,7 @@ const Scanner = @import("wayland").Scanner;
 pub fn build(b: *Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+    const libnotify = b.option(bool, "notify", "add libnotify support for sending notifications") orelse true;
 
     const tween = b.dependency("mr_tween", .{
         .optimize = optimize,
@@ -51,6 +52,9 @@ pub fn build(b: *Build) !void {
     scanner.generate("river_xkb_bindings_v1", 2);
     scanner.generate("wp_cursor_shape_manager_v1", 1);
 
+    const opt = b.addOptions();
+    opt.addOption(bool, "libnotify", libnotify);
+
     const exe = b.addExecutable(.{
         .name = "rhine",
         .root_module = b.createModule(.{
@@ -60,6 +64,10 @@ pub fn build(b: *Build) !void {
             .link_libc = true,
         }),
     });
+
+    exe.root_module.addOptions("options", opt);
+
+    if (libnotify) exe.root_module.linkSystemLibrary("notify", .{});
 
     exe.root_module.addImport("tween", tween.module("mr_tween"));
     exe.root_module.addImport("wayland", wayland);

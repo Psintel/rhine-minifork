@@ -21,6 +21,7 @@ const Inotify = @import("inotify.zig");
 const SignalListener = @import("signal_listener.zig");
 const Layouts = @import("layouts.zig");
 const Seat = @import("seat.zig");
+const Notify = @import("libnotify.zig");
 
 pub const std_options: std.Options = .{
     .log_level = .info,
@@ -122,6 +123,9 @@ pub fn main(init: std.process.Init) !void {
     var buffer: [0x100]u8 = undefined;
     var reader_object = config.reader(io, &buffer);
 
+    try Notify.init();
+    defer Notify.deinit();
+
     const display = try wl.Display.connect(null);
     defer display.disconnect();
     const registry = try display.getRegistry();
@@ -212,6 +216,10 @@ pub fn main(init: std.process.Init) !void {
                 log.info("reloading config :D", .{});
                 try reader_object.seekTo(0);
                 const nc = Config.parse(alloc, &reader_object.interface) catch |e| {
+                    Notify.send(.{
+                        .summary = "failure reloading config",
+                        .urgency = .Critical,
+                    }) catch |ne| log.err("failed to send notification {}", .{ne});
                     log.err("failure reloading config: {}", .{e});
                     continue;
                 };
