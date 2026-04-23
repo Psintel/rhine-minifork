@@ -34,6 +34,10 @@ pub const Queue = struct {
     pub fn add(self: *@This(), alloc: mem.Allocator, io: std.Io, seat: *rwm.SeatV1, cmd: Command) !void {
         try self.mutex.lock(io);
         defer self.mutex.unlock(io);
+        try self.addNoLock(alloc, seat, cmd);
+    }
+
+    pub fn addNoLock(self: *@This(), alloc: mem.Allocator, seat: *rwm.SeatV1, cmd: Command) !void {
         const new = try alloc.create(QueueItem);
         new.* = .{
             .command = cmd,
@@ -356,8 +360,8 @@ pub const Command = union(enum) {
                 ctx.dirty = true;
             },
             .moveToWorkspace => |ws| {
-                try ctx.commands_queue.add(ctx.gpa, ctx.io, seat, .{ .sendToWorkspace = ws });
-                try ctx.commands_queue.add(ctx.gpa, ctx.io, seat, .{ .focusWorkspace = ws });
+                try ctx.commands_queue.addNoLock(ctx.gpa, seat, .{ .sendToWorkspace = ws });
+                try ctx.commands_queue.addNoLock(ctx.gpa, seat, .{ .focusWorkspace = ws });
             },
             .layoutCommand => |_laycmd| {
                 const tag, const laycmd = _laycmd;

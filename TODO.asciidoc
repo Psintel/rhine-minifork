@@ -1,5 +1,4 @@
 = TODO
-* layer shell components should go on the active monitor
 * multi-monitor should be made to suck less
     ** allow moving ws from one output to another
     ** open windows where the cursor is
