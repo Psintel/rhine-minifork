@@ -20,10 +20,10 @@ const Config = @import("config.zig");
 
 const bsp = @import("bsp.zig");
 
-const xkb = @cImport(@cInclude("xkbcommon/xkbcommon-keysyms.h"));
 pub const Sym = u32;
 
 const syms: std.StaticStringMap(Sym) = .initComptime(kvs: {
+    const xkb = @import("keysysms");
     const T = meta.Tuple(&.{ []const u8, Sym });
 
     var out: []const T = &.{};

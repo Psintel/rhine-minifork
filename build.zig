@@ -32,7 +32,7 @@ pub fn build(b: *Build) !void {
             pkg_config_exe,
             "river-protocols",
             "--variable=pkgdatadir",
-        }, &code, .{.ignore = {}}) catch return error.RiverProtosNotFound;
+        }, &code, .{ .ignore = {} }) catch return error.RiverProtosNotFound;
         break :rproto std.mem.trim(u8, protos_path, &std.ascii.whitespace);
     };
 
@@ -41,7 +41,7 @@ pub fn build(b: *Build) !void {
         "river-layer-shell-v1.xml",
         "river-xkb-bindings-v1.xml",
     }) |proto| {
-        scanner.addCustomProtocol(.{ .cwd_relative = b.pathJoin(&.{ river_protos , "stable", proto}) });
+        scanner.addCustomProtocol(.{ .cwd_relative = b.pathJoin(&.{ river_protos, "stable", proto }) });
     }
 
     scanner.generate("wl_seat", 4);
@@ -55,6 +55,12 @@ pub fn build(b: *Build) !void {
     const opt = b.addOptions();
     opt.addOption(bool, "libnotify", libnotify);
 
+    const keysyms = b.addTranslateC(.{
+        .optimize = optimize,
+        .target = target,
+        .root_source_file = b.path("src/xkb.h"),
+    });
+
     const exe = b.addExecutable(.{
         .name = "rhine",
         .root_module = b.createModule(.{
@@ -62,6 +68,10 @@ pub fn build(b: *Build) !void {
             .target = target,
             .optimize = optimize,
             .link_libc = true,
+            .imports = &.{.{
+                .name = "keysysms",
+                .module = keysyms.createModule(),
+            }},
         }),
     });
 
