@@ -61,6 +61,7 @@ pub fn spawnChild(ctx: *Context, command: []const u8, comptime disown: bool) !vo
 
     const pid = try fork();
     if (pid == 0) {
+        posix.sigprocmask(posix.SIG.SETMASK, &posix.sigemptyset(), null);
         if (disown) {
             if (posix.system.setsid() < 0) exit(1);
         } else {

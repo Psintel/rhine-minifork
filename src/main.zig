@@ -1,6 +1,7 @@
 const std = @import("std");
 const mem = std.mem;
 const linux = std.os.linux;
+const posix = std.posix;
 const meta = std.meta;
 const log = std.log;
 
@@ -22,6 +23,7 @@ const SignalListener = @import("signal_listener.zig");
 const Layouts = @import("layouts.zig");
 const Seat = @import("seat.zig");
 const Notify = @import("libnotify.zig");
+const Restore = @import("restore.zig");
 
 pub const std_options: std.Options = .{
     .log_level = .info,
@@ -100,9 +102,10 @@ fn unwrapIFace(iface: anytype) !@TypeOf(iface.?) {
 pub fn main(init: std.process.Init) !void {
     const alloc = init.gpa;
     const io = init.io;
+    const home = init.environ_map.get("HOME").?;
+    const cwd = std.Io.Dir.cwd();
 
     const config_path = path: {
-        const home = init.environ_map.get("HOME").?;
         const xdg_config_home = init.environ_map.get("XDG_CONFIG_HOME");
         const cfile = try if (xdg_config_home) |xdg|
             std.fmt.allocPrint(alloc, "{s}/river/config.rh", .{xdg})
@@ -112,11 +115,40 @@ pub fn main(init: std.process.Init) !void {
     };
     defer alloc.free(config_path);
 
-    const config = try std.Io.Dir.cwd().openFile(init.io, config_path, .{});
+    const config = try cwd.openFile(init.io, config_path, .{});
+
     var inotify: Inotify = try .init(.{ .nonblock = true });
     defer inotify.deinit(io);
-    const signal_listener: SignalListener = try .init(.{ .CHLD = true }, .{ .NONBLOCK = true });
+
+    const signal_listener: SignalListener = try .init(.{
+        .CHLD = true,
+        .ALRM = true,
+        .HUP = true,
+        .INT = true,
+        .IO = true,
+        .KILL = true,
+        .PIPE = true,
+        .PROF = true,
+        .PWR = true,
+        .STKFLT = true,
+        .TERM = true,
+        .USR1 = true,
+        .USR2 = true,
+        .VTALRM = true,
+    }, .{ .NONBLOCK = true });
     defer signal_listener.deinit(io);
+
+    const restorePath = try std.fmt.allocPrint(alloc, "{s}/.cache/rhine.restore", .{home});
+    defer alloc.free(restorePath);
+
+    var restore = cwd.openFile(io, restorePath, .{ .mode = .read_write }) catch |e|
+        switch (e) {
+            error.FileNotFound => try cwd.createFile(io, restorePath, .{ .read = true }),
+            else => return e,
+        };
+    defer restore.close(io);
+    var restore_buf: [5 * @sizeOf(Restore.Id) + @sizeOf(Restore.Data)]u8 = undefined;
+    var restore_reader = restore.reader(io, &restore_buf);
 
     const wid = try inotify.watch(config_path, .{ .MODIFY = true });
 
@@ -180,9 +212,9 @@ pub fn main(init: std.process.Init) !void {
         .cursor_shape = try unwrapIFace(reg.cursor_shape),
         .config = try Config.parse(alloc, &reader_object.interface),
         .events = events,
+        .restore = try .deserialize(&restore_reader.interface, alloc),
     };
     defer ctx.deinit();
-
     regU = .{ .ctx = &ctx };
     for (reg.seats.keys()) |_seat| try ctx.addSeat(registry, _seat);
     for (reg.outs.keys()) |_out| try ctx.addOut(registry, _out);
@@ -202,8 +234,28 @@ pub fn main(init: std.process.Init) !void {
 
     while (ctx.running) {
         while (try signal_listener.readSignal(io)) |sig| {
-            var a: u32 = undefined;
-            _ = linux.waitpid(@intCast(sig.pid), &a, linux.W.NOHANG);
+            switch (@as(std.posix.SIG, @enumFromInt(sig.signo))) {
+                .CHLD => {
+                    var a: u32 = undefined;
+                    _ = linux.waitpid(@intCast(sig.pid), &a, linux.W.NOHANG);
+                },
+                else => |s| {
+                    posix.sigprocmask(posix.SIG.SETMASK, &posix.sigemptyset(), null);
+
+                    var restore_writer = restore.writer(io, &restore_buf);
+                    const res: Restore = Restore.fromCtx(&ctx) catch |e| {
+                        log.err("failed to collect restore data {}", .{e});
+                        return e;
+                    };
+                    res.serialize(&restore_writer.interface) catch |e| {
+                        log.err("failed to write restore data {}", .{e});
+                        return e;
+                    };
+
+                    log.info("wrote restore info successfully :)", .{});
+                    try std.posix.raise(s);
+                },
+            }
         }
 
         {

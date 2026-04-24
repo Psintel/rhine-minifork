@@ -33,6 +33,7 @@ float: bool = false, // is this window floating
 parent: ?*rwm.WindowV1 = null,
 fullscreen: utils.Transaction = .no,
 unreliable_pid: ?i32 = null,
+identifier: [32]u8 = @splat(0),
 
 // will we keep those?
 pos: Animations.Lerp(.move) = .{ .static = @splat(0) },
@@ -56,6 +57,11 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
 
     const seat = if (ctx.last_active) |s| ctx.seats.get(s) else null;
     var ws: ?Workspace.WS = null;
+
+    if (ctx.restore.relations.get(self.identifier)) |data| {
+        ws = data.workspace;
+        _ = ctx.restore.relations.swapRemove(self.identifier);
+    }
 
     const rules = try ctx.config.getList("windowrules");
 
@@ -187,6 +193,11 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
         },
         .unreliable_pid => |pid| {
             win_data.unreliable_pid = pid.unreliable_pid;
+        },
+        .identifier => |id| {
+            const slice = mem.sliceTo(id.identifier, 0);
+            std.debug.assert(slice.len <= 32);
+            @memcpy(&win_data.identifier, slice);
         },
         else => {
             log.warn("lmao! can't actually handle event {s}", .{@tagName(event)});

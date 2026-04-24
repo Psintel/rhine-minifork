@@ -53,7 +53,7 @@ const Signals = sigs: {
     break :sigs @Struct(.auto, null, &names, &@splat(bool), &@splat(.{ .default_value_ptr = &false }));
 };
 
-pub fn init(signals: Signals, flags: Flags) !@This() {
+pub fn toSet(signals: Signals) posix.sigset_t {
     var sigs = posix.sigemptyset();
     inline for (comptime meta.fieldNames(Signals)) |f| {
         if (@field(signals, f)) {
@@ -61,6 +61,13 @@ pub fn init(signals: Signals, flags: Flags) !@This() {
             std.log.warn("enabling {s} : {}", .{ f, @field(posix.SIG, f) });
         }
     }
+    return sigs;
+}
+
+
+pub fn init(signals: Signals, flags: Flags) !@This() {
+    var sigs = toSet(signals);
+
     posix.sigprocmask(posix.SIG.BLOCK, &sigs, null);
 
     return .{ .file = .{

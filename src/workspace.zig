@@ -139,7 +139,7 @@ pub fn deinit(self: *@This(), ctx: *Context) void {
     self.floating.deinit(ctx.gpa);
 }
 
-pub fn byWindow(ctx: *Context, win: *rwm.WindowV1) ?WS {
+pub fn byWindow(ctx: *const Context, win: *rwm.WindowV1) ?WS {
     var iter = ctx.workspaces.iterator();
     while (iter.next()) |_ws| {
         const ws = _ws.key_ptr.*;

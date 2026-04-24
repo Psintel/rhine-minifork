@@ -17,6 +17,7 @@ const Config = @import("config.zig");
 const commands = @import("commands.zig");
 const Tiler = @import("tiler.zig");
 const Animations = @import("animations.zig");
+const Restore = @import("restore.zig");
 
 const keybinds = @import("keybinds.zig");
 const pointerbinds = @import("pointer_binds.zig");
@@ -50,6 +51,8 @@ rules: std.ArrayList(Rules) = .empty,
 commands_queue: commands.Queue = .{},
 anims: Animations = .{},
 wm_options: WmOptions = .{},
+
+restore: Restore,
 
 // short-lived state
 last_active: ?*rwm.SeatV1 = null, // last seat with activity
