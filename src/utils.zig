@@ -7,7 +7,6 @@ const meta = std.meta;
 const mem = std.mem;
 const fmt = std.fmt;
 const posix = std.posix;
-const Animations = @import("animations.zig");
 
 pub const Vec2 = Vec2T(i32);
 pub const Vec2f = Vec2T(f32);

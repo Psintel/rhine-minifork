@@ -147,7 +147,7 @@ pub fn main(init: std.process.Init) !void {
             else => return e,
         };
     defer restore.close(io);
-    var restore_buf: [5 * @sizeOf(Restore.Id) + @sizeOf(Restore.Data)]u8 = undefined;
+    var restore_buf: [5 * Restore.buf_size]u8 = undefined;
     var restore_reader = restore.reader(io, &restore_buf);
 
     const wid = try inotify.watch(config_path, .{ .MODIFY = true });
@@ -212,7 +212,10 @@ pub fn main(init: std.process.Init) !void {
         .cursor_shape = try unwrapIFace(reg.cursor_shape),
         .config = try Config.parse(alloc, &reader_object.interface),
         .events = events,
-        .restore = try .deserialize(&restore_reader.interface, alloc),
+        .restore = Restore.deserialize(&restore_reader.interface, alloc) catch |e| res: {
+            log.err("failed to read restore info {}", .{e});
+            break :res .empty;
+        },
     };
     defer ctx.deinit();
     regU = .{ .ctx = &ctx };
@@ -243,10 +246,12 @@ pub fn main(init: std.process.Init) !void {
                     posix.sigprocmask(posix.SIG.SETMASK, &posix.sigemptyset(), null);
 
                     var restore_writer = restore.writer(io, &restore_buf);
-                    const res: Restore = Restore.fromCtx(&ctx) catch |e| {
+                    var res: Restore = Restore.fromCtx(&ctx) catch |e| {
                         log.err("failed to collect restore data {}", .{e});
                         return e;
                     };
+                    defer res.deinit(ctx.gpa);
+
                     res.serialize(&restore_writer.interface) catch |e| {
                         log.err("failed to write restore data {}", .{e});
                         return e;

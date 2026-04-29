@@ -47,11 +47,11 @@ pub const Wl = struct {
         switch (e) {
             .name => |n| {
                 if (data.name) |nm| ctx.gpa.free(nm);
-                data.name = ctx.gpa.dupe(u8, mem.sliceTo(n.name, 0)) catch return;
+                data.name = ctx.gpa.dupe(u8, mem.span(n.name)) catch return;
             },
             .description => |desc| {
                 if (data.description) |ds| ctx.gpa.free(ds);
-                data.description = ctx.gpa.dupe(u8, mem.sliceTo(desc.description, 0)) catch return;
+                data.description = ctx.gpa.dupe(u8, mem.span(desc.description)) catch return;
             },
             .mode => |m| {
                 data.mode = .{
@@ -68,14 +68,12 @@ pub const Wl = struct {
                 };
 
                 if (data.make) |mk| ctx.gpa.free(mk);
-                data.make = ctx.gpa.dupe(u8, mem.sliceTo(geo.make, 0)) catch return;
+                data.make = ctx.gpa.dupe(u8, mem.span(geo.make)) catch return;
 
                 if (data.model) |md| ctx.gpa.free(md);
-                data.model = ctx.gpa.dupe(u8, mem.sliceTo(geo.model, 0)) catch return;
+                data.model = ctx.gpa.dupe(u8, mem.span(geo.model)) catch return;
             },
-            .scale => |s| {
-                data.scale = s.factor;
-            },
+            .scale => |s| data.scale = s.factor,
             .done => data.ready = true,
         }
     }
@@ -128,7 +126,20 @@ pub fn listener(out: *rwm.OutputV1, e: rwm.OutputV1.Event, ctx: *Context) void {
         },
         .wl_output => |wl_out| {
             data.wl_out = wl_out.name;
+            data.restore(ctx);
         },
+    }
+}
+
+pub fn restore(out: *@This(), ctx: *Context) void {
+    const glob = out.wl_out orelse return;
+    const wl_out = ctx.wl_outs.map.get(glob) orelse return;
+    const wl_out_data = ctx.wl_outs.data.get(wl_out) orelse return;
+    const name = wl_out_data.name orelse return;
+    if (ctx.restore.outs.fetchSwapRemove(name)) |kv| {
+        ctx.gpa.free(kv.key);
+        const restore_data = kv.value;
+        out.setWorkspace(ctx, restore_data.workspace);
     }
 }
 
