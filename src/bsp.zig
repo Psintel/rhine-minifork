@@ -86,57 +86,85 @@ const subTile = union(enum) {
                 }
 
                 if (b.left.parent(win)) |res| return res;
+                if (b.right.parent(win)) |res| return res;
+                return null;
+            },
+        }
+    }
 
-                return b.right.parent(win);
+    pub fn tileParent(self: *@This(), child: *@This()) ?*@This() {
+        switch (self.*) {
+            .Leaf => return null,
+            .Branch => |b| {
+                if (b.left == child or b.right == child) {
+                    return self;
+                }
+
+                if (b.left.tileParent(child)) |res| return res;
+                if (b.right.tileParent(child)) |res| return res;
+                return null;
             },
         }
     }
 
     // get next tile in direction `dir`
-    pub fn getDir(t: *subTile, bounds: utils.Rect2f, descender: utils.Rect2f, dir: Tiler.Dir) ?*subTile {
-        if (dir == .Left and bounds.pos[0] + bounds.dim[0] <= descender.pos[0]) return null;
-        if (dir == .Right and descender.pos[0] + descender.dim[0] <= bounds.pos[0]) return null;
-        if (dir == .Up and bounds.pos[1] + bounds.dim[1] <= descender.pos[1]) return null;
-        if (dir == .Down and descender.pos[1] + descender.dim[1] <= bounds.pos[1]) return null;
-
-        if (dir == .Left or dir == .Right) {
-            if (descender.pos[1] + descender.dim[1] <= bounds.pos[1]) return null;
-            if (descender.pos[1] >= bounds.pos[1] + bounds.dim[1]) return null;
-        } else {
-            if (descender.pos[0] + descender.dim[0] <= bounds.pos[0]) return null;
-            if (descender.pos[0] >= bounds.pos[0] + bounds.dim[0]) return null;
-        }
-
-        switch (t.*) {
-            .Leaf => {
-                if (dir == .Up and descender.pos[1] + descender.dim[1] > bounds.pos[1]) return null;
-                if (dir == .Down and descender.pos[1] < bounds.pos[1] + bounds.dim[1]) return null;
-                if (dir == .Right and descender.pos[0] < bounds.pos[0] + bounds.dim[0]) return null;
-                if (dir == .Left and descender.pos[0] + descender.dim[0] > bounds.pos[0]) return null;
-                return t;
+    pub fn getDir(self: *@This(), win: Tiler.WT, dir: Tiler.Dir) union(enum) {
+        success: *subTile,
+        not_found: void,
+        escalate: utils.Rect2f,
+    } {
+        switch (self.*) {
+            .Leaf => |w| {
+                if (w == win) return .{ .escalate = .unit };
             },
             .Branch => |b| {
-                const l, const r = subDivide(descender, b.direction, b.ratio);
-                switch (b.direction) {
-                    .V => {
-                        if (dir == .Left) {
-                            if (b.right.getDir(bounds, r, dir)) |w| return w;
-                            return b.left.getDir(bounds, l, dir);
+                switch (b.left.getDir(win, dir)) {
+                    .success => |succ| return .{ .success = succ },
+                    .not_found => {},
+                    .escalate => |rect| {
+                        const fac: utils.Vec2f = switch (b.direction) {
+                            .V => .{ b.ratio, 1 },
+                            .H => .{ 1, b.ratio },
+                        };
+                        const l = utils.Rect2f{ .pos = rect.pos * fac, .dim = rect.dim * fac };
+                        if ((b.direction == .V and dir == .Right) or
+                            (b.direction == .H and dir == .Down))
+                        {
+                            _, const r = subDivide(.unit, b.direction, b.ratio);
+                            const target, _ = b.right.findClosest(dir, r, l);
+                            return .{ .success = target };
                         } else {
-                            if (b.left.getDir(bounds, l, dir)) |w| return w;
-                            return b.right.getDir(bounds, r, dir);
+                            return .{ .escalate = l };
                         }
                     },
-                    .H => {
-                        if (b.left.getDir(bounds, l, dir)) |w| {
-                            return w;
+                }
+                switch (b.right.getDir(win, dir)) {
+                    .success => |succ| return .{ .success = succ },
+                    .not_found => {},
+                    .escalate => |rect| {
+                        const fac: utils.Vec2f = switch (b.direction) {
+                            .V => .{ 1 - b.ratio, 1 },
+                            .H => .{ 1, 1 - b.ratio },
+                        };
+                        const off: utils.Vec2f = switch (b.direction) {
+                            .V => .{ b.ratio, 0 },
+                            .H => .{ 0, b.ratio },
+                        };
+                        const r: utils.Rect2f = .{ .pos = rect.pos * fac + off, .dim = rect.dim * fac };
+                        if ((b.direction == .V and dir == .Left) or
+                            (b.direction == .H and dir == .Up))
+                        {
+                            const l, _ = subDivide(.unit, b.direction, b.ratio);
+                            const target, _ = b.left.findClosest(dir, l, r);
+                            return .{ .success = target };
                         } else {
-                            return b.right.getDir(bounds, r, dir);
+                            return .{ .escalate = r };
                         }
                     },
                 }
             },
         }
+        return .{ .not_found = {} };
     }
 
     pub fn find(self: *@This(), win: WT) ?*@This() {
@@ -314,6 +342,199 @@ const subTile = union(enum) {
         }
     }
 
+    pub fn findClosest(self: *@This(), dir: Tiler.Dir, remaining: utils.Rect2f, rect: utils.Rect2f) struct { *@This(), utils.Rect2f } {
+        switch (self.*) {
+            .Leaf => return .{ self, remaining },
+            .Branch => |b| {
+                const lr, const rr = subDivide(remaining, b.direction, b.ratio);
+                switch (b.direction) {
+                    .V => switch (dir) {
+                        .Right => return b.left.findClosest(dir, lr, rect),
+                        .Left => return b.right.findClosest(dir, rr, rect),
+                        .Up, .Down => {
+                            const l = b.left.findClosest(dir, lr, rect);
+                            const r = b.right.findClosest(dir, rr, rect);
+                            _, const lrec = l;
+                            _, const rrec = r;
+
+                            const li = utils.intersect(f32, .{ lrec.pos[0], lrec.pos[0] + lrec.dim[0] }, .{ rect.pos[0], rect.pos[0] + rect.dim[0] });
+                            const ri = utils.intersect(f32, .{ rrec.pos[0], rrec.pos[0] + rrec.dim[0] }, .{ rect.pos[0], rect.pos[0] + rect.dim[0] });
+
+                            if (li > ri) return l;
+                            return r;
+                        },
+                    },
+                    .H => switch (dir) {
+                        .Down => return b.left.findClosest(dir, lr, rect),
+                        .Up => return b.right.findClosest(dir, rr, rect),
+                        .Left, .Right => {
+                            const l = b.left.findClosest(dir, lr, rect);
+                            const r = b.right.findClosest(dir, rr, rect);
+                            _, const lrec = l;
+                            _, const rrec = r;
+
+                            const li = utils.intersect(f32, .{ lrec.pos[1], lrec.pos[1] + lrec.dim[1] }, .{ rect.pos[1], rect.pos[1] + rect.dim[1] });
+                            const ri = utils.intersect(f32, .{ rrec.pos[1], rrec.pos[1] + rrec.dim[1] }, .{ rect.pos[1], rect.pos[1] + rect.dim[1] });
+
+                            if (li > ri) return l;
+                            return r;
+                        },
+                    },
+                }
+            },
+        }
+    }
+
+    fn doMove(
+        win: Tiler.WT,
+        par: *@This(),
+        target: *@This(),
+        dir: Tiler.Dir,
+        from: utils.Rect2f,
+        to: utils.Rect2f,
+        tarOr: Mode,
+    ) void {
+        const tarval = target.*;
+        const source, const aux =
+            if (meta.eql(par.Branch.left.*, .{ .Leaf = win }))
+                .{ par.Branch.left, par.Branch.right }
+            else if (meta.eql(par.Branch.right.*, .{ .Leaf = win }))
+                .{ par.Branch.right, par.Branch.left }
+            else
+                unreachable;
+
+        log.info("from: {}, to: {}", .{ from, to });
+        const branch = order: {
+            if (aux == target) {
+                break :order subTile{ .Branch = .{
+                    .left = par.Branch.right,
+                    .right = par.Branch.left,
+                    .direction = par.Branch.direction,
+                } };
+            }
+
+            switch (tarOr) {
+                .H => {
+                    switch (dir) {
+                        .Right => break :order subTile{ .Branch = .{
+                            .left = source,
+                            .right = aux,
+                            .direction = .V,
+                        } },
+                        .Left => break :order subTile{ .Branch = .{
+                            .right = source,
+                            .left = aux,
+                            .direction = .V,
+                        } },
+                        .Up, .Down => break :order if (from.pos[0] < to.pos[0] + to.dim[0] / 2)
+                            subTile{ .Branch = .{
+                                .left = source,
+                                .right = aux,
+                                .direction = .V,
+                            } }
+                        else
+                            subTile{ .Branch = .{
+                                .right = source,
+                                .left = aux,
+                                .direction = .V,
+                            } },
+                    }
+                },
+                .V => switch (dir) {
+                    .Down => break :order subTile{ .Branch = .{
+                        .left = source,
+                        .right = aux,
+                        .direction = .H,
+                    } },
+                    .Up => break :order subTile{ .Branch = .{
+                        .right = source,
+                        .left = aux,
+                        .direction = .H,
+                    } },
+                    .Left, .Right => break :order if (from.pos[1] < to.pos[1] + to.dim[1] / 2)
+                        subTile{ .Branch = .{
+                            .left = source,
+                            .right = aux,
+                            .direction = .H,
+                        } }
+                    else
+                        subTile{ .Branch = .{
+                            .right = source,
+                            .left = aux,
+                            .direction = .H,
+                        } },
+                },
+            }
+        };
+
+        target.* = branch;
+        par.* = aux.*;
+        aux.* = tarval;
+    }
+
+    pub fn moveDir(self: *@This(), win: Tiler.WT, dir: Tiler.Dir) union(enum) {
+        success: void,
+        not_found: void,
+        escalate: utils.Rect2f,
+    } {
+        switch (self.*) {
+            .Leaf => |w| {
+                if (w == win) return .{ .escalate = .unit };
+            },
+            .Branch => |b| {
+                switch (b.left.moveDir(win, dir)) {
+                    .success => return .{ .success = {} },
+                    .not_found => {},
+                    .escalate => |rect| {
+                        const fac: utils.Vec2f = switch (b.direction) {
+                            .V => .{ b.ratio, 1 },
+                            .H => .{ 1, b.ratio },
+                        };
+                        const l = utils.Rect2f{ .pos = rect.pos * fac, .dim = rect.dim * fac };
+                        if ((b.direction == .V and dir == .Right) or
+                            (b.direction == .H and dir == .Down))
+                        {
+                            _, const r = subDivide(.unit, b.direction, b.ratio);
+                            const target, const tarec = b.right.findClosest(dir, r, l);
+                            const tarpar = self.tileParent(target).?;
+                            doMove(win, self.parent(win).?, target, dir, l, tarec, tarpar.Branch.direction);
+                            return .{ .success = {} };
+                        } else {
+                            return .{ .escalate = l };
+                        }
+                    },
+                }
+                switch (b.right.moveDir(win, dir)) {
+                    .success => return .{ .success = {} },
+                    .not_found => {},
+                    .escalate => |rect| {
+                        const fac: utils.Vec2f = switch (b.direction) {
+                            .V => .{ 1 - b.ratio, 1 },
+                            .H => .{ 1, 1 - b.ratio },
+                        };
+                        const off: utils.Vec2f = switch (b.direction) {
+                            .V => .{ b.ratio, 0 },
+                            .H => .{ 0, b.ratio },
+                        };
+                        const r: utils.Rect2f = .{ .pos = rect.pos * fac + off, .dim = rect.dim * fac };
+                        if ((b.direction == .V and dir == .Left) or
+                            (b.direction == .H and dir == .Up))
+                        {
+                            const l, _ = subDivide(.unit, b.direction, b.ratio);
+                            const target, const tarec = b.left.findClosest(dir, l, r);
+                            const tarpar = self.tileParent(target).?;
+                            doMove(win, self.parent(win).?, target, dir, r, tarec, tarpar.Branch.direction);
+                            return .{ .success = {} };
+                        } else {
+                            return .{ .escalate = r };
+                        }
+                    },
+                }
+            },
+        }
+        return .{ .not_found = {} };
+    }
+
     pub fn manage(self: *@This(), conf: Conf, ctx: Tiler.TileContext, rect: utils.Rect2f, out: *ManageMap) void {
         switch (self.*) {
             .Leaf => |w| {
@@ -426,69 +647,18 @@ pub fn manage(self: *@This(), ctx: Tiler.TileContext, bound: utils.Rect2, wins: 
 pub fn getWindow(self: *@This(), ctx: Tiler.TileContext, dir: Tiler.Dir) ?WT {
     const tree = &(self.tree orelse return null);
     const win = ctx.focus orelse return null;
-    const wrec = tree.Wrect(.unit, win) orelse return null;
 
-    if (tree.getDir(wrec, .unit, dir)) |res|
-        return res.Leaf
-    else
-        return null;
+    switch(tree.getDir(win, dir)) {
+        .success => |res| return res.Leaf,
+        else => return null,
+    }
 }
 
 pub fn move(self: *@This(), ctx: Tiler.TileContext, dir: Tiler.Dir) void {
     const tree = &(self.tree orelse return);
-    const win = ctx.focus orelse return;
-    const wrec = tree.Wrect(.unit, win) orelse return;
-    const par = tree.parent(win) orelse return;
+    const focus = ctx.focus orelse return;
 
-    std.debug.assert(meta.activeTag(par.*) == .Branch);
-
-    if (tree.getDir(wrec, .unit, dir)) |res| {
-        const target = res.*;
-        const tpar = tree.parent(target.Leaf).?;
-
-        const pard = par.Branch.direction;
-
-        if (par == tpar) {
-            const t = par.Branch.left;
-            par.Branch.left = par.Branch.right;
-            par.Branch.right = t;
-            return;
-        }
-
-        const new_split = tpar.Branch.direction.other();
-
-        const wbr = if (meta.eql(par.Branch.left.*, .{ .Leaf = win })) par.Branch.left else par.Branch.right;
-        const aux_ptr = if (meta.eql(par.Branch.left.*, .{ .Leaf = win })) par.Branch.right else par.Branch.left;
-
-        // try to move new window to a predictable position;
-        // TODO: still a bit scuffed, but it handles most easy cases
-        const l, const r = lr: {
-            const b = par.*.Branch;
-            if (pard == new_split) {
-                if (switch (new_split) {
-                    .V => dir == .Up or dir == .Down,
-                    .H => dir == .Left or dir == .Right,
-                })
-                    break :lr .{ b.left, b.right }
-                else
-                    break :lr .{ b.right, b.left };
-            } else {
-                if (dir == .Up or dir == .Left)
-                    break :lr .{ aux_ptr, wbr }
-                else
-                    break :lr .{ wbr, aux_ptr };
-            }
-        };
-
-        res.* = .{ .Branch = .{
-            .direction = new_split,
-            .ratio = 0.5,
-            .left = l,
-            .right = r,
-        } };
-        par.* = aux_ptr.*;
-        aux_ptr.* = target;
-    }
+    _ = tree.moveDir(focus, dir);
 }
 
 pub fn setSize(self: *@This(), ctx: Tiler.TileContext, size: utils.Vec2f, anchor: Tiler.Anchor) void {
