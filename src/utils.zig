@@ -88,6 +88,29 @@ fn Rect2T(T: type) type {
                 near[1] <= pos[1] and pos[1] < far[1];
         }
 
+        pub fn shift(self: @This(), offset: Vec2T(T)) @This() {
+            return .{
+                .pos = self.pos + offset,
+                .dim = self.dim,
+            };
+        }
+
+        pub fn pad(self: @This(), padding: T) @This() {
+            return .{
+                .pos = self.pos - @as(Vec2T(T), @splat(padding)),
+                .dim = self.dim + @as(Vec2T(T), @splat(2 * padding)),
+            };
+        }
+
+        pub fn intersect(self: @This(), other: @This()) @This() {
+            const left = @max(self.pos, other.pos);
+            const right = @min(self.pos + self.dim, other.pos + other.dim);
+            return .{
+                .pos = left,
+                .dim = @max(right - left, Vec2T(T){ 0, 0 }),
+            };
+        }
+
         pub fn scale(self: @This(), fac: f32) @This() {
             switch (inf_t) {
                 .int => {
@@ -114,6 +137,19 @@ fn Rect2T(T: type) type {
             }
         }
     };
+}
+
+pub fn overlap(T: type, a: struct { T, T }, b: struct { T, T }) struct { T, T } {
+    return .{ @max(a[0], b[0]), @min(a[1], b[1]) };
+}
+
+pub fn interval(T: type, a: struct { T, T }) T {
+    if (a[0] >= a[1]) return 0;
+    return a[1] - a[0];
+}
+
+pub fn intersect(T: type, a: struct { T, T }, b: struct { T, T }) T {
+    return interval(T, overlap(T, a, b));
 }
 
 pub const Color = struct {
@@ -206,4 +242,54 @@ pub fn pipe(flags: posix.O) ![2]posix.fd_t {
     if (posix.system.pipe2(&out, flags) != 0) return error.Error;
 
     return out;
+}
+
+pub fn MemIter(T: type) type {
+    return struct {
+        iters: []const []T,
+        big: usize = 0,
+        small: usize = 0,
+
+        pub fn init(iter: []const []T) @This() {
+            return .{ .iters = iter };
+        }
+
+        pub fn next(self: *@This()) ?T {
+            var arr = self.iters[self.big];
+            while (self.small >= arr.len) {
+                self.small = 0;
+                self.big += 1;
+                if (self.big >= self.iters.len) return null;
+                arr = self.iters[self.big];
+            }
+
+            const ind = self.small;
+            self.small += 1;
+
+            return arr[ind];
+        }
+    };
+}
+
+pub fn memIter(T: type, iter: []const []T) MemIter(T) {
+    return .init(iter);
+}
+
+test {
+    const a = Rect2{ .pos = .{ 0, 0 }, .dim = .{ 20, 20 } };
+    const b = Rect2{ .pos = .{ 25, 25 }, .dim = .{ 100, 100 } };
+
+    std.debug.print("{}\n", .{a.intersect(b)});
+}
+
+test "iter" {
+    var a = [_]u8{1,2,3,4};
+    var b = [_]u8{5,6,7,8};
+
+    var iter = memIter(u8, &.{&a, &b});
+
+    while(iter.next()) |n| {
+        std.debug.print("{}, ", .{n});
+    }
+    std.debug.print("\n", .{});
 }
