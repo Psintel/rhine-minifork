@@ -32,7 +32,9 @@ const HyprIPC = @import("hyprIPC.zig");
 const Inotify = @import("inotify.zig");
 
 const log = std.log.scoped(.window_management);
-const clock: Io.Clock = .awake;
+const clock = Animations.clock;
+
+const border_width = 2;
 
 pub fn listen(iface: *rwm.WindowManagerV1, event: rwm.WindowManagerV1.Event, ctx: *Context) void {
     switch (event) {
@@ -96,16 +98,14 @@ pub fn listen(iface: *rwm.WindowManagerV1, event: rwm.WindowManagerV1.Event, ctx
 }
 
 fn apply_tiler(ctx: *Context, curr_time: Io.Timestamp) !void {
-    var states = ctx.manage_states.iterator();
-    while (states.next()) |rs| {
-        rs.value_ptr.show = false;
-    }
-
     // update workspace manage state from tiler
     var outs = ctx.outs.iterator();
     while (outs.next()) |_out| {
         const out_data = _out.value_ptr;
-        const ws = ctx.workspaces.getPtr(out_data.workspace).?;
+        const ws = ctx.workspaces.getPtr(out_data.workspace) orelse {
+            ctx.dirty = true;
+            continue;
+        };
         const seat = if (ctx.last_active) |s| ctx.seats.getPtr(s) else null;
         const focus = if (seat) |s| s.focus else null;
 
@@ -132,7 +132,11 @@ fn apply_tiler(ctx: *Context, curr_time: Io.Timestamp) !void {
             }
         }
 
-        ws.manage(.{ .gpa = ctx.gpa, .focus = focus }, out_data.getArea(), &ctx.manage_states);
+        ws.manage(
+            .{ .gpa = ctx.gpa, .focus = focus },
+            out_data.getArea(),
+            &ctx.manage_states,
+        );
 
         if (out_data.overlay) |_ows| {
             const ows = try Workspace.get(ctx, _ows);
@@ -169,13 +173,69 @@ fn apply_tiler(ctx: *Context, curr_time: Io.Timestamp) !void {
 }
 
 fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: Io.Timestamp) void {
-    for (ws.windows.keys()) |win| {
+    var iter = utils.memIter(*rwm.WindowV1, &.{ ws.windows.keys(), ws.floating.keys() });
+    while (iter.next()) |win| {
         const wd = ctx.wins.getPtr(win) orelse continue;
         const man_state = ctx.manage_states.get(win) orelse {
             log.err("failed to manage window {}", .{win.getId()});
             ctx.orphan(win);
             continue;
         };
+
+        var col = man_state.border;
+        for (ctx.seats.values(), 0..) |s, i| {
+            if (win == s.focus) {
+                if (i == 1)
+                    col = .green;
+            }
+        }
+
+        if (wd.float) {
+            // place relative to parent
+            if (wd.parent) |p| {
+                const paren = ctx.wins.get(p) orelse continue;
+                if (meta.activeTag(wd.pos) != .static)
+                    wd.setPos(
+                        ctx.anims,
+                        paren.pos.get(ctx.anims, t) + (paren.size - wd.size) / @as(utils.Vec2, @splat(2)),
+                        t,
+                    );
+            }
+
+            // tell the winsow it's not tiled (for dropshaows and the such)
+            win.setTiled(.{
+                .top = false,
+                .left = false,
+                .right = false,
+                .bottom = false,
+            });
+
+        } else { // tiled
+            win.setTiled(.{
+                .top = true,
+                .left = true,
+                .right = true,
+                .bottom = true,
+            });
+        }
+
+        win.setBorders(
+            .{ .top = true, .bottom = true, .left = true, .right = true },
+            border_width,
+            col.r,
+            col.g,
+            col.b,
+            col.a,
+        );
+
+        win.setCapabilities(.{
+            .window_menu = false,
+            .maximize = false,
+            .minimize = false,
+            .fullscreen = true,
+        });
+
+        win.useSsd();
 
         if (!man_state.show) continue;
 
@@ -192,37 +252,6 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: Io.Timestamp)
                 wd.fullscreen = .no;
             },
         }
-
-        var col = man_state.border;
-        for (ctx.seats.values(), 0..) |s, i| {
-            if (win == s.focus) {
-                if (i == 1)
-                    col = .green;
-            }
-        }
-
-        win.setBorders(
-            .{ .top = true, .bottom = true, .left = true, .right = true },
-            2,
-            col.r,
-            col.g,
-            col.b,
-            col.a,
-        );
-
-        win.setCapabilities(.{
-            .window_menu = false,
-            .maximize = false,
-            .minimize = false,
-            .fullscreen = true,
-        });
-        win.useSsd();
-        win.setTiled(.{
-            .top = true,
-            .left = true,
-            .right = true,
-            .bottom = true,
-        });
     }
 
     for (ws.floating.keys()) |win| {
@@ -243,19 +272,9 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: Io.Timestamp)
             },
         }
 
-        if (wd.parent) |p| {
-            const paren = ctx.wins.get(p) orelse continue;
-            if (meta.activeTag(wd.pos) != .static)
-                wd.setPos(
-                    ctx.anims,
-                    paren.pos.get(ctx.anims, t) + (paren.size - wd.size) / @as(utils.Vec2, @splat(2)),
-                    t,
-                );
-        }
-
         win.setBorders(
             .{ .top = true, .bottom = true, .left = true, .right = true },
-            2,
+            border_width,
             col.r,
             col.g,
             col.b,
@@ -384,7 +403,6 @@ fn manage(ctx: *Context) !void {
     ctx.should_close.clearAndFree(ctx.gpa);
 
     // apply window management
-
     var outs = ctx.outs.iterator();
     while (outs.next()) |_out| {
         const out = _out.key_ptr.*;
@@ -440,65 +458,85 @@ fn render(ctx: *Context) !void {
     if (wins == 0) return;
     const curr_time = clock.now(ctx.io);
 
-    var windows = ctx.wins.iterator();
-    while (windows.next()) |_w| {
-        const w = _w.key_ptr.*;
-        const wd = _w.value_ptr;
+    for (ctx.wins.keys()) |win| win.hide();
 
-        const man_state = ctx.manage_states.get(w) orelse continue;
-
-        if (man_state.show) {
-            w.show();
-        } else {
-            w.hide();
-            continue;
-        }
-
-        const tp = wd.pos.get(ctx.anims, curr_time);
-        const size: utils.Vec2 = @max(wd.goal_size.get(ctx.anims, curr_time), @as(utils.Vec2, @splat(0)));
-
-        wd.node.setPosition(tp[0], tp[1]);
-        w.setContentClipBox(0, 0, size[0], size[1]);
-        wd.node.placeTop();
-
-        if (meta.activeTag(wd.pos) == .transit) ctx.dirty = true;
-        if (meta.activeTag(wd.goal_size) == .transit) ctx.dirty = true;
-    }
-
-    // put focus on top
-    var seats = ctx.seats.iterator();
-    while (seats.next()) |_seat| {
-        // const seat = _seat.key_ptr.*;
-        const seat_data = _seat.value_ptr;
-
-        if (seat_data.focus) |f| {
-            const f_data = ctx.wins.get(f).?;
-            f_data.node.placeTop();
-        }
-    }
-
+    // TODO: put focus on top
+    // do workpaces and workspace transitions
     var outs = ctx.outs.iterator();
     while (outs.next()) |out| {
-        const ws = out.value_ptr.workspace;
-        const wsd = ctx.workspaces.get(ws).?;
+        const outd = out.value_ptr;
+        const ws = outd.workspace;
 
-        // put float on top
-        for (wsd.floating.keys()) |w| {
-            const wd = ctx.wins.getPtr(w) orelse continue;
-            wd.node.placeTop();
-        }
+        render_workspace(
+            ws,
+            ctx,
+            outd.ws_pos.get(ctx.anims, curr_time),
+            outd.getArea(),
+            curr_time,
+        );
+        if (outd.last_workspace) |prev| if (!outd.ws_pos.done(ctx.anims, curr_time)) {
+            render_workspace(
+                prev,
+                ctx,
+                outd.ws_pos.get(ctx.anims, curr_time) - outd.offset(),
+                outd.getArea(),
+                curr_time,
+            );
+        };
 
         // overlay on top
         if (out.value_ptr.overlay) |ov| {
-            const ov_data = try Workspace.get(ctx, ov);
-            for (ov_data.windows.keys()) |win| {
-                const wind = ctx.wins.get(win).?;
-                wind.node.placeTop();
-            }
-            for (ov_data.floating.keys()) |win| {
-                const wind = ctx.wins.get(win).?;
-                wind.node.placeTop();
-            }
+            render_workspace(ov, ctx, @splat(0), outd.getArea(), curr_time);
         }
+
+        if (outd.ws_pos.done(ctx.anims, curr_time)) outd.ws_pos.staticify();
+        if (meta.activeTag(outd.ws_pos) == .transit) ctx.dirty = true;
+    }
+}
+
+fn render_workspace(ws: Workspace.WS, ctx: *Context, offset: utils.Vec2, box: utils.Rect2, curr_time: Io.Timestamp) void {
+    const wsd = ctx.workspaces.get(ws) orelse return;
+
+    // floating over non-floating
+    var iter = utils.memIter(*rwm.WindowV1, &.{ wsd.windows.keys(), wsd.floating.keys() });
+
+    while (iter.next()) |win| {
+        const wd = ctx.wins.get(win) orelse {
+            log.err("window {} has no data", .{win});
+            continue;
+        };
+        const man_state = ctx.manage_states.get(win) orelse {
+            log.err("window {} has no manage state", .{win});
+            continue;
+        };
+
+        if (!man_state.show) {
+            win.hide();
+            continue;
+        }
+
+        const rect: utils.Rect2 = .{
+            .pos = wd.pos.get(ctx.anims, curr_time) + offset,
+            .dim = @max(wd.goal_size.get(ctx.anims, curr_time), @as(utils.Vec2, @splat(0))),
+        };
+
+        const bordered = rect.pad(border_width);
+
+        const clip = box.intersect(bordered).shift(-rect.pos);
+
+        wd.node.setPosition(rect.pos[0], rect.pos[1]);
+        win.setContentClipBox(0, 0, rect.dim[0], rect.dim[1]);
+        win.setClipBox(clip.pos[0], clip.pos[1], clip.dim[0], clip.dim[1]);
+
+        if (clip.dim[0] == 0 or clip.dim[1] == 0) {
+            log.info("window {} fully clipped", .{win});
+            win.hide();
+        } else {
+            win.show();
+            wd.node.placeTop();
+        }
+
+        if (meta.activeTag(wd.pos) == .transit) ctx.dirty = true;
+        if (meta.activeTag(wd.goal_size) == .transit) ctx.dirty = true;
     }
 }

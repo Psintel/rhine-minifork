@@ -27,6 +27,11 @@ animations {
         duration 250_000
         easing expOut
     }
+    workspace {
+        duration 500_000
+        easing elasticOut, amplitude=0.005, period=0.5
+        # easing sinOut
+    }
 }
 
 # alt, s, tiler, bsp, togglesplit

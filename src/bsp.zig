@@ -360,7 +360,7 @@ const subTile = union(enum) {
                             const li = utils.intersect(f32, .{ lrec.pos[0], lrec.pos[0] + lrec.dim[0] }, .{ rect.pos[0], rect.pos[0] + rect.dim[0] });
                             const ri = utils.intersect(f32, .{ rrec.pos[0], rrec.pos[0] + rrec.dim[0] }, .{ rect.pos[0], rect.pos[0] + rect.dim[0] });
 
-                            if (li > ri) return l;
+                            if (li >= ri) return l;
                             return r;
                         },
                     },

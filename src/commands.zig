@@ -17,6 +17,7 @@ const Context = @import("context.zig");
 const Tiler = @import("tiler.zig");
 const Layouts = @import("layouts.zig");
 const Config = @import("config.zig");
+const Animations = @import("animations.zig");
 const pointer_ops = @import("pointer_ops.zig");
 
 const log = std.log.scoped(.Commands);
@@ -260,7 +261,7 @@ pub const Command = union(enum) {
                 log.info("switching to workspace {}", .{ws});
 
                 if (Workspace.getOutput(ctx, ws) == null) {
-                    out_data.setWorkspace(ctx, ws);
+                    out_data.setWorkspace(ctx, ws, Animations.clock.now(ctx.io));
                 }
 
                 seat_data.focus = if (w.windows.entries.len > 0) w.windows.keys()[0] else null;

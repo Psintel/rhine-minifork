@@ -199,15 +199,19 @@ window rules are only applied to new windows.
 Animations are configured under the `animations` group, the `animations` group contains subgroups for each animations type. these are:
 
 
-[cols="a,a", frame=none, grid=none]
+[cols="m,a", frame=none, grid=none]
 |===
 | Animation Type | Description
 
-| `move`
+| move
 | animation for moving windows
 
-| `resize`
+| resize
 | animation for resizing windows
+
+| workspace
+| animation for switching workspaces
+
 |===
 
 each one of these groups then has the same parameters. Namely:
@@ -229,6 +233,10 @@ animations {
     }
     resize {
         duration 250_000
+        easing elasticOut, amplitude=0.2
+    }
+    workspace {
+        duration 500_000
         easing elasticOut, amplitude=0.2
     }
 }

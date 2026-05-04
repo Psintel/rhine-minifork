@@ -30,7 +30,7 @@ const log = std.log.scoped(.animations);
 const Io = std.Io;
 const Clock = Io.Clock;
 
-const clock: Clock = .awake;
+pub const clock: Clock = .awake;
 
 const Vec2 = utils.Vec2;
 const Vec2f = utils.Vec2f;
@@ -38,6 +38,7 @@ const Vec2f = utils.Vec2f;
 pub const AnimationType = enum {
     move,
     resize,
+    workspace,
 };
 
 pub const Animation = struct {

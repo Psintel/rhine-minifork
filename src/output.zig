@@ -1,5 +1,6 @@
 const std = @import("std");
 const mem = std.mem;
+const math = std.math;
 const meta = std.meta;
 const wayland = @import("wayland");
 const log = std.log.scoped(.output);
@@ -10,6 +11,7 @@ const rwm = wayland.client.river;
 const utils = @import("utils.zig");
 const Context = @import("context.zig");
 const Workspace = @import("workspace.zig");
+const Animations = @import("animations.zig");
 const Output = @This();
 
 wl_out: ?u32 = null,
@@ -21,6 +23,7 @@ last_workspace: ?Workspace.WS = null,
 
 overlay: ?Workspace.WS = null,
 shell_out: *rwm.LayerShellOutputV1,
+ws_pos: Animations.Lerp(.workspace) = .{ .static = @splat(0) },
 
 pub const Wl = struct {
     global: u32,
@@ -139,7 +142,7 @@ pub fn restore(out: *@This(), ctx: *Context) void {
     if (ctx.restore.outs.fetchSwapRemove(name)) |kv| {
         ctx.gpa.free(kv.key);
         const restore_data = kv.value;
-        out.setWorkspace(ctx, restore_data.workspace);
+        out.setWorkspace(ctx, restore_data.workspace, Animations.clock.now(ctx.io));
     }
 }
 
@@ -218,21 +221,37 @@ pub fn relPos(ctx: *Context, pos: utils.Vec2) ?utils.Vec2f {
     return cursor;
 }
 
+pub fn offset(self: *Output) utils.Vec2 {
+    return utils.Vec2{ math.sign(self.workspace - self.last_workspace.?) * self.size.?[0], 0 };
+}
+
 // may fail or succeed
-pub fn setWorkspace(self: *Output, ctx: *Context, ws: Workspace.WS) void {
+pub fn setWorkspace(self: *Output, ctx: *Context, ws: Workspace.WS, curr_time: std.Io.Timestamp) void {
     log.info("switching to workspace {}", .{ws});
 
     if (Workspace.getOutput(ctx, ws)) |_| return;
 
     self.last_workspace = self.workspace;
     self.workspace = ws;
+
+    if (self.size == null or self.position == null) return;
+
+    const anim_start = self.ws_pos.get(ctx.anims, curr_time) + self.offset();
+
+    self.ws_pos = .{
+        .transit = .{
+            .from = anim_start,
+            .to = @splat(0),
+            .start = curr_time,
+        },
+    };
 }
 
 pub fn deinit(ctx: *Context, out: *rwm.OutputV1) void {
-    const self = ctx.outs.getPtr(out).?;
+    defer out.destroy();
+    const kv = ctx.outs.fetchSwapRemove(out) orelse return;
+    const self = kv.value;
     const shell = self.shell_out;
     _ = ctx.shell_outs.swapRemove(shell);
     shell.destroy();
-    _ = ctx.outs.swapRemove(out);
-    out.destroy();
 }

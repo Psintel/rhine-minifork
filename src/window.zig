@@ -18,10 +18,10 @@ const Window = @import("window.zig");
 const Rules = @import("rules.zig");
 const Animations = @import("animations.zig");
 const Io = std.Io;
-const Clock = Io.Clock;
+
+const clock = Animations.clock;
 
 const log = std.log.scoped(.window);
-const clock: Clock = .awake;
 
 win: *rwm.WindowV1,
 node: *rwm.NodeV1,
