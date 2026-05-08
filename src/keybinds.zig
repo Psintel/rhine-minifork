@@ -24,13 +24,13 @@ pub const Sym = u32;
 
 const syms: std.StaticStringMap(Sym) = .initComptime(kvs: {
     const xkb = @import("keysysms");
-    const T = meta.Tuple(&.{ []const u8, Sym });
+    const T = struct{ []const u8, Sym };
 
     var out: []const T = &.{};
     @setEvalBranchQuota(1000_000);
 
     for (meta.declarations(xkb)) |f| {
-        if (f.name.len < 8 or !mem.eql(u8, f.name[0..8], "XKB_KEY_")) continue;
+        if (!mem.startsWith(u8, f.name, "XKB_KEY_")) continue;
 
         const new: T = .{
             f.name[8..],
