@@ -209,7 +209,6 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: Io.Timestamp)
                 .right = false,
                 .bottom = false,
             });
-
         } else { // tiled
             win.setTiled(.{
                 .top = true,
@@ -460,20 +459,13 @@ fn render(ctx: *Context) !void {
 
     for (ctx.wins.keys()) |win| win.hide();
 
-    // TODO: put focus on top
     // do workpaces and workspace transitions
     var outs = ctx.outs.iterator();
     while (outs.next()) |out| {
         const outd = out.value_ptr;
         const ws = outd.workspace;
 
-        render_workspace(
-            ws,
-            ctx,
-            outd.ws_pos.get(ctx.anims, curr_time),
-            outd.getArea(),
-            curr_time,
-        );
+        // render outgoing workspace below active workspace
         if (outd.last_workspace) |prev| if (!outd.ws_pos.done(ctx.anims, curr_time)) {
             render_workspace(
                 prev,
@@ -483,6 +475,15 @@ fn render(ctx: *Context) !void {
                 curr_time,
             );
         };
+
+        // render active workspace
+        render_workspace(
+            ws,
+            ctx,
+            outd.ws_pos.get(ctx.anims, curr_time),
+            outd.getArea(),
+            curr_time,
+        );
 
         // overlay on top
         if (out.value_ptr.overlay) |ov| {
@@ -538,5 +539,15 @@ fn render_workspace(ws: Workspace.WS, ctx: *Context, offset: utils.Vec2, box: ut
 
         if (meta.activeTag(wd.pos) == .transit) ctx.dirty = true;
         if (meta.activeTag(wd.goal_size) == .transit) ctx.dirty = true;
+    }
+
+    // put focus on top (if it is in this workspace)
+    for (ctx.seats.values()) |seat| {
+        if (seat.focus) |f| {
+            if (wsd.windows.contains(f) or wsd.floating.contains(f)) {
+                const focus_data = ctx.wins.get(f) orelse continue;
+                focus_data.node.placeTop();
+            }
+        }
     }
 }
