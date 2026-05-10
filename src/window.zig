@@ -48,7 +48,6 @@ pub fn init(_: *Context, win: *rwm.WindowV1) !@This() {
     };
 }
 
-
 // assign window to workspace and do other setup
 // window rules will go here in the future
 // assumes that a window context object already exists
@@ -81,10 +80,8 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
     if (ws == null)
         ws = ws: {
             if (seat) |s| {
-                if (s.focus) |f|
-                    if (Workspace.byWindow(ctx, f)) |fc| break :ws fc;
-
                 if (Workspace.byPointer(ctx, s.pointer_pos)) |pt| break :ws pt;
+                if (s.focus) |f| if (Workspace.byWindow(ctx, f)) |fc| break :ws fc;
             }
 
             break :ws Workspace.getFirst(ctx);
