@@ -232,10 +232,6 @@ pub fn main(init: std.process.Init) !void {
     var fut = try io.concurrent(HyprIPC.sock2Worker, .{ipc, io, &ctx, &ctx.ipcChannel});
     defer fut.cancel(io) catch |e| log.err("sock2Worker failed with {}", .{e});
 
-    try ctx.workspaces.put(ctx.gpa, 0, .{
-        .tiler = try Layouts.new(ctx.gpa, .bsp),
-    });
-
     ctx.wm.setListener(*Context, window_managment.listen, &ctx);
     try ctx.reload();
     helpers.startup(&ctx);
