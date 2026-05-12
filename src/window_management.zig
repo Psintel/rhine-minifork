@@ -169,6 +169,13 @@ fn apply_tiler(ctx: *Context, curr_time: Io.Timestamp) !void {
         wd.setPos(ctx.anims, man_state.dims.pos, curr_time);
         wd.setSize(man_state.dims.dim, curr_time);
     }
+
+    for (ctx.seats.values()) |seat_data| {
+        if (seat_data.focus) |focus| {
+            const man_state = ctx.manage_states.getPtr(focus) orelse continue;
+            man_state.border = .blue;
+        }
+    }
 }
 
 fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: Io.Timestamp) void {
@@ -181,13 +188,7 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: Io.Timestamp)
             continue;
         };
 
-        var col = man_state.border;
-        for (ctx.seats.values(), 0..) |s, i| {
-            if (win == s.focus) {
-                if (i == 1)
-                    col = .green;
-            }
-        }
+        const col = man_state.border;
 
         if (wd.float) {
             // place relative to parent

@@ -120,6 +120,8 @@ pub fn main(init: std.process.Init) !void {
     var inotify: Inotify = try .init(.{ .nonblock = true });
     defer inotify.deinit(io);
 
+    const wid = try inotify.watch(config_path, .{ .MODIFY = true });
+
     const signal_listener: SignalListener = try .init(.{
         .CHLD = true,
         .ALRM = true,
@@ -149,8 +151,6 @@ pub fn main(init: std.process.Init) !void {
     defer restore.close(io);
     var restore_buf: [5 * Restore.buf_size]u8 = undefined;
     var restore_reader = restore.reader(io, &restore_buf);
-
-    const wid = try inotify.watch(config_path, .{ .MODIFY = true });
 
     var buffer: [0x100]u8 = undefined;
     var reader_object = config.reader(io, &buffer);

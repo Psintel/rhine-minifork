@@ -153,6 +153,9 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
         },
         .dimensions => |d| {
             win_data.size = .{ d.width, d.height };
+            if (d.width > 0 and d.height > 0)
+                if (win_data.float)
+                    win_data.setSize(win_data.size, Animations.clock.now(ctx.io));
         },
         .parent => |p| {
             if (p.parent) |parent| {
