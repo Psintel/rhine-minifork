@@ -3,6 +3,7 @@ const std = @import("std");
 const wayland = @import("wayland");
 const mem = std.mem;
 const meta = std.meta;
+const fmt = std.fmt;
 
 const wl = wayland.client.wl;
 const rwm = wayland.client.river;
@@ -11,14 +12,25 @@ const utils = @import("utils.zig");
 const Context = @import("context.zig");
 const Tiler = @import("tiler.zig");
 const Config = @import("config.zig");
+const log = std.log.scoped(.Layout);
 
 const layouts = .{
     .bsp = @import("layouts/bsp.zig"),
+    .monocle = @import("layouts/monocle.zig"),
 };
+
+comptime {
+    for (meta.fieldNames(Layout)) |lname| {
+        const layout = @field(layouts, lname);
+
+        if (!@hasField(layout, "tiler"))
+            @compileError(fmt.comptimePrint("layout {s} is a field \"tiler\"", .{lname}));
+    }
+}
 
 var storageMap: LayoutMap = .empty;
 
-pub const LayoutMap = std.AutoHashMapUnmanaged(Tiler, *Layout);
+pub const LayoutMap = std.AutoHashMapUnmanaged(Tiler, *anyopaque);
 pub const LayoutType = meta.FieldEnum(@TypeOf(layouts));
 
 pub const Layout = layout: {
@@ -54,40 +66,44 @@ pub fn parseCommand(args: *Config.Entry.Iterator) !struct { LayoutType, Tiler.Co
     }
 }
 
-fn create(lay: LayoutType) Layout {
+fn create(comptime lay: LayoutType) @field(layouts, @tagName(lay)) {
     const name = @tagName(lay);
     const T = @field(layouts, name);
 
     if (@hasDecl(T, "init")) {
-        return @unionInit(Layout, name, T.init());
+        return T.init();
     }
 
-    return @unionInit(Layout, name, T{});
+    return T{};
 }
 
-pub fn new(gpa: mem.Allocator, lay: LayoutType) !Tiler {
-    const l = try gpa.create(Layout);
-    errdefer gpa.destroy(l);
-
-    l.* = create(lay);
-    const t = @field(l, @tagName(lay)).tiler.get(lay);
-
-    try storageMap.put(gpa, t, l);
-
-    return t;
+pub fn new(gpa: mem.Allocator, _lay: LayoutType) !Tiler {
+    log.info("creating new layout {}", .{_lay});
+    switch (_lay) {
+        inline else => |lay| {
+            const l = try gpa.create(@field(layouts, @tagName(lay)));
+            errdefer gpa.destroy(l);
+            l.* = create(lay);
+            const t = l.tiler.get(lay);
+            try storageMap.put(gpa, t, l);
+            return t;
+        },
+    }
 }
 
 pub fn delete(gpa: mem.Allocator, tile: Tiler) void {
     const ptr = storageMap.get(tile).?;
-    switch (ptr.*) {
-        inline else => |v| {
-            const T = @TypeOf(v);
+    switch (tile.tag) {
+        inline else => |t| {
+            const T = @field(layouts, @tagName(t));
+            const v: *T = @alignCast(@ptrCast(ptr));
             if (@hasDecl(T, "deinit")) {
                 v.deinit(gpa);
             }
+
+            _ = storageMap.remove(tile);
+            gpa.destroy(v);
         },
     }
-    _ = storageMap.remove(tile);
     if (storageMap.size == 0) storageMap.clearAndFree(gpa);
-    gpa.destroy(ptr);
 }

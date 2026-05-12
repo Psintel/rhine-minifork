@@ -547,7 +547,6 @@ const subTile = union(enum) {
                             .pos = irect.pos + @as(utils.Vec2, @splat(conf.gaps)),
                             .dim = s,
                         },
-                        .state = .normal,
                         .border = if (w == ctx.focus) .blue else .gray,
                     });
                 }

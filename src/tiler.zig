@@ -48,12 +48,6 @@ pub const TileState = struct {
         .pos = @splat(0),
     },
 
-    state: enum {
-        normal,
-        maximize,
-        fullscreen,
-    } = .normal,
-
     border: utils.Color = .gray,
 };
 
@@ -140,6 +134,7 @@ pub fn tiler(T: type) type {
         }
 
         fn setSize_impl(data: ?*anyopaque, ctx: TileContext, size: utils.Vec2f, anchor: Anchor) void {
+            if (!@hasDecl(T, "setSize")) return;
             const parent: *T = @ptrCast(@alignCast(data.?));
             parent.setSize(ctx, size, anchor);
         }
@@ -151,6 +146,7 @@ pub fn tiler(T: type) type {
         }
 
         fn command_impl(data: ?*anyopaque, ctx: TileContext, cmd: Command) Error!void {
+            if (!@hasDecl(T, "command")) return;
             const parent: *T = @ptrCast(@alignCast(data.?));
             return parent.command(ctx, cmd);
         }
