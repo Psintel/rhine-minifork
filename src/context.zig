@@ -18,6 +18,7 @@ const commands = @import("commands.zig");
 const Tiler = @import("tiler.zig");
 const Animations = @import("animations.zig");
 const Restore = @import("restore.zig");
+const HyprIPC = @import("hyprIPC.zig");
 
 const keybinds = @import("keybinds.zig");
 const pointerbinds = @import("pointer_binds.zig");
@@ -65,6 +66,9 @@ manage_states: Tiler.ManageMap = .empty,
 
 // weird posix thingy:
 events: std.Io.File,
+
+// hypr IPC stuff
+ipcChannel: HyprIPC.HyprQueue,
 
 pub const WmOptions = struct {
     float_move: f32 = 0.1,

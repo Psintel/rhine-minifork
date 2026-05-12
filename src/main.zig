@@ -202,6 +202,8 @@ pub fn main(init: std.process.Init) !void {
 
     if (display.roundtrip() != .SUCCESS) return error.RoundTripFailed;
 
+    var queue_buf: [100]HyprIPC.HyprEvent = undefined;
+
     var ctx: Context = .{
         .gpa = alloc,
         .io = io,
@@ -212,6 +214,7 @@ pub fn main(init: std.process.Init) !void {
         .cursor_shape = try unwrapIFace(reg.cursor_shape),
         .config = try Config.parse(alloc, &reader_object.interface),
         .events = events,
+        .ipcChannel = .init(&queue_buf),
         .restore = Restore.deserialize(&restore_reader.interface, alloc) catch |e| res: {
             log.err("failed to read restore info {}", .{e});
             break :res .empty;
@@ -224,8 +227,10 @@ pub fn main(init: std.process.Init) !void {
 
     const ipc = try HyprIPC.init(&ctx);
     defer ipc.deinit(&ctx);
-    const t = try std.Thread.spawn(.{}, HyprIPC.run, .{ ipc, &ctx });
+    const t = try std.Thread.spawn(.{}, HyprIPC.sock1Worker, .{ ipc, &ctx });
     t.detach();
+    var fut = try io.concurrent(HyprIPC.sock2Worker, .{ipc, io, &ctx, &ctx.ipcChannel});
+    defer fut.cancel(io) catch |e| log.err("sock2Worker failed with {}", .{e});
 
     try ctx.workspaces.put(ctx.gpa, 0, .{
         .tiler = try Layouts.new(ctx.gpa, .bsp),
