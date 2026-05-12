@@ -13,7 +13,7 @@ const Tiler = @import("tiler.zig");
 const Config = @import("config.zig");
 
 const layouts = .{
-    .bsp = @import("bsp.zig"),
+    .bsp = @import("layouts/bsp.zig"),
 };
 
 var storageMap: LayoutMap = .empty;

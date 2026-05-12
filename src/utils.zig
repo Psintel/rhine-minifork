@@ -228,6 +228,16 @@ pub fn WlGlobal(global: type, container: type) type {
         map: std.AutoArrayHashMapUnmanaged(u32, *global) = .empty,
         data: WLHashMap(global, container) = .empty,
 
+        pub fn get(self: *const @This(), id: u32) ?container {
+            if (self.map.get(id)) |glob| return self.data.get(glob);
+            return null;
+        }
+
+        pub fn getPtr(self: *@This(), id: u32) ?*container {
+            if (self.map.get(id)) |glob| return self.data.getPtr(glob);
+            return null;
+        }
+
         pub fn deinit(self: @This(), gpa: mem.Allocator) void {
             for (self.data.values()) |s| s.deinit(gpa);
             for (self.wl_seats.map.values()) |s| s.destroy();
@@ -252,6 +262,11 @@ pub fn MemIter(T: type) type {
 
         pub fn init(iter: []const []T) @This() {
             return .{ .iters = iter };
+        }
+
+        pub fn reset(self: *@This()) void {
+            self.big = 0;
+            self.small = 0;
         }
 
         pub fn next(self: *@This()) ?T {

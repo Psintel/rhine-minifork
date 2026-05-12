@@ -18,8 +18,6 @@ const Workspace = @import("workspace.zig");
 const Output = @import("output.zig");
 const Config = @import("config.zig");
 
-const bsp = @import("bsp.zig");
-
 pub const Sym = u32;
 
 const syms: std.StaticStringMap(Sym) = .initComptime(kvs: {

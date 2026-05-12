@@ -58,7 +58,7 @@ pub fn toSet(signals: Signals) posix.sigset_t {
     inline for (comptime meta.fieldNames(Signals)) |f| {
         if (@field(signals, f)) {
             posix.sigaddset(&sigs, @field(posix.SIG, f));
-            std.log.warn("enabling {s} : {}", .{ f, @field(posix.SIG, f) });
+            std.log.debug("enabling {s} : {}", .{ f, @field(posix.SIG, f) });
         }
     }
     return sigs;

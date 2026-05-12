@@ -7,14 +7,14 @@ const meta = std.meta;
 const wl = wayland.client.wl;
 const rwm = wayland.client.river;
 
-const utils = @import("utils.zig");
-const Window = @import("window.zig");
-const Output = @import("output.zig");
-const Seat = @import("seat.zig");
-const Workspace = @import("workspace.zig");
-const Tiler = @import("tiler.zig");
-const Context = @import("context.zig");
-const Config = @import("config.zig");
+const utils = @import("../utils.zig");
+const Window = @import("../window.zig");
+const Output = @import("../output.zig");
+const Seat = @import("../seat.zig");
+const Workspace = @import("../workspace.zig");
+const Tiler = @import("../tiler.zig");
+const Context = @import("../context.zig");
+const Config = @import("../config.zig");
 
 const WT = Tiler.WT;
 const ManageMap = Tiler.ManageMap;

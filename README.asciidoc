@@ -309,7 +309,6 @@ rhine binds the following protocols:
 * river-layer-shell-v1
 * river-xkb-bindings-v1
 
-
 === shared libraries
 rhine links the following shared libraries:
 
