@@ -29,7 +29,6 @@ const Layouts = @import("layouts.zig");
 
 const Config = @import("config.zig");
 const HyprIPC = @import("hyprIPC.zig");
-const Inotify = @import("inotify.zig");
 
 const log = std.log.scoped(.window_management);
 const clock = Animations.clock;
@@ -530,7 +529,6 @@ fn render_workspace(ws: Workspace.WS, ctx: *Context, offset: utils.Vec2, box: ut
         win.setClipBox(clip.pos[0], clip.pos[1], clip.dim[0], clip.dim[1]);
 
         if (clip.dim[0] == 0 or clip.dim[1] == 0) {
-            log.info("window {} fully clipped", .{win});
             win.hide();
         } else {
             win.show();
@@ -544,9 +542,20 @@ fn render_workspace(ws: Workspace.WS, ctx: *Context, offset: utils.Vec2, box: ut
     // put focus on top (if it is in this workspace)
     for (ctx.seats.values()) |seat| {
         if (seat.focus) |f| {
+            const focus_data = ctx.wins.get(f) orelse continue;
             if (wsd.windows.contains(f) or wsd.floating.contains(f)) {
-                const focus_data = ctx.wins.get(f) orelse continue;
-                focus_data.node.placeTop();
+                for (wsd.windows.keys()) |w| {
+                    const wd = ctx.wins.get(w) orelse continue;
+                    focus_data.node.placeAbove(wd.node);
+                }
+
+                for (wsd.floating.keys()) |w| {
+                    const wd = ctx.wins.get(w) orelse continue;
+                    if (focus_data.float)
+                        focus_data.node.placeAbove(wd.node)
+                    else
+                        focus_data.node.placeBelow(wd.node);
+                }
             }
         }
     }
