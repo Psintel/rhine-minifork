@@ -60,7 +60,7 @@ const Registry = struct {
                     context.outs.put(context.gpa, out, {}) catch return;
                     log.info("remembering out with version {}", .{global.version});
                 } else {
-                    log.info("not registering interface {s}", .{global.interface});
+                    log.debug("not registering interface {s}", .{global.interface});
                 }
             },
             .global_remove => |gr| {
@@ -69,7 +69,7 @@ const Registry = struct {
                 } else if (context.outs.swapRemove(gr.name)) {
                     log.info("removed out {}", .{gr.name});
                 } else {
-                    log.warn("ignored global removal of: {}", .{gr.name});
+                    log.debug("ignored global removal of: {}", .{gr.name});
                 }
             },
         }

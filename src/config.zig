@@ -164,14 +164,18 @@ pub const Value = union(enum) {
     }
 
     pub fn merge(self: *Value, other: Value, gpa: mem.Allocator) !void {
+        errdefer other.deinit(gpa);
         if (meta.activeTag(self.*) != meta.activeTag(other)) return error.ParseError;
         switch (self.*) {
             .config => |c| {
-                var iter = other.config.values.iterator();
-                while (iter.next()) |n| {
-                    const key = n.key_ptr.*;
-                    const val = n.value_ptr.*;
+                var iter = other.config.values.keyIterator();
+                while (iter.next()) |_key| {
+                    const key = _key.*;
+                    const val = other.config.values.fetchRemove(key).?.value;
+                    errdefer val.deinit(gpa);
+
                     if (c.values.getPtr(key)) |old| {
+                        defer gpa.free(key);
                         try old.merge(val, gpa);
                     } else {
                         try c.values.put(gpa, key, val);
@@ -179,10 +183,10 @@ pub const Value = union(enum) {
                 }
             },
             .list => |l| {
-                const new = Value{ .list = try mem.concat(gpa, Entry, &.{ l, other.list }) };
-                errdefer new.deinit();
-                self.deinit(gpa);
-                self.* = new;
+                const ls = other.list;
+                const new = try gpa.realloc(l, l.len + ls.len);
+                @memcpy(new[l.len..], ls);
+                gpa.free(ls);
             },
 
             .args => return error.ParseError,
@@ -333,7 +337,6 @@ pub fn parse(allocator: mem.Allocator, reader: *std.Io.Reader) !Config {
 
         if (out.values.getPtr(key)) |v| {
             try v.merge(val, allocator);
-            val.deinit(allocator);
         } else {
             try out.values.put(allocator, key, val);
         }
