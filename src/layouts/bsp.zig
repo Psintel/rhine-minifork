@@ -648,17 +648,20 @@ pub fn getWindow(self: *@This(), ctx: Tiler.TileContext, dir: Tiler.Dir) ?WT {
     const tree = &(self.tree orelse return null);
     const win = ctx.focus orelse return null;
 
-    switch(tree.getDir(win, dir)) {
+    switch (tree.getDir(win, dir)) {
         .success => |res| return res.Leaf,
         else => return null,
     }
 }
 
-pub fn move(self: *@This(), ctx: Tiler.TileContext, dir: Tiler.Dir) void {
-    const tree = &(self.tree orelse return);
-    const focus = ctx.focus orelse return;
+pub fn move(self: *@This(), ctx: Tiler.TileContext, dir: Tiler.Dir) Tiler.MoveResult {
+    const tree = &(self.tree orelse return .{ .done = {} });
+    const focus = ctx.focus orelse return .{ .done = {}};
 
-    _ = tree.moveDir(focus, dir);
+    switch (tree.moveDir(focus, dir)) {
+        .escalate => |r| return .{ .escalate = r },
+        else => return .{ .done = {} },
+    }
 }
 
 pub fn setSize(self: *@This(), ctx: Tiler.TileContext, size: utils.Vec2f, anchor: Tiler.Anchor) void {

@@ -111,7 +111,7 @@ pub fn getWindow(self: *@This(), ctx: Tiler.TileContext, dir: Tiler.Dir) ?*rwm.W
     return self.tiler.vtable.getWindow(self.tiler.context, ctx, dir);
 }
 
-pub fn move(self: *@This(), ctx: Tiler.TileContext, dir: Tiler.Dir) void {
+pub fn move(self: *@This(), ctx: Tiler.TileContext, dir: Tiler.Dir) Tiler.MoveResult {
     return self.tiler.vtable.move(self.tiler.context, ctx, dir);
 }
 

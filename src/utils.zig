@@ -60,6 +60,10 @@ pub fn int2Float(v: Vec2) Vec2f {
     return @floatFromInt(v);
 }
 
+pub fn float2Int(v: Vec2f) Vec2 {
+    return @intFromFloat(v);
+}
+
 fn Rect2T(T: type) type {
     const inf = @typeInfo(T);
     const inf_t = std.meta.activeTag(inf);
@@ -137,6 +141,16 @@ fn Rect2T(T: type) type {
             }
         }
     };
+}
+
+pub fn relToAbs(frame: Rect2, rel: Vec2f) Vec2 {
+    const rp = float2Int(int2Float(frame.dim) * rel);
+    return rp + frame.pos;
+}
+
+pub fn absToRel(frame: Rect2, rel: Vec2) Vec2f {
+    const rp = int2Float(frame.pos - rel);
+    return rp / int2Float(frame.dim);
 }
 
 pub fn overlap(T: type, a: struct { T, T }, b: struct { T, T }) struct { T, T } {

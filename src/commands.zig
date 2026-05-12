@@ -267,6 +267,7 @@ pub const Command = union(enum) {
                 seat_data.focus = if (w.windows.entries.len > 0) w.windows.keys()[0] else null;
                 seat_data.warp_to_window = seat_data.focus;
                 ctx.dirty = true;
+                try ctx.ipcChannel.putOneUncancelable(ctx.io, .{ .workspace = ws });
             },
             .sendToWorkspace => |_ws| {
                 const ws = try _ws.resolve(ctx, seat);
@@ -354,7 +355,45 @@ pub const Command = union(enum) {
 
                     win_data.pos = .{ .static = new_pos };
                 } else {
-                    ws.move(.{ .gpa = ctx.gpa, .focus = win }, dir);
+                    switch (ws.move(.{ .gpa = ctx.gpa, .focus = win }, dir)) {
+                        .done => {},
+                        .escalate => |r| {
+                            const out = Output.byWorkspace(ctx, ws_id) orelse {
+                                log.err("workspace {} not on output", .{ws_id});
+                                return;
+                            };
+
+                            const out_data = ctx.outs.get(out).?;
+
+                            const target: utils.Vec2f = switch (dir) {
+                                .Left => utils.Vec2f{ r.pos[0] - 0.1, r.pos[1] + r.dim[1] / 2 },
+                                .Right => utils.Vec2f{ r.pos[0] + r.dim[0] + 0.1, r.pos[1] + r.dim[1] / 2 },
+                                .Up => utils.Vec2f{ r.pos[0] + r.dim[0] / 2, r.pos[1] - 0.1 },
+                                .Down => utils.Vec2f{ r.pos[0] + r.dim[0] / 2, r.pos[1] + r.dim[1] + 0.1 },
+                            };
+
+                            const abs_target = utils.relToAbs(out_data.getArea(), target);
+
+                            const target_out = Output.byPointer(ctx, abs_target) orelse {
+                                log.info("couldn't find output to move window to", .{});
+                                return;
+                            };
+
+                            const target_data = ctx.outs.getPtr(target_out).?;
+
+                            const target_ws_id = target_data.workspace;
+                            const target_ws = try Workspace.get(ctx, target_ws_id);
+
+                            try target_ws.addWindow(.{
+                                .gpa = ctx.gpa,
+                                .focus = seat_data.focus,
+                                .cursorPos = utils.absToRel(target_data.getArea(), abs_target),
+                            }, win);
+                            ws.rmWindow(.{
+                                .gpa = ctx.gpa,
+                            }, win);
+                        },
+                    }
                 }
 
                 seat_data.warp_to_window = win;
