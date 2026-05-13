@@ -315,6 +315,10 @@ rhine links the following shared libraries:
 * libwayland-client
 * libc
 
+=== other dependencies
+
+* rhine depends on a header from libxkbcommon
+
 == Strict No LLM / No AI Policy
 
 Use of generative AI/LLMs is strictly forbidden for all contributions to rhine.
