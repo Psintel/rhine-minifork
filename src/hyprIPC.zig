@@ -3,6 +3,7 @@ const mem = std.mem;
 const meta = std.meta;
 const net = std.Io.net;
 const posix = std.posix;
+const fmt = std.fmt;
 const Io = std.Io;
 const wayland = @import("wayland");
 
@@ -20,6 +21,7 @@ const Workspace = @import("workspace.zig");
 const Tiler = @import("tiler.zig");
 const Layouts = @import("layouts.zig");
 const Config = @import("config.zig");
+const Animations = @import("animations.zig");
 const commands = @import("commands.zig");
 
 const log = std.log;
@@ -73,9 +75,124 @@ fn sock2(self: @This(), buffer: []u8, env: *std.process.Environ.Map) ![]u8 {
     return std.fmt.bufPrint(buffer, "{s}/hypr/{s}/.socket2.sock", .{ runtime, sig });
 }
 
-fn handlePlain(ctx: *Context, reader: *std.Io.Reader, writer: *std.Io.Writer) !void {
-    if (mem.order(u8, reader.buffered(), "/workspaces") == .eq) {
+const Datas = struct {
+    pub const Workspace = struct {
+        id: i32,
+        name: []const u8,
+        monitor: ?[]const u8,
+        monitorID: ?u32,
+        windows: usize,
+        hasfullscreen: bool = false,
+        ispersistent: bool = false,
+        tiledLayout: Layouts.LayoutType,
+
+        pub fn format(ws: @This(), writer: *Io.Writer) !void {
+            try writer.print("workspace ID {} ({s}) on monitor {?s}:\n", .{ ws.id, ws.name, ws.monitor });
+            try writer.print("\tmonitorID: {?}\n", .{ws.monitorID});
+            try writer.print("\twindows: {}\n", .{ws.windows});
+            try writer.print("\thasfullscreen: {}\n", .{@intFromBool(ws.hasfullscreen)});
+            try writer.print("\tispersistent: {}\n", .{@intFromBool(ws.ispersistent)});
+            try writer.print("\ttiledLayout: {?s}\n", .{std.enums.tagName(Layouts.LayoutType, ws.tiledLayout)});
+        }
+    };
+
+    pub const SubWS = struct {
+        id: i32,
+        name: []const u8,
+        pub fn format(ws: @This(), writer: *Io.Writer) !void {
+            try writer.print("{} ({s})", .{ ws.id, ws.name });
+        }
+    };
+
+    pub const Monitor = struct {
+        id: u32,
+        name: ?[]const u8,
+        description: ?[]const u8,
+        make: ?[]const u8,
+        model: ?[]const u8,
+        serial: ?[]const u8,
+        width: i32,
+        height: i32,
+        physicalWidth: i32,
+        physicalHeight: i32,
+        refreshRate: i32,
+        x: i32,
+        y: i32,
+        activeWorkspace: SubWS,
+        specialWorkspace: ?SubWS,
+        reserved: struct { i32, i32, i32, i32 },
+        scale: f32,
+        transform: i32,
+        focused: bool = true,
+        disabled: bool = false,
+
+        pub fn format(mon: @This(), writer: *Io.Writer) !void {
+            try writer.print("Monitor {?s} (ID {})\n", .{ mon.name, mon.id });
+            try writer.print("\t{}x{}@{} at {}x{}\n", .{ mon.width, mon.height, mon.refreshRate, mon.x, mon.y });
+            try writer.print("\tmake: {?s}\n", .{mon.make});
+            try writer.print("\tmodel: {?s}\n", .{mon.model});
+            try writer.print("\tphysical size (mm): {}x{}\n", .{ mon.physicalWidth, mon.physicalHeight });
+            try writer.print("\tserial: {?s}\n", .{mon.serial});
+            try writer.print("\tactive workspace: {f}\n", .{mon.activeWorkspace});
+            try writer.print("\tspecial workspace: {?f}\n", .{mon.specialWorkspace});
+            try writer.print("\treserved: {} {} {} {}\n", mon.reserved);
+            try writer.print("\tscale: {}\n", .{mon.scale});
+            try writer.print("\ttransform: {}\n", .{mon.transform});
+        }
+    };
+
+    pub const Client = struct {
+        address: u32,
+        mapped: bool,
+        hidden: bool = false,
+        at: struct { i32, i32 },
+        size: struct { i32, i32 },
+        workspace: SubWS,
+        floating: bool,
+        monitor: ?u32,
+        class: ?[]const u8,
+        title: ?[]const u8,
+        pid: ?i32,
+        fullscreen: u1,
+        swallowing: u32 = 0,
+        stableId: []const u8,
+
+        pub fn format(cli: @This(), writer: *Io.Writer) !void {
+            try writer.print("Window {X} -> {?s}:\n", .{cli.address, cli.title});
+            try writer.print("\tmapped: {}\n", .{@intFromBool(cli.mapped)});
+            try writer.print("\thidden: {}\n", .{@intFromBool(cli.hidden)});
+            try writer.print("\tat: {}, {}\n", cli.at);
+            try writer.print("\tsize: {}, {}\n", cli.size);
+            try writer.print("\tworkspace: {f}\n", .{cli.workspace});
+            try writer.print("\tfloating: {}\n", .{@intFromBool(cli.floating)});
+            try writer.print("\tmonitor: {?}\n", .{cli.monitor});
+            try writer.print("\tclass: {?s}\n", .{cli.class});
+            try writer.print("\ttitle: {?s}\n", .{cli.title});
+            try writer.print("\tpid: {?}\n", .{cli.pid});
+            try writer.print("\txwayland: {}\n", .{0});
+            try writer.print("\tpinned: {}\n", .{0});
+            try writer.print("\tfullscreen: {}\n", .{cli.fullscreen});
+            try writer.print("\tswallowing: {}\n", .{cli.swallowing});
+            try writer.print("\tstableID: {s}\n", .{cli.stableId});
+}
+    };
+};
+
+fn handle(ctx: *Context, reader: *Io.Reader, json: bool, writer: *Io.Writer) !void {
+    var json_str: std.json.Stringify = .{
+        .writer = writer,
+        .options = .{
+            .whitespace = .indent_tab,
+            .emit_null_optional_fields = false,
+        },
+    };
+    var arena: std.heap.ArenaAllocator = .init(ctx.gpa);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    if (mem.startsWith(u8, reader.buffered(), "workspaces")) {
         var wsit = ctx.workspaces.iterator();
+        if (json) try json_str.beginArray();
         while (wsit.next()) |_ws| {
             const ws = _ws.key_ptr.*;
             const ws_dat = _ws.value_ptr;
@@ -85,71 +202,111 @@ fn handlePlain(ctx: *Context, reader: *std.Io.Reader, writer: *std.Io.Writer) !v
             if (out == null and win_count == 0) continue;
 
             const id = if (out) |o| o.getId() else null;
+            const mname = name: {
+                const o = out orelse break :name null;
+                const od = ctx.outs.get(o) orelse break :name null;
+                const g = od.wl_out orelse break :name null;
+                const wlo = ctx.wl_outs.get(g) orelse break :name null;
+                break :name wlo.name;
+            };
 
-            try writer.print("workspace ID {0} ({0}) on monitor {1?}:\n", .{ ws + 1, id });
-            try writer.print(
-                \\     monitorID: {?}
-                \\     windows: {}
-                \\     hasfullscreen: 0
-                \\
-                \\
-            ,
-                .{ id, win_count },
-            );
+            const ws_obj = Datas.Workspace{
+                .id = ws + 1,
+                .name = try fmt.allocPrint(alloc, "{}", .{ws}),
+                .monitor = mname,
+                .monitorID = id,
+                .windows = win_count,
+                .tiledLayout = ws_dat.tiler.tag,
+            };
+
+            if (json) {
+                try json_str.write(ws_obj);
+            } else {
+                try writer.print("{f}\n", .{ws_obj});
+            }
         }
-    } else if (mem.order(u8, reader.buffered(), "/monitors") == .eq) {
+        if (json) try json_str.endArray();
+    } else if (mem.startsWith(u8, reader.buffered(), "monitors")) {
         var outit = ctx.outs.iterator();
+        if (json) try json_str.beginArray();
         while (outit.next()) |_out| {
             const out = _out.key_ptr.*;
             const out_data = _out.value_ptr;
             const wl_data = ctx.wl_outs.get(out_data.wl_out orelse continue) orelse continue;
-            try writer.print("Monitor {1?s} (ID {0}):\n", .{ out.getId(), wl_data.name });
-            try writer.print(
-                \\     active workspace: {0} ({0})
-                \\     focused: yes
-                \\
-                \\
-            ,
-                .{out_data.workspace + 1},
-            );
-        }
 
-        if (ctx.outs.entries.len == 0) {
-            try writer.print("Monitor WL-1 (ID 0):\n", .{});
-            try writer.print(
-                \\     active workspace: 0 (0)
-                \\     focused: yes
-                \\
-                \\
-            ,
-                .{},
-            );
+            // best guess for monitor scale :D
+            const scale: f32 = @reduce(.Add, utils.int2Float(wl_data.mode.dim) / utils.int2Float(out_data.size.?)) / 2;
+
+            const out_obj: Datas.Monitor = .{
+                .id = out.getId(),
+                .name = wl_data.name,
+                .description = wl_data.description,
+                .make = wl_data.make,
+                .model = wl_data.model,
+                .serial = "",
+                .width = wl_data.mode.dim[0],
+                .height = wl_data.mode.dim[1],
+                .physicalWidth = wl_data.geometry.pdim[0],
+                .physicalHeight = wl_data.geometry.pdim[1],
+                .refreshRate = wl_data.mode.refresh,
+                .x = out_data.position.?[0],
+                .y = out_data.position.?[1],
+                .activeWorkspace = .{
+                    .id = out_data.workspace + 1,
+                    .name = try fmt.allocPrint(alloc, "{}", .{out_data.workspace}),
+                },
+                .specialWorkspace = if (out_data.overlay) |ov| .{
+                    .id = ov + 1,
+                    .name = try fmt.allocPrint(alloc, "{}", .{ov}),
+                } else null,
+                .reserved = .{ 0, 0, 0, 0 },
+                .scale = scale,
+                .transform = @intFromEnum(wl_data.geometry.trafo),
+            };
+
+            if (json) {
+                try json_str.write(out_obj);
+            } else {
+                try writer.print("{f}\n", .{out_obj});
+            }
         }
-    } else if (mem.order(u8, reader.buffered(), "/clients") == .eq) {
+        if (json) try json_str.endArray();
+    } else if (mem.startsWith(u8, reader.buffered(), "clients")) {
         var win_it = ctx.wins.iterator();
+        if (json) try json_str.beginArray();
         while (win_it.next()) |_win| {
             const win = _win.key_ptr.*;
             const win_dat = _win.value_ptr;
+            const man_dat = ctx.manage_states.get(win) orelse continue;
             const pos = win_dat.pos.current(ctx.anims, ctx.io);
             const size = win_dat.size;
+            const ws = Workspace.byWindow(ctx, win) orelse continue;
+            const out = Output.byWorkspace(ctx, ws);
 
-            const ws = Workspace.byWindow(ctx, win);
-
-            try writer.print("Window {} -> {?s}:\n", .{ win.getId(), win_dat.title });
-            try writer.print(
-                \\    mapped: 1
-                \\    hidden: 0
-                \\    at: {0}, {1}
-                \\    size: {2}, {3},
-                \\    workspace: {4?} ({4?})
-                \\    class: {5?s}
-                \\
-                \\
-            ,
-                .{ pos[0], pos[1], size[0], size[1], ws, win_dat.app_id },
-            );
+            const cli_obj: Datas.Client = .{
+                .address = win.getId(),
+                .mapped = man_dat.show,
+                .at = .{ pos[0], pos[1] },
+                .size = .{ size[0], size[1] },
+                .workspace = .{
+                    .id = ws + 1,
+                    .name = try fmt.allocPrint(alloc, "{}", .{ws}),
+                },
+                .floating = win_dat.float,
+                .monitor = if (out) |o| o.getId() else null,
+                .class = win_dat.app_id,
+                .title = win_dat.title,
+                .pid = win_dat.unreliable_pid,
+                .fullscreen = @intFromBool(win_dat.fullscreen.isOn()),
+                .stableId = &win_dat.identifier,
+            };
+            if (json)
+                try json_str.write(cli_obj)
+            else
+                try writer.print("{f}\n", .{cli_obj});
         }
-    } else if (mem.startsWith(u8, reader.buffered(), "/dispatch")) {
+        if (json) try json_str.endArray();
+    } else if (mem.startsWith(u8, reader.buffered(), "dispatch")) {
         _ = try reader.discardDelimiterInclusive(' ');
         const word = try reader.takeDelimiter(' ') orelse return;
         if (mem.eql(u8, word, "workspace")) {
@@ -163,8 +320,9 @@ fn handlePlain(ctx: *Context, reader: *std.Io.Reader, writer: *std.Io.Writer) !v
             }
             try writer.print("ok", .{});
         }
-    } else if (mem.startsWith(u8, reader.buffered(), "/rhine")) {
+    } else if (mem.startsWith(u8, reader.buffered(), "rhine")) {
         _ = try reader.discardDelimiterInclusive(' ');
+        try reader.fillMore();
         try handleCmd(ctx, reader.buffered());
         try writer.print("ok", .{});
     } else {
@@ -199,14 +357,17 @@ fn handleCon(serv: *net.Server, ctx: *Context) !void {
     while (reader.bufferedLen() == 0) {
         try reader.fillMore();
     }
+    errdefer log.info("unknown IPC request: {s}", .{reader.buffered()});
 
-    switch (try reader.peekByte()) {
-        '/' => try handlePlain(ctx, reader, writer),
-        else => {
-            try writer.print("wtf bro yappin about?\n", .{});
-            log.info("unknown IPC request start: {s}", .{reader.buffered()});
-        },
-    }
+    const _j = reader.takeDelimiter('/') catch |e| switch (e) {
+        error.StreamTooLong => return error.Invalid,
+        error.ReadFailed => return e,
+    } orelse return error.Invalid;
+
+    const j = if (mem.eql(u8, _j, "")) false else if (mem.eql(u8, _j, "j")) true else return error.Invalid;
+
+    try handle(ctx, reader, j, writer);
+
     try writer.flush();
     _ = try ctx.events.writeStreamingAll(ctx.io, "HEY!");
 }
@@ -231,7 +392,7 @@ pub const HyprEvent = union(enum) {
     const Out = Output.Wl;
     const Win = Window;
     const Trans = utils.Transaction;
-    const Unimpl = union{};
+    const Unimpl = union {};
 
     workspace: WS,
     workspacev2: WS,
