@@ -18,6 +18,7 @@ const Monitor = @import("output.zig");
 const Seat = @import("seat.zig");
 const Context = @import("context.zig");
 const Workspace = @import("workspace.zig");
+const RhineWs = Workspace;
 const Tiler = @import("tiler.zig");
 const Layouts = @import("layouts.zig");
 const Config = @import("config.zig");
@@ -123,12 +124,13 @@ const Datas = struct {
         reserved: struct { i32, i32, i32, i32 },
         scale: f32,
         transform: i32,
-        focused: bool = true,
+        focused: bool,
         disabled: bool = false,
 
         pub fn format(mon: @This(), writer: *Io.Writer) !void {
-            try writer.print("Monitor {?s} (ID {})\n", .{ mon.name, mon.id });
+            try writer.print("Monitor {?s} (ID {}):\n", .{ mon.name, mon.id });
             try writer.print("\t{}x{}@{} at {}x{}\n", .{ mon.width, mon.height, mon.refreshRate, mon.x, mon.y });
+            try writer.print("\tdescription: {?s}\n", .{mon.description});
             try writer.print("\tmake: {?s}\n", .{mon.make});
             try writer.print("\tmodel: {?s}\n", .{mon.model});
             try writer.print("\tphysical size (mm): {}x{}\n", .{ mon.physicalWidth, mon.physicalHeight });
@@ -138,6 +140,24 @@ const Datas = struct {
             try writer.print("\treserved: {} {} {} {}\n", mon.reserved);
             try writer.print("\tscale: {}\n", .{mon.scale});
             try writer.print("\ttransform: {}\n", .{mon.transform});
+            try writer.print("\tfocused: {s}\n", .{if (mon.focused) "yes" else "no"});
+            try writer.print("\tdpmsStatus: 1\n", .{});
+            try writer.print("\tvrr: false\n", .{});
+            try writer.print("\tsolitary: 0\n", .{});
+            try writer.print("\tsolitaryBlockedBy: windowed mode,missing candidate\n", .{});
+            try writer.print("\tactivelyTearing: false\n", .{});
+            try writer.print("\ttearingBlockedBy: next frame is not torn,user settings,missing candidate\n", .{});
+            try writer.print("\tdirectScanoutTo: 0\n", .{});
+            try writer.print("\tdirectScanoutBlockedBy: user settings,software renders/cursors,missing candidate\n", .{});
+            try writer.print("\tdisabled: false\n", .{});
+            try writer.print("\tcurrentFormat: XRGB8888\n", .{});
+            try writer.print("\tmirrorOf: none\n", .{});
+            try writer.print("\tavailableModes: \n", .{});
+            try writer.print("\tcolorManagementPreset: srgb\n", .{});
+            try writer.print("\tsdrBrightness: 1.00\n", .{});
+            try writer.print("\tsdrSaturation: 1.00\n", .{});
+            try writer.print("\tsdrMinLuminance: 0.20\n", .{});
+            try writer.print("\tsdrMaxLuminance: 80\n", .{});
         }
     };
 
@@ -157,8 +177,35 @@ const Datas = struct {
         swallowing: u32 = 0,
         stableId: []const u8,
 
+        pub fn populate(ctx: *Context, win: *rwm.WindowV1, arena: mem.Allocator) !?@This() {
+            const win_dat = ctx.wins.get(win) orelse return null;
+            const man_dat = ctx.manage_states.get(win) orelse return null;
+            const pos = win_dat.pos.current(ctx.anims, ctx.io);
+            const size = win_dat.size;
+            const ws = RhineWs.byWindow(ctx, win) orelse return null;
+            const out = Output.byWorkspace(ctx, ws);
+
+            return .{
+                .address = win.getId(),
+                .mapped = man_dat.show,
+                .at = .{ pos[0], pos[1] },
+                .size = .{ size[0], size[1] },
+                .workspace = .{
+                    .id = ws + 1,
+                    .name = try fmt.allocPrint(arena, "{}", .{ws + 1}),
+                },
+                .floating = win_dat.float,
+                .monitor = if (out) |o| o.getId() else null,
+                .class = win_dat.app_id,
+                .title = win_dat.title,
+                .pid = win_dat.unreliable_pid,
+                .fullscreen = @intFromBool(win_dat.fullscreen.isOn()),
+                .stableId = &win_dat.identifier,
+            };
+        }
+
         pub fn format(cli: @This(), writer: *Io.Writer) !void {
-            try writer.print("Window {X} -> {?s}:\n", .{cli.address, cli.title});
+            try writer.print("Window {X} -> {?s}:\n", .{ cli.address, cli.title });
             try writer.print("\tmapped: {}\n", .{@intFromBool(cli.mapped)});
             try writer.print("\thidden: {}\n", .{@intFromBool(cli.hidden)});
             try writer.print("\tat: {}, {}\n", cli.at);
@@ -174,7 +221,7 @@ const Datas = struct {
             try writer.print("\tfullscreen: {}\n", .{cli.fullscreen});
             try writer.print("\tswallowing: {}\n", .{cli.swallowing});
             try writer.print("\tstableID: {s}\n", .{cli.stableId});
-}
+        }
     };
 };
 
@@ -212,7 +259,7 @@ fn handle(ctx: *Context, reader: *Io.Reader, json: bool, writer: *Io.Writer) !vo
 
             const ws_obj = Datas.Workspace{
                 .id = ws + 1,
-                .name = try fmt.allocPrint(alloc, "{}", .{ws}),
+                .name = try fmt.allocPrint(alloc, "{}", .{ws + 1}),
                 .monitor = mname,
                 .monitorID = id,
                 .windows = win_count,
@@ -237,6 +284,11 @@ fn handle(ctx: *Context, reader: *Io.Reader, json: bool, writer: *Io.Writer) !vo
             // best guess for monitor scale :D
             const scale: f32 = @reduce(.Add, utils.int2Float(wl_data.mode.dim) / utils.int2Float(out_data.size.?)) / 2;
 
+            var focused = false;
+            for (ctx.seats.keys()) |s| {
+                if (Output.bySeat(ctx, s) == out) focused = true;
+            }
+
             const out_obj: Datas.Monitor = .{
                 .id = out.getId(),
                 .name = wl_data.name,
@@ -253,14 +305,15 @@ fn handle(ctx: *Context, reader: *Io.Reader, json: bool, writer: *Io.Writer) !vo
                 .y = out_data.position.?[1],
                 .activeWorkspace = .{
                     .id = out_data.workspace + 1,
-                    .name = try fmt.allocPrint(alloc, "{}", .{out_data.workspace}),
+                    .name = try fmt.allocPrint(alloc, "{}", .{out_data.workspace + 1}),
                 },
                 .specialWorkspace = if (out_data.overlay) |ov| .{
                     .id = ov + 1,
-                    .name = try fmt.allocPrint(alloc, "{}", .{ov}),
+                    .name = try fmt.allocPrint(alloc, "{}", .{ov + 1}),
                 } else null,
                 .reserved = .{ 0, 0, 0, 0 },
                 .scale = scale,
+                .focused = focused,
                 .transform = @intFromEnum(wl_data.geometry.trafo),
             };
 
@@ -272,40 +325,26 @@ fn handle(ctx: *Context, reader: *Io.Reader, json: bool, writer: *Io.Writer) !vo
         }
         if (json) try json_str.endArray();
     } else if (mem.startsWith(u8, reader.buffered(), "clients")) {
-        var win_it = ctx.wins.iterator();
         if (json) try json_str.beginArray();
-        while (win_it.next()) |_win| {
-            const win = _win.key_ptr.*;
-            const win_dat = _win.value_ptr;
-            const man_dat = ctx.manage_states.get(win) orelse continue;
-            const pos = win_dat.pos.current(ctx.anims, ctx.io);
-            const size = win_dat.size;
-            const ws = Workspace.byWindow(ctx, win) orelse continue;
-            const out = Output.byWorkspace(ctx, ws);
-
-            const cli_obj: Datas.Client = .{
-                .address = win.getId(),
-                .mapped = man_dat.show,
-                .at = .{ pos[0], pos[1] },
-                .size = .{ size[0], size[1] },
-                .workspace = .{
-                    .id = ws + 1,
-                    .name = try fmt.allocPrint(alloc, "{}", .{ws}),
-                },
-                .floating = win_dat.float,
-                .monitor = if (out) |o| o.getId() else null,
-                .class = win_dat.app_id,
-                .title = win_dat.title,
-                .pid = win_dat.unreliable_pid,
-                .fullscreen = @intFromBool(win_dat.fullscreen.isOn()),
-                .stableId = &win_dat.identifier,
-            };
+        for (ctx.wins.keys()) |win| {
+            const cli_obj = try Datas.Client.populate(ctx, win, alloc) orelse continue;
             if (json)
                 try json_str.write(cli_obj)
             else
                 try writer.print("{f}\n", .{cli_obj});
         }
         if (json) try json_str.endArray();
+    } else if (mem.startsWith(u8, reader.buffered(), "activewindow")) {
+        const seat = ctx.last_active orelse return;
+        const seat_data = ctx.seats.get(seat) orelse return;
+        const active = seat_data.focus orelse return;
+
+        const cli_obj = try Datas.Client.populate(ctx, active, alloc) orelse return;
+
+        if (json)
+            try json_str.write(cli_obj)
+        else
+            try writer.print("{f}\n", .{cli_obj});
     } else if (mem.startsWith(u8, reader.buffered(), "dispatch")) {
         _ = try reader.discardDelimiterInclusive(' ');
         const word = try reader.takeDelimiter(' ') orelse return;
@@ -326,7 +365,10 @@ fn handle(ctx: *Context, reader: *Io.Reader, json: bool, writer: *Io.Writer) !vo
         try handleCmd(ctx, reader.buffered());
         try writer.print("ok", .{});
     } else {
-        try writer.print("don't know how to respond :(\n\n", .{});
+        if (json)
+            try json_str.write(.{})
+        else
+            try writer.print("don't know how to respond :(\n\n", .{});
         log.info("unknown ipc request {s}", .{reader.buffered()});
     }
     try writer.flush();
