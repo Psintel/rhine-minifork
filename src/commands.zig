@@ -389,19 +389,18 @@ pub const Command = union(enum) {
 
                             const abs_target = utils.relToAbs(out_data.getArea(), target);
 
-                            const target_out = Output.byPointer(ctx, abs_target) orelse {
-                                log.info("couldn't find output to move window to", .{});
+                            const target_ws = Workspace.byPointer(ctx, abs_target) orelse {
+                                log.info("couldn't find workspace to move window to", .{});
                                 return;
                             };
+                            const target_ws_data = try Workspace.get(ctx, target_ws);
 
-                            const target_data = ctx.outs.getPtr(target_out).?;
+                            const t_out = Output.byWorkspace(ctx, target_ws).?;
+                            const target_data = ctx.outs.get(t_out).?;
 
-                            const target_ws_id = target_data.workspace;
-                            const target_ws = try Workspace.get(ctx, target_ws_id);
-
-                            try target_ws.addWindow(.{
+                            try target_ws_data.addWindow(.{
                                 .gpa = ctx.gpa,
-                                .focus = seat_data.focus,
+                                .focus = Window.byPointer(ctx, abs_target),
                                 .cursorPos = utils.absToRel(target_data.getArea(), abs_target),
                             }, win);
                             ws.rmWindow(.{

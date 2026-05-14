@@ -149,7 +149,7 @@ pub fn relToAbs(frame: Rect2, rel: Vec2f) Vec2 {
 }
 
 pub fn absToRel(frame: Rect2, rel: Vec2) Vec2f {
-    const rp = int2Float(frame.pos - rel);
+    const rp = int2Float(rel - frame.pos);
     return rp / int2Float(frame.dim);
 }
 
