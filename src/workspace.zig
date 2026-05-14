@@ -90,6 +90,8 @@ pub fn get(ctx: *Context, id: WS) !*Workspace {
         log.err("invalid key \"layout_config\": {}", .{e});
     }
 
+    try ctx.ipcChannel.putOneUncancelable(ctx.io, .{.createworkspace =  id});
+    try ctx.ipcChannel.putOneUncancelable(ctx.io, .{.createworkspacev2 =  id});
     return new;
 }
 

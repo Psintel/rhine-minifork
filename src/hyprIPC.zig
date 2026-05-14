@@ -87,6 +87,30 @@ const Datas = struct {
         ispersistent: bool = false,
         tiledLayout: Layouts.LayoutType,
 
+        pub fn populate(ctx: *Context, ws: RhineWs.WS, arena: mem.Allocator) !?@This() {
+            const ws_dat = ctx.workspaces.get(ws) orelse return null;
+            const out = Output.byWorkspace(ctx, ws);
+            const win_count = ws_dat.windows.count() + ws_dat.floating.count();
+
+            const id = if (out) |o| o.getId() else null;
+            const mname = name: {
+                const o = out orelse break :name null;
+                const od = ctx.outs.get(o) orelse break :name null;
+                const g = od.wl_out orelse break :name null;
+                const wlo = ctx.wl_outs.get(g) orelse break :name null;
+                break :name wlo.name;
+            };
+
+            return .{
+                .id = ws + 1,
+                .name = try fmt.allocPrint(arena, "{}", .{ws + 1}),
+                .monitor = mname,
+                .monitorID = id,
+                .windows = win_count,
+                .tiledLayout = ws_dat.tiler.tag,
+            };
+        }
+
         pub fn format(ws: @This(), writer: *Io.Writer) !void {
             try writer.print("workspace ID {} ({s}) on monitor {?s}:\n", .{ ws.id, ws.name, ws.monitor });
             try writer.print("\tmonitorID: {?}\n", .{ws.monitorID});
@@ -230,7 +254,7 @@ fn handle(ctx: *Context, reader: *Io.Reader, json: bool, writer: *Io.Writer) !vo
         .writer = writer,
         .options = .{
             .whitespace = .indent_tab,
-            .emit_null_optional_fields = false,
+            .emit_null_optional_fields = true,
         },
     };
     var arena: std.heap.ArenaAllocator = .init(ctx.gpa);
@@ -238,33 +262,9 @@ fn handle(ctx: *Context, reader: *Io.Reader, json: bool, writer: *Io.Writer) !vo
     const alloc = arena.allocator();
 
     if (mem.startsWith(u8, reader.buffered(), "workspaces")) {
-        var wsit = ctx.workspaces.iterator();
         if (json) try json_str.beginArray();
-        while (wsit.next()) |_ws| {
-            const ws = _ws.key_ptr.*;
-            const ws_dat = _ws.value_ptr;
-            const out = Output.byWorkspace(ctx, ws);
-            const win_count = ws_dat.windows.count() + ws_dat.floating.count();
-
-            if (out == null and win_count == 0) continue;
-
-            const id = if (out) |o| o.getId() else null;
-            const mname = name: {
-                const o = out orelse break :name null;
-                const od = ctx.outs.get(o) orelse break :name null;
-                const g = od.wl_out orelse break :name null;
-                const wlo = ctx.wl_outs.get(g) orelse break :name null;
-                break :name wlo.name;
-            };
-
-            const ws_obj = Datas.Workspace{
-                .id = ws + 1,
-                .name = try fmt.allocPrint(alloc, "{}", .{ws + 1}),
-                .monitor = mname,
-                .monitorID = id,
-                .windows = win_count,
-                .tiledLayout = ws_dat.tiler.tag,
-            };
+        for (ctx.workspaces.keys()) |ws| {
+            const ws_obj = try Datas.Workspace.populate(ctx, ws, alloc) orelse continue;
 
             if (json) {
                 try json_str.write(ws_obj);
@@ -290,7 +290,7 @@ fn handle(ctx: *Context, reader: *Io.Reader, json: bool, writer: *Io.Writer) !vo
             }
 
             const out_obj: Datas.Monitor = .{
-                .id = out.getId(),
+                .id = out.getId() & 0xff, // <- hack to make id not too big
                 .name = wl_data.name,
                 .description = wl_data.description,
                 .make = wl_data.make,
@@ -345,6 +345,21 @@ fn handle(ctx: *Context, reader: *Io.Reader, json: bool, writer: *Io.Writer) !vo
             try json_str.write(cli_obj)
         else
             try writer.print("{f}\n", .{cli_obj});
+    } else if (mem.startsWith(u8, reader.buffered(), "activeworkspace")) {
+        const seat = ctx.last_active orelse return;
+        const ws = Workspace.bySeat(ctx, seat) orelse return;
+
+        const cli_obj = try Datas.Workspace.populate(ctx, ws, alloc) orelse return;
+
+        if (json)
+            try json_str.write(cli_obj)
+        else
+            try writer.print("{f}\n", .{cli_obj});
+    } else if (mem.startsWith(u8, reader.buffered(), "workspacerules")) {
+        if (json)
+            try json_str.write(&.{})
+        else
+            try writer.print("\n", .{});
     } else if (mem.startsWith(u8, reader.buffered(), "dispatch")) {
         _ = try reader.discardDelimiterInclusive(' ');
         const word = try reader.takeDelimiter(' ') orelse return;
@@ -454,8 +469,8 @@ pub const HyprEvent = union(enum) {
     moveworkspace: struct { WS, Out },
     moveworkspacev2: struct { WS, Out },
     renameworkspace: WS,
-    activespecial: struct { WS, Out },
-    activespecialv2: struct { WS, Out },
+    activespecial: struct { ?WS, Out },
+    activespecialv2: struct { ?WS, Out },
     activelayout: Unimpl,
     openwindow: struct { Win, WS },
     closewindow: struct { Win },
@@ -483,6 +498,31 @@ pub const HyprEvent = union(enum) {
 
     pub fn format(self: @This(), w: *Io.Writer) Io.Writer.Error!void {
         switch (self) {
+            .workspace => |ws| try w.print("{}", .{ws + 1}),
+            .workspacev2 => |ws| try w.print("{0},{0}", .{ws + 1}),
+            .activespecial => |_s| {
+                const _ws, const out = _s;
+                if (_ws) |ws|
+                    try w.print("{},{?s}", .{ ws + 1, out.name })
+                else
+                    try w.print(",{?s}", .{out.name});
+            },
+            .activespecialv2 => |_s| {
+                const _ws, const out = _s;
+                if (_ws) |ws|
+                    try w.print("{0},{0},{1?s}", .{ ws + 1, out.name })
+                else
+                    try w.print(",,{?s}", .{out.name});
+            },
+            .createworkspace => |ws| try w.print("{}", .{ws + 1}),
+            .createworkspacev2 => |ws| try w.print("{0},{0}", .{ws + 1}),
+            .destroyworkspace => |ws| try w.print("{}", .{ws + 1}),
+            .destroyworkspacev2 => |ws| try w.print("{0},{0}", .{ws + 1}),
+            .focusedmon, .focusedmonv2 => |_s| {
+                const out, const ws = _s;
+                try w.print("{?s},{}", .{ out.name, ws + 1 });
+            },
+
             else => {
                 try w.print("", .{});
             },

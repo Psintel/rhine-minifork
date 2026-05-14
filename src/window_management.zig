@@ -297,6 +297,7 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: Io.Timestamp)
 }
 
 fn manage(ctx: *Context) !void {
+    errdefer ctx.dirty = true;
     // register new windows
     for (ctx.should_open.items) |win| {
         try Window.assign(ctx, win);
@@ -304,8 +305,26 @@ fn manage(ctx: *Context) !void {
     }
     ctx.should_open.clearAndFree(ctx.gpa);
 
-    const curr_time = clock.now(ctx.io);
+    // reap workspaces
+    var wsiter = ctx.workspaces.iterator();
+    while (wsiter.next()) |_ws| {
+        const ws = _ws.key_ptr.*;
+        const ws_data = _ws.value_ptr;
 
+        // don't delete shown workspaces
+        if (Output.byWorkspace(ctx, ws)) |_| continue;
+        // don't delete nonempty workspaces
+        if (!ws_data.isEmpty()) continue;
+
+        ws_data.deinit(ctx);
+        _ = ctx.workspaces.swapRemove(ws);
+        wsiter.index -= 1;
+        wsiter.len -= 1;
+        try ctx.ipcChannel.putOneUncancelable(ctx.io, .{ .destroyworkspace = ws });
+        try ctx.ipcChannel.putOneUncancelable(ctx.io, .{ .destroyworkspacev2 = ws });
+    }
+
+    const curr_time = clock.now(ctx.io);
     try apply_tiler(ctx, curr_time);
 
     // make sure out internal seat data is in-sync

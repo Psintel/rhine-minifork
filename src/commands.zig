@@ -247,6 +247,14 @@ pub const Command = union(enum) {
                 seat_data.focus = if (ws_data.windows.entries.len > 0) ws_data.windows.keys()[0] else null;
                 seat_data.warp_to_window = seat_data.focus;
                 ctx.dirty = true;
+
+                const wl_out = ctx.wl_outs.get(out_data.wl_out orelse return) orelse return;
+                try ctx.ipcChannel.putOneUncancelable(ctx.io, .{
+                    .activespecial = .{ out_data.overlay, wl_out },
+                });
+                try ctx.ipcChannel.putOneUncancelable(ctx.io, .{
+                    .activespecialv2 = .{ out_data.overlay, wl_out },
+                });
             },
             .focusWorkspace => |_ws| {
                 const ws = try _ws.resolve(ctx, seat);
@@ -260,7 +268,13 @@ pub const Command = union(enum) {
 
                 log.info("switching to workspace {}", .{ws});
 
-                if (Workspace.getOutput(ctx, ws) == null) {
+                if (Workspace.getOutput(ctx, ws)) |ws_out| {
+                    if (ws_out != out)
+                        if (out_data.wl_out) |wl_out| if (ctx.wl_outs.get(wl_out)) |wl_data| {
+                            try ctx.ipcChannel.putOneUncancelable(ctx.io, .{ .focusedmon = .{ wl_data, ws } });
+                            try ctx.ipcChannel.putOneUncancelable(ctx.io, .{ .focusedmonv2 = .{ wl_data, ws } });
+                        };
+                } else {
                     out_data.setWorkspace(ctx, ws, Animations.clock.now(ctx.io));
                 }
 
@@ -268,6 +282,7 @@ pub const Command = union(enum) {
                 seat_data.warp_to_window = seat_data.focus;
                 ctx.dirty = true;
                 try ctx.ipcChannel.putOneUncancelable(ctx.io, .{ .workspace = ws });
+                try ctx.ipcChannel.putOneUncancelable(ctx.io, .{ .workspacev2 = ws });
             },
             .sendToWorkspace => |_ws| {
                 const ws = try _ws.resolve(ctx, seat);
