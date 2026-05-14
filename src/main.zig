@@ -215,11 +215,17 @@ pub fn main(init: std.process.Init) !void {
         .config = Config.parse(alloc, &reader_object.interface) catch |e| {
             Notify.send(.{
                 .summary = "failed to start rhine",
-                .body = "failed to load initial config",
+                .body =
+                \\failed to load the initial configuration file.
+                \\this is most likely due to a missing or invalid config
+                ,
                 .duration = 0,
                 .urgency = .Critical,
             }) catch {};
-            std.process.fatal("failed to load initial config {}", .{e});
+            std.process.fatal(
+                \\failed to load the initial configuration file: {}.
+                \\this is most likely due to a missing or invalid config
+            , .{e});
         },
         .events = events,
         .ipcChannel = .init(&queue_buf),
