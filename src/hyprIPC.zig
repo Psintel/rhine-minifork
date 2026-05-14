@@ -80,8 +80,8 @@ const Datas = struct {
     pub const Workspace = struct {
         id: i32,
         name: []const u8,
-        monitor: ?[]const u8,
-        monitorID: ?u32,
+        monitor: []const u8,
+        monitorID: u32,
         windows: usize,
         hasfullscreen: bool = false,
         ispersistent: bool = false,
@@ -92,7 +92,7 @@ const Datas = struct {
             const out = Output.byWorkspace(ctx, ws);
             const win_count = ws_dat.windows.count() + ws_dat.floating.count();
 
-            const id = if (out) |o| o.getId() else null;
+            const id = if (out) |o| ctx.outs.getIndex(o) else null;
             const mname = name: {
                 const o = out orelse break :name null;
                 const od = ctx.outs.get(o) orelse break :name null;
@@ -103,17 +103,17 @@ const Datas = struct {
 
             return .{
                 .id = ws + 1,
-                .name = try fmt.allocPrint(arena, "{}", .{ws + 1}),
-                .monitor = mname,
-                .monitorID = id,
+                .name = try fmt.allocPrint(arena, "{}", .{ws}),
+                .monitor = mname orelse "",
+                .monitorID = @intCast(id orelse 0),
                 .windows = win_count,
                 .tiledLayout = ws_dat.tiler.tag,
             };
         }
 
         pub fn format(ws: @This(), writer: *Io.Writer) !void {
-            try writer.print("workspace ID {} ({s}) on monitor {?s}:\n", .{ ws.id, ws.name, ws.monitor });
-            try writer.print("\tmonitorID: {?}\n", .{ws.monitorID});
+            try writer.print("workspace ID {} ({s}) on monitor {s}:\n", .{ ws.id, ws.name, ws.monitor });
+            try writer.print("\tmonitorID: {}\n", .{ws.monitorID});
             try writer.print("\twindows: {}\n", .{ws.windows});
             try writer.print("\thasfullscreen: {}\n", .{@intFromBool(ws.hasfullscreen)});
             try writer.print("\tispersistent: {}\n", .{@intFromBool(ws.ispersistent)});
@@ -144,7 +144,7 @@ const Datas = struct {
         x: i32,
         y: i32,
         activeWorkspace: SubWS,
-        specialWorkspace: ?SubWS,
+        specialWorkspace: SubWS,
         reserved: struct { i32, i32, i32, i32 },
         scale: f32,
         transform: i32,
@@ -160,7 +160,7 @@ const Datas = struct {
             try writer.print("\tphysical size (mm): {}x{}\n", .{ mon.physicalWidth, mon.physicalHeight });
             try writer.print("\tserial: {?s}\n", .{mon.serial});
             try writer.print("\tactive workspace: {f}\n", .{mon.activeWorkspace});
-            try writer.print("\tspecial workspace: {?f}\n", .{mon.specialWorkspace});
+            try writer.print("\tspecial workspace: {f}\n", .{mon.specialWorkspace});
             try writer.print("\treserved: {} {} {} {}\n", mon.reserved);
             try writer.print("\tscale: {}\n", .{mon.scale});
             try writer.print("\ttransform: {}\n", .{mon.transform});
@@ -193,7 +193,7 @@ const Datas = struct {
         size: struct { i32, i32 },
         workspace: SubWS,
         floating: bool,
-        monitor: ?u32,
+        monitor: u32,
         class: ?[]const u8,
         title: ?[]const u8,
         pid: ?i32,
@@ -216,10 +216,10 @@ const Datas = struct {
                 .size = .{ size[0], size[1] },
                 .workspace = .{
                     .id = ws + 1,
-                    .name = try fmt.allocPrint(arena, "{}", .{ws + 1}),
+                    .name = try fmt.allocPrint(arena, "{}", .{ws}),
                 },
                 .floating = win_dat.float,
-                .monitor = if (out) |o| o.getId() else null,
+                .monitor = if (out) |o| @intCast(ctx.outs.getIndex(o).?) else 0,
                 .class = win_dat.app_id,
                 .title = win_dat.title,
                 .pid = win_dat.unreliable_pid,
@@ -236,7 +236,7 @@ const Datas = struct {
             try writer.print("\tsize: {}, {}\n", cli.size);
             try writer.print("\tworkspace: {f}\n", .{cli.workspace});
             try writer.print("\tfloating: {}\n", .{@intFromBool(cli.floating)});
-            try writer.print("\tmonitor: {?}\n", .{cli.monitor});
+            try writer.print("\tmonitor: {}\n", .{cli.monitor});
             try writer.print("\tclass: {?s}\n", .{cli.class});
             try writer.print("\ttitle: {?s}\n", .{cli.title});
             try writer.print("\tpid: {?}\n", .{cli.pid});
@@ -290,7 +290,7 @@ fn handle(ctx: *Context, reader: *Io.Reader, json: bool, writer: *Io.Writer) !vo
             }
 
             const out_obj: Datas.Monitor = .{
-                .id = out.getId() & 0xff, // <- hack to make id not too big
+                .id = @intCast(ctx.outs.getIndex(out).?),
                 .name = wl_data.name,
                 .description = wl_data.description,
                 .make = wl_data.make,
@@ -305,12 +305,12 @@ fn handle(ctx: *Context, reader: *Io.Reader, json: bool, writer: *Io.Writer) !vo
                 .y = out_data.position.?[1],
                 .activeWorkspace = .{
                     .id = out_data.workspace + 1,
-                    .name = try fmt.allocPrint(alloc, "{}", .{out_data.workspace + 1}),
+                    .name = try fmt.allocPrint(alloc, "{}", .{out_data.workspace}),
                 },
                 .specialWorkspace = if (out_data.overlay) |ov| .{
                     .id = ov + 1,
-                    .name = try fmt.allocPrint(alloc, "{}", .{ov + 1}),
-                } else null,
+                    .name = try fmt.allocPrint(alloc, "{}", .{ov}),
+                } else .{ .id = 0, .name = ""},
                 .reserved = .{ 0, 0, 0, 0 },
                 .scale = scale,
                 .focused = focused,
