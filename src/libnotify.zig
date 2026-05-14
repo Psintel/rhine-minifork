@@ -60,7 +60,7 @@ pub fn deinit() void {
 const NotifyOptions = struct {
     summary: [:0]const u8 = "",
     body: [:0]const u8 = "",
-    duration: u31 = 1000,
+    duration: u31 = 3000,
     urgency: Notification.Urgency = .Normal,
 };
 

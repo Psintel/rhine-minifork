@@ -212,7 +212,15 @@ pub fn main(init: std.process.Init) !void {
         .bind = try unwrapIFace(reg.bindings),
         .shell = try unwrapIFace(reg.shell),
         .cursor_shape = try unwrapIFace(reg.cursor_shape),
-        .config = try Config.parse(alloc, &reader_object.interface),
+        .config = Config.parse(alloc, &reader_object.interface) catch |e| {
+            Notify.send(.{
+                .summary = "failed to start rhine",
+                .body = "failed to load initial config",
+                .duration = 0,
+                .urgency = .Critical,
+            }) catch {};
+            std.process.fatal("failed to load initial config {}", .{e});
+        },
         .events = events,
         .ipcChannel = .init(&queue_buf),
         .restore = Restore.deserialize(&restore_reader.interface, alloc) catch |e| res: {
@@ -229,7 +237,7 @@ pub fn main(init: std.process.Init) !void {
     defer ipc.deinit(&ctx);
     const t = try std.Thread.spawn(.{}, HyprIPC.sock1Worker, .{ ipc, &ctx });
     t.detach();
-    var fut = try io.concurrent(HyprIPC.sock2Worker, .{ipc, io, &ctx, &ctx.ipcChannel});
+    var fut = try io.concurrent(HyprIPC.sock2Worker, .{ ipc, io, &ctx, &ctx.ipcChannel });
     defer fut.cancel(io) catch |e| log.err("sock2Worker failed with {}", .{e});
 
     ctx.wm.setListener(*Context, window_managment.listen, &ctx);

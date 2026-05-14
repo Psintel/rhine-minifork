@@ -89,15 +89,9 @@ pub fn listener(seat: *rwm.SeatV1, e: rwm.SeatV1.Event, ctx: *Context) void {
         },
         .pointer_enter => |win| {
             if (win.window) |w| {
-                const ws = Workspace.byWindow(ctx, w) orelse {
-                    log.err("seat {}: pointer entered window {} without workspace", .{ seat.getId(), w.getId() });
-                    return;
-                };
+                const ws = Workspace.byWindow(ctx, w) orelse return;
 
-                const out = Output.byWorkspace(ctx, ws) orelse {
-                    log.err("seat {}: pointer entered window {} shown on no output", .{ seat.getId(), w.getId() });
-                    return;
-                };
+                const out = Output.byWorkspace(ctx, ws) orelse return;
 
                 const out_data = ctx.outs.getPtr(out) orelse return;
 
