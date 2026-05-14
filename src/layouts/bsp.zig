@@ -108,7 +108,7 @@ const subTile = union(enum) {
     }
 
     // get next tile in direction `dir`
-    pub fn getDir(self: *@This(), win: Tiler.WT, dir: Tiler.Dir) union(enum) {
+    pub fn getDir(self: *@This(), win: Tiler.WT, dir: utils.Dir) union(enum) {
         success: *subTile,
         not_found: void,
         escalate: utils.Rect2f,
@@ -214,7 +214,7 @@ const subTile = union(enum) {
         }
     }
 
-    pub fn dirSplit(self: *@This(), win: WT, dir: Tiler.Dir) ?*@This() {
+    pub fn dirSplit(self: *@This(), win: WT, dir: utils.Dir) ?*@This() {
         switch (self.*) {
             .Leaf => return null,
             .Branch => |b| {
@@ -342,7 +342,7 @@ const subTile = union(enum) {
         }
     }
 
-    pub fn findClosest(self: *@This(), dir: Tiler.Dir, remaining: utils.Rect2f, rect: utils.Rect2f) struct { *@This(), utils.Rect2f } {
+    pub fn findClosest(self: *@This(), dir: utils.Dir, remaining: utils.Rect2f, rect: utils.Rect2f) struct { *@This(), utils.Rect2f } {
         switch (self.*) {
             .Leaf => return .{ self, remaining },
             .Branch => |b| {
@@ -389,7 +389,7 @@ const subTile = union(enum) {
         win: Tiler.WT,
         par: *@This(),
         target: *@This(),
-        dir: Tiler.Dir,
+        dir: utils.Dir,
         from: utils.Rect2f,
         to: utils.Rect2f,
         tarOr: Mode,
@@ -472,7 +472,7 @@ const subTile = union(enum) {
         aux.* = tarval;
     }
 
-    pub fn moveDir(self: *@This(), win: Tiler.WT, dir: Tiler.Dir) union(enum) {
+    pub fn moveDir(self: *@This(), win: Tiler.WT, dir: utils.Dir) union(enum) {
         success: void,
         not_found: void,
         escalate: utils.Rect2f,
@@ -643,7 +643,7 @@ pub fn manage(self: *@This(), ctx: Tiler.TileContext, bound: utils.Rect2, wins: 
     tree.manage(self.config, ctx, fbound, wins);
 }
 
-pub fn getWindow(self: *@This(), ctx: Tiler.TileContext, dir: Tiler.Dir) ?WT {
+pub fn getWindow(self: *@This(), ctx: Tiler.TileContext, dir: utils.Dir) ?WT {
     const tree = &(self.tree orelse return null);
     const win = ctx.focus orelse return null;
 
@@ -653,7 +653,7 @@ pub fn getWindow(self: *@This(), ctx: Tiler.TileContext, dir: Tiler.Dir) ?WT {
     }
 }
 
-pub fn move(self: *@This(), ctx: Tiler.TileContext, dir: Tiler.Dir) Tiler.MoveResult {
+pub fn move(self: *@This(), ctx: Tiler.TileContext, dir: utils.Dir) Tiler.MoveResult {
     const tree = &(self.tree orelse return .{ .done = {} });
     const focus = ctx.focus orelse return .{ .done = {}};
 

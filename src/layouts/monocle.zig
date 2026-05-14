@@ -20,7 +20,7 @@ const Config = @import("../config.zig");
 const WT = Tiler.WT;
 const ManageMap = Tiler.ManageMap;
 const TC = Tiler.TileContext;
-const Dir = Tiler.Dir;
+const Dir = utils.Dir;
 const Error = Tiler.Error;
 
 tiler: Tiler.tiler(@This()) = .{},

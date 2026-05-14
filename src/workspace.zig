@@ -109,11 +109,11 @@ pub fn manage(self: *@This(), ctx: Tiler.TileContext, bounds: utils.Rect2, man: 
     return self.tiler.vtable.manage(self.tiler.context, ctx, bounds, man);
 }
 
-pub fn getWindow(self: *@This(), ctx: Tiler.TileContext, dir: Tiler.Dir) ?*rwm.WindowV1 {
+pub fn getWindow(self: *@This(), ctx: Tiler.TileContext, dir: utils.Dir) ?*rwm.WindowV1 {
     return self.tiler.vtable.getWindow(self.tiler.context, ctx, dir);
 }
 
-pub fn move(self: *@This(), ctx: Tiler.TileContext, dir: Tiler.Dir) Tiler.MoveResult {
+pub fn move(self: *@This(), ctx: Tiler.TileContext, dir: utils.Dir) Tiler.MoveResult {
     return self.tiler.vtable.move(self.tiler.context, ctx, dir);
 }
 

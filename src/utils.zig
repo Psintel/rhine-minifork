@@ -13,6 +13,14 @@ pub const Vec2f = Vec2T(f32);
 pub const Rect2 = Rect2T(i32);
 pub const Rect2f = Rect2T(f32);
 
+pub const Dir = enum {
+    Left,
+    Right,
+    Up,
+    Down,
+};
+
+
 pub const Transaction = enum {
     no,
     soon,
@@ -82,6 +90,15 @@ fn Rect2T(T: type) type {
 
         pub fn constrain(self: @This(), pos: Vec2T(T)) Vec2T(T) {
             return @min(self.pos + self.dim, @max(self.pos, pos));
+        }
+
+        pub fn bumpCenter(self: @This(), dir: Dir, off: T) Vec2T(T) {
+            return switch (dir) {
+                .Left => .{ self.pos[0] - off, self.pos[1] + self.dim[1] / 2 },
+                .Right => .{ self.pos[0] + self.dim[0] + off, self.pos[1] + self.dim[1] / 2 },
+                .Up => .{ self.pos[0] + self.dim[0] / 2, self.pos[1] - off },
+                .Down => .{ self.pos[0] + self.dim[0] / 2, self.pos[1] + self.dim[1] + off },
+            };
         }
 
         pub fn inside(self: @This(), pos: Vec2T(T)) bool {

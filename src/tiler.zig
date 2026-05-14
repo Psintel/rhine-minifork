@@ -29,13 +29,6 @@ pub const TileContext = struct {
     gpa: mem.Allocator,
 };
 
-pub const Dir = enum {
-    Left,
-    Right,
-    Up,
-    Down,
-};
-
 pub const Anchor = struct {
     v: enum { top, bottom },
     h: enum { left, right },
@@ -83,8 +76,8 @@ pub const VTable = struct {
 
     // these two center on the focus from context (since that is an arg, it's easily mockable)
     // getWindow is used for focus shift
-    getWindow: *const fn (?*anyopaque, TileContext, Dir) ?WT,
-    move: *const fn (?*anyopaque, TileContext, Dir) MoveResult,
+    getWindow: *const fn (?*anyopaque, TileContext, utils.Dir) ?WT,
+    move: *const fn (?*anyopaque, TileContext, utils.Dir) MoveResult,
 
     // set the size of the focused window
     setSize: *const fn (?*anyopaque, TileContext, utils.Vec2f, Anchor) void,
@@ -123,12 +116,12 @@ pub fn tiler(T: type) type {
             return parent.manage(ctx, bound, man);
         }
 
-        fn move_impl(data: ?*anyopaque, ctx: TileContext, d: Dir) MoveResult {
+        fn move_impl(data: ?*anyopaque, ctx: TileContext, d: utils.Dir) MoveResult {
             const parent: *T = @ptrCast(@alignCast(data.?));
             return parent.move(ctx, d);
         }
 
-        fn get_impl(data: ?*anyopaque, ctx: TileContext, d: Dir) ?WT {
+        fn get_impl(data: ?*anyopaque, ctx: TileContext, d: utils.Dir) ?WT {
             const parent: *T = @ptrCast(@alignCast(data.?));
             return parent.getWindow(ctx, d);
         }

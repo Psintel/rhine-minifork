@@ -125,8 +125,8 @@ pub const Command = union(enum) {
     focusWorkspace: WsSpec,
     sendToWorkspace: WsSpec,
     moveToWorkspace: WsSpec,
-    moveFocus: Tiler.Dir,
-    moveWindow: Tiler.Dir,
+    moveFocus: utils.Dir,
+    moveWindow: utils.Dir,
     layoutCommand: struct { Layouts.LayoutType, Tiler.Command },
     pointerOp: pointer_ops.OpType,
     exit: void,
@@ -380,12 +380,7 @@ pub const Command = union(enum) {
 
                             const out_data = ctx.outs.get(out).?;
 
-                            const target: utils.Vec2f = switch (dir) {
-                                .Left => utils.Vec2f{ r.pos[0] - 0.1, r.pos[1] + r.dim[1] / 2 },
-                                .Right => utils.Vec2f{ r.pos[0] + r.dim[0] + 0.1, r.pos[1] + r.dim[1] / 2 },
-                                .Up => utils.Vec2f{ r.pos[0] + r.dim[0] / 2, r.pos[1] - 0.1 },
-                                .Down => utils.Vec2f{ r.pos[0] + r.dim[0] / 2, r.pos[1] + r.dim[1] + 0.1 },
-                            };
+                            const target: utils.Vec2f = r.bumpCenter(dir, 0.1);
 
                             const abs_target = utils.relToAbs(out_data.getArea(), target);
 
