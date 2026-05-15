@@ -20,7 +20,6 @@ pub const Dir = enum {
     Down,
 };
 
-
 pub const Transaction = enum {
     no,
     soon,
@@ -107,6 +106,17 @@ fn Rect2T(T: type) type {
 
             return near[0] <= pos[0] and pos[0] < far[0] and
                 near[1] <= pos[1] and pos[1] < far[1];
+        }
+
+        pub fn manhattanDistance(self: @This(), other: @This()) T {
+            const d = @select(
+                T,
+                self.pos < other.pos,
+                self.pos + self.dim - other.pos,
+                other.pos + other.dim - self.pos,
+            );
+            const normed = @max(d, @as(Vec2T(T), @splat(0)));
+            return @reduce(.Add, normed);
         }
 
         pub fn shift(self: @This(), offset: Vec2T(T)) @This() {
@@ -329,12 +339,12 @@ test {
 }
 
 test "iter" {
-    var a = [_]u8{1,2,3,4};
-    var b = [_]u8{5,6,7,8};
+    var a = [_]u8{ 1, 2, 3, 4 };
+    var b = [_]u8{ 5, 6, 7, 8 };
 
-    var iter = memIter(u8, &.{&a, &b});
+    var iter = memIter(u8, &.{ &a, &b });
 
-    while(iter.next()) |n| {
+    while (iter.next()) |n| {
         std.debug.print("{}, ", .{n});
     }
     std.debug.print("\n", .{});
