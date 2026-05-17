@@ -376,7 +376,6 @@ fn handle(ctx: *Context, reader: *Io.Reader, json: bool, writer: *Io.Writer) !vo
         }
     } else if (mem.startsWith(u8, reader.buffered(), "rhine")) {
         _ = try reader.discardDelimiterInclusive(' ');
-        try reader.fillMore();
         try handleCmd(ctx, reader.buffered());
         try writer.print("ok", .{});
     } else {
