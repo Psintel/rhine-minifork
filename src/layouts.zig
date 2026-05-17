@@ -16,7 +16,7 @@ const log = std.log.scoped(.Layout);
 
 const layouts = .{
     .bsp = @import("layouts/bsp.zig"),
-    .monocle = @import("layouts/monocle.zig"),
+    // .monocle = @import("layouts/monocle.zig"),
 };
 
 comptime {
@@ -96,7 +96,7 @@ pub fn delete(gpa: mem.Allocator, tile: Tiler) void {
     switch (tile.tag) {
         inline else => |t| {
             const T = @field(layouts, @tagName(t));
-            const v: *T = @alignCast(@ptrCast(ptr));
+            const v: *T = @ptrCast(@alignCast(ptr));
             if (@hasDecl(T, "deinit")) {
                 v.deinit(gpa);
             }

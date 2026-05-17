@@ -32,7 +32,6 @@ pub const WindowRule = struct {
     rule: Rule,
 
     pub fn fromEntry(entry: Config.Entry) !@This() {
-
         var args = entry.iterate();
 
         const match = try args.nextAssume();

@@ -22,7 +22,7 @@ pub const Sym = u32;
 
 const syms: std.StaticStringMap(Sym) = .initComptime(kvs: {
     const xkb = @import("keysysms");
-    const T = struct{ []const u8, Sym };
+    const T = struct { []const u8, Sym };
 
     var out: []const T = &.{};
     @setEvalBranchQuota(1000_000);

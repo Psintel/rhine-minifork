@@ -655,7 +655,7 @@ pub fn getWindow(self: *@This(), ctx: Tiler.TileContext, dir: utils.Dir) ?WT {
 
 pub fn move(self: *@This(), ctx: Tiler.TileContext, dir: utils.Dir) Tiler.MoveResult {
     const tree = &(self.tree orelse return .{ .done = {} });
-    const focus = ctx.focus orelse return .{ .done = {}};
+    const focus = ctx.focus orelse return .{ .done = {} };
 
     switch (tree.moveDir(focus, dir)) {
         .escalate => |r| return .{ .escalate = r },

@@ -129,7 +129,7 @@ pub fn move(self: *@This(), ct: TC, dir: Dir) Tiler.MoveResult {
             },
         }
 
-        return .{ .done = {}};
+        return .{ .done = {} };
     }
 
     return .{ .done = {} };

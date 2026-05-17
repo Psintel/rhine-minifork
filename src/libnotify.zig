@@ -48,7 +48,6 @@ pub const Notification = opaque {
     pub const setUrgency = notify_notification_set_urgency;
 };
 
-
 pub fn init() !void {
     if (opts.libnotify) if (notify_init("rhine") == 0) return error.NotifyInit;
 }

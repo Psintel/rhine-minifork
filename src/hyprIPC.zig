@@ -310,7 +310,7 @@ fn handle(ctx: *Context, reader: *Io.Reader, json: bool, writer: *Io.Writer) !vo
                 .specialWorkspace = if (out_data.overlay) |ov| .{
                     .id = ov + 1,
                     .name = try fmt.allocPrint(alloc, "{}", .{ov}),
-                } else .{ .id = 0, .name = ""},
+                } else .{ .id = 0, .name = "" },
                 .reserved = .{ 0, 0, 0, 0 },
                 .scale = scale,
                 .focused = focused,

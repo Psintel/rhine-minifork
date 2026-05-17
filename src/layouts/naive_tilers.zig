@@ -15,7 +15,6 @@ const Workspace = @import("workspace.zig");
 fn noop(_: ?*anyopaque, _: *Context, _: *rwm.WindowV1) void {}
 
 pub const cols = struct {
-
     pub fn positions(_: ?*anyopaque, ctx: *Context, windows: []*rwm.WindowV1, bounds: utils.Vec2) []utils.Vec2 {
         if (windows.len == 0) return &.{};
 
@@ -45,7 +44,6 @@ pub const cols = struct {
         return out;
     }
 
-
     const vt: Workspace.Tiler.VTable = .{
         .positions = positions,
         .sizes = sizes,
@@ -60,7 +58,6 @@ pub const cols = struct {
 };
 
 pub const rows = struct {
-
     pub fn positions(_: ?*anyopaque, ctx: *Context, windows: []*rwm.WindowV1, bounds: utils.Vec2) []utils.Vec2 {
         if (windows.len == 0) return &.{};
 

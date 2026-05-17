@@ -64,7 +64,6 @@ pub fn toSet(signals: Signals) posix.sigset_t {
     return sigs;
 }
 
-
 pub fn init(signals: Signals, flags: Flags) !@This() {
     var sigs = toSet(signals);
 
