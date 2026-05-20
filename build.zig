@@ -61,6 +61,10 @@ pub fn build(b: *Build) !void {
         .root_source_file = b.path("src/xkb.h"),
     });
 
+    // this only sets include files,
+    // we don't actually have any symbols to link against
+    keysyms.linkSystemLibrary("xkbcommon", .{});
+
     const exe = b.addExecutable(.{
         .name = "rhine",
         .root_module = b.createModule(.{
