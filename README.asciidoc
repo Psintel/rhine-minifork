@@ -7,10 +7,16 @@ Rhine is meant to be both capable and hackable.
 
 image::assets/screenshot.png[]
 
-Rhine supports parts of the Hyprland IPC protocol (only socket 1 so far) in order to enable external bars.
-(gBar by scorpion-26 runs for the most part.) This works by spoofing the `HYPRLAND_INSTANCE_SIGNATURE`
-environment variable. This spoofing will only affect processes spawned by the wm.
+Rhine supports significant parts of the Hyprland IPC protocol (socket 1 and 2) in order to enable external bars.
+This works by spoofing the `HYPRLAND_INSTANCE_SIGNATURE` environment variable. This spoofing will only affect processes spawned by Rhine.
+Bars I've tested:
 
+- https://github.com/scorpion-26/gBar[gBar]
+- https://github.com/alexays/waybar[waybar]
+- https://git.haschu.me/haschu/foobar[foobar]
+
+all of which more or less work.
+If you encounter any problems, then I'd encourage you to open an issue report.
 
 == config
 
