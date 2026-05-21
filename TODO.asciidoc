@@ -1,5 +1,7 @@
 = TODO
 
+* re-unify rhine and channel in utils.zig, config.zig
+    ** it's going to be called `libtributary`
 * border colour shouldn't be managed by tilers
 * I should probably have a different animation type for the workspace sliding
 * figure out what happens when floating windows leave workspace bounds
