@@ -308,6 +308,12 @@ What will rhine _not_ do (for now):
 Rhine is not yet entirely complete but I use it every day.
 If you find anything missing, then ask on the https://web.libera.chat/?channels=#river[river irc] or open an issue.
 
+== Dependencies
+
+Rhine is written in the zig programming language.
+Rhine currently requires `zig-0.16.0` but at least until 1.0 rhine will
+strive to always track the most recent version.
+
 === protocols bound
 rhine binds the following protocols:
 
@@ -321,9 +327,23 @@ rhine links the following shared libraries:
 * libwayland-client
 * libc
 
+optionally rhine also links the following:
+
+* libnotify
+
 === other dependencies
 
 * rhine depends on a header from libxkbcommon
+
+== Installing
+
+. Get rhine's source code by either downloading a release or cloning the git repo.
+. Compile rhine by running `zig build` from the project folder. there are however additional options:
+    .. `-Dnotify=false` build rhine without libnotify support, this avoids a bunch of dependencies but doesn't send
+    notifications
+. you will find the output files in the `zig-out`.
+    There's a `rhine` binary and a `rhine.desktop` wayland session file for easy use.
+
 
 == Strict No LLM / No AI Policy
 
