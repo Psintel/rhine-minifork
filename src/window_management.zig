@@ -33,7 +33,15 @@ const HyprIPC = @import("hyprIPC.zig");
 const log = std.log.scoped(.window_management);
 const clock = Animations.clock;
 
-const border_width = 2;
+pub const Options = struct {
+    border: struct {
+        width: u32 = 2,
+        colours: struct {
+            focus: utils.Color = .blue,
+            inactive: utils.Color = .gray,
+        } = .{},
+    } = .{},
+};
 
 pub fn listen(iface: *rwm.WindowManagerV1, event: rwm.WindowManagerV1.Event, ctx: *Context) void {
     switch (event) {
@@ -178,7 +186,13 @@ fn apply_tiler(ctx: *Context, curr_time: Io.Timestamp) !void {
     }
 }
 
-fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: Io.Timestamp) void {
+fn getOpts(ctx: *Context) !Options {
+    const cfg = try ctx.config.sub("window_management");
+    return cfg.parseT(Options);
+}
+
+fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: Io.Timestamp) !void {
+    const opts: Options = .{}; // getOpts(ctx) catch .{ .border_width = 2, .border_colour = .blue };
     var iter = utils.memIter(*rwm.WindowV1, &.{ ws.windows.keys(), ws.floating.keys() });
     while (iter.next()) |win| {
         const wd = ctx.wins.getPtr(win) orelse continue;
@@ -188,7 +202,12 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: Io.Timestamp)
             continue;
         };
 
-        const col = man_state.border;
+        var col = opts.border.colours.inactive;
+
+        for (ctx.seats.values()) |seat|
+            if (seat.focus == win) {
+                col = opts.border.colours.focus;
+            };
 
         if (wd.float) {
             // place relative to parent
@@ -220,7 +239,7 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: Io.Timestamp)
 
         win.setBorders(
             .{ .top = true, .bottom = true, .left = true, .right = true },
-            border_width,
+            opts.border.width,
             col.r,
             col.g,
             col.b,
@@ -254,8 +273,13 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: Io.Timestamp)
     }
 
     for (ws.floating.keys()) |win| {
-        const col: utils.Color = .gray;
         const wd = ctx.wins.getPtr(win) orelse continue;
+        var col = opts.border.colours.inactive;
+
+        for (ctx.seats.values()) |seat|
+            if (seat.focus == win) {
+                col = opts.border.colours.focus;
+            };
 
         switch (wd.fullscreen) {
             .no, .yes => {},
@@ -273,7 +297,7 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: Io.Timestamp)
 
         win.setBorders(
             .{ .top = true, .bottom = true, .left = true, .right = true },
-            border_width,
+            opts.border.width,
             col.r,
             col.g,
             col.b,
@@ -427,12 +451,12 @@ fn manage(ctx: *Context) !void {
         const out_data = _out.value_ptr;
 
         const ws = try Workspace.get(ctx, out_data.workspace);
-        manage_ws(ctx, ws, out, curr_time);
+        try manage_ws(ctx, ws, out, curr_time);
 
         // manage overlay
         if (out_data.overlay) |_overlay| {
             const overlay = try Workspace.get(ctx, _overlay);
-            manage_ws(ctx, overlay, out, curr_time);
+            try manage_ws(ctx, overlay, out, curr_time);
         }
     }
 
@@ -515,6 +539,7 @@ fn render(ctx: *Context) !void {
 }
 
 fn render_workspace(ws: Workspace.WS, ctx: *Context, offset: utils.Vec2, box: utils.Rect2, curr_time: Io.Timestamp) void {
+    const opts: Options = .{}; // getOpts(ctx) catch .{ .border_width = 2, .border_colour = .blue };
     const wsd = ctx.workspaces.get(ws) orelse return;
 
     // floating over non-floating
@@ -540,7 +565,7 @@ fn render_workspace(ws: Workspace.WS, ctx: *Context, offset: utils.Vec2, box: ut
             .dim = @max(wd.goal_size.get(ctx.anims, curr_time), @as(utils.Vec2, @splat(0))),
         };
 
-        const bordered = rect.pad(border_width);
+        const bordered = rect.pad(opts.border.width);
 
         const clip = box.intersect(bordered).shift(-rect.pos);
 
