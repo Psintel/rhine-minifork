@@ -108,15 +108,14 @@ fn Rect2T(T: type) type {
                 near[1] <= pos[1] and pos[1] < far[1];
         }
 
-        pub fn manhattanDistance(self: @This(), other: @This()) T {
+        pub fn distance(self: @This(), other: @This()) Vec2T(T) {
             const d = @select(
                 T,
                 self.pos < other.pos,
                 self.pos + self.dim - other.pos,
                 other.pos + other.dim - self.pos,
             );
-            const normed = @max(d, @as(Vec2T(T), @splat(0)));
-            return @reduce(.Add, normed);
+            return @max(d, @as(Vec2T(T), @splat(0)));
         }
 
         pub fn shift(self: @This(), offset: Vec2T(T)) @This() {

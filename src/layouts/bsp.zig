@@ -107,6 +107,20 @@ const subTile = union(enum) {
         }
     }
 
+    pub fn findPos(self: *@This(), pos: utils.Vec2f, bounds: utils.Rect2f) struct { ?*subTile, *subTile } {
+        switch (self.*) {
+            .Leaf => return .{ null, self },
+            .Branch => |b| {
+                const l, const r = subDivide(bounds, b.direction, b.ratio);
+                const p, const c = if (switch (b.direction) {
+                    .V => r.pos[0] > pos[0],
+                    .H => r.pos[1] > pos[1],
+                }) b.left.findPos(pos, l) else b.right.findPos(pos, r);
+                return .{ p orelse self, c };
+            },
+        }
+    }
+
     // get next tile in direction `dir`
     pub fn getDir(self: *@This(), win: Tiler.WT, dir: utils.Dir) union(enum) {
         success: *subTile,
@@ -582,6 +596,9 @@ pub fn add(self: *@This(), ctx: Tiler.TileContext, win: WT) Tiler.Error!void {
                 break :ins .{ null, found };
             }
         }
+
+        if (ctx.cursorPos) |pos|
+            break :ins tree.findPos(pos, .unit);
 
         var t = tree;
         var p: ?*subTile = null;

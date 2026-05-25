@@ -377,21 +377,19 @@ pub const Command = union(enum) {
                                 log.err("workspace {} not on output", .{ws_id});
                                 return;
                             };
-
                             const out_data = ctx.outs.get(out).?;
+                            const target_out = Output.closest(ctx, out, dir) orelse return;
+                            const target_data = ctx.outs.get(target_out).?;
 
-                            const target: utils.Vec2f = r.bumpCenter(dir, 0.1);
-
-                            const abs_target = utils.relToAbs(out_data.getArea(), target);
-
-                            const target_ws = Workspace.byPointer(ctx, abs_target) orelse {
-                                log.info("couldn't find workspace to move window to", .{});
+                            const target: utils.Vec2f = r.pos + (r.dim / @as(utils.Vec2f, @splat(2)));
+                            const abs_target = target_data.getArea().constrain(utils.relToAbs(out_data.getArea(), target));
+                            const target_ws = Workspace.byOutput(ctx, target_out) orelse {
+                                log.warn("couldn't find workspace to move window to", .{});
                                 return;
                             };
                             const target_ws_data = try Workspace.get(ctx, target_ws);
 
-                            const t_out = Output.byWorkspace(ctx, target_ws).?;
-                            const target_data = ctx.outs.get(t_out).?;
+                            log.info("moving from WS {} to WS {}", .{ ws_id, target_ws });
 
                             try target_ws_data.addWindow(.{
                                 .gpa = ctx.gpa,

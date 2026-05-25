@@ -50,11 +50,15 @@ pub fn getOutput(ctx: *Context, ws: WS) ?*rwm.OutputV1 {
     return null;
 }
 
-pub fn byPointer(ctx: *Context, pos: utils.Vec2) ?WS {
-    const out = Output.byPointer(ctx, pos) orelse return null;
+pub fn byOutput(ctx: *Context, out: *rwm.OutputV1) ?WS {
     const out_data = ctx.outs.get(out).?;
     if (out_data.overlay) |ows| return ows;
     return out_data.workspace;
+}
+
+pub fn byPointer(ctx: *Context, pos: utils.Vec2) ?WS {
+    const out = Output.byPointer(ctx, pos) orelse return null;
+    return byOutput(ctx, out);
 }
 
 pub fn get(ctx: *Context, id: WS) !*Workspace {

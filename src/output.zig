@@ -225,6 +225,42 @@ pub fn offset(self: *Output) utils.Vec2 {
     return utils.Vec2{ math.sign(self.workspace - self.last_workspace.?) * self.size.?[0], 0 };
 }
 
+pub fn closest(ctx: *Context, out: *rwm.OutputV1, dir: utils.Dir) ?*rwm.OutputV1 {
+    const out_data = ctx.outs.get(out) orelse return null;
+    const rect = out_data.getArea();
+
+    var ret: ?*rwm.OutputV1 = null;
+    var outs = ctx.outs.iterator();
+    while (outs.next()) |_other| {
+        const other = _other.key_ptr.*;
+        const other_data = _other.value_ptr.*;
+        const other_rect = other_data.getArea();
+
+        if (other == out) continue;
+
+        switch (dir) {
+            .Left => if (other_rect.pos[0] > rect.pos[0]) continue,
+            .Right => if (other_rect.pos[0] + other_rect.dim[0] < rect.pos[0] + rect.dim[0]) continue,
+            .Up => if (other_rect.pos[1] > rect.pos[1]) continue,
+            .Down => if (other_rect.pos[1] + other_rect.dim[1] < rect.pos[1] + rect.dim[1]) continue,
+        }
+
+        if (ret) |r| {
+            const r_data = ctx.outs.get(r).?;
+            const r_d = rect.distance(r_data.getArea());
+            const o_d = rect.distance(other_rect);
+            if (switch (dir) {
+                .Left, .Right => o_d[0] < r_d[0] or o_d[0] == r_d[0] and r_d[1] < o_d[1],
+                .Up, .Down => o_d[1] < r_d[1] or o_d[1] == r_d[1] and r_d[0] < o_d[0],
+            }) ret = other;
+        } else {
+            ret = other;
+        }
+    }
+
+    return ret;
+}
+
 // may fail or succeed
 pub fn setWorkspace(self: *Output, ctx: *Context, ws: Workspace.WS, curr_time: std.Io.Timestamp) void {
     log.info("switching to workspace {}", .{ws});
