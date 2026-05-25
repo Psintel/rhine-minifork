@@ -186,7 +186,7 @@ const Datas = struct {
     };
 
     pub const Client = struct {
-        address: u32,
+        address: []const u8,
         mapped: bool,
         hidden: bool = false,
         at: struct { i32, i32 },
@@ -210,7 +210,7 @@ const Datas = struct {
             const out = Output.byWorkspace(ctx, ws);
 
             return .{
-                .address = win.getId(),
+                .address = try fmt.allocPrint(arena, "0x{x}", .{win.getId()}),
                 .mapped = man_dat.show,
                 .at = .{ pos[0], pos[1] },
                 .size = .{ size[0], size[1] },
