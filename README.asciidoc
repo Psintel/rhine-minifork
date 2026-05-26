@@ -342,7 +342,9 @@ optionally rhine also links the following:
     .. `-Dnotify=false` build rhine without libnotify support, this avoids a bunch of dependencies but doesn't send
     notifications
 . you will find the output files in the `zig-out`.
-    There's a `rhine` binary and a `rhine.desktop` wayland session file for easy use.
+    .. There's a `rhine` binary and a `rhine.desktop` wayland session file for easy use.
+    .. if you're packaging rhine then the `zig-out` directory is more or less your build output directory.
+    .. if you're not packaging `rhine` you may consider something like moving the contents of `zig-out` to `/usr/local/`
 
 
 == Strict No LLM / No AI Policy
