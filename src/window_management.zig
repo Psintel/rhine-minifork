@@ -177,13 +177,6 @@ fn apply_tiler(ctx: *Context, curr_time: Io.Timestamp) !void {
         wd.setPos(ctx.anims, man_state.dims.pos, curr_time);
         wd.setSize(man_state.dims.dim, curr_time);
     }
-
-    for (ctx.seats.values()) |seat_data| {
-        if (seat_data.focus) |focus| {
-            const man_state = ctx.manage_states.getPtr(focus) orelse continue;
-            man_state.border = .blue;
-        }
-    }
 }
 
 fn getOpts(ctx: *Context) !Options {

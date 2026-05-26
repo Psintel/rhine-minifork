@@ -40,8 +40,6 @@ pub const TileState = struct {
         .dim = @splat(0),
         .pos = @splat(0),
     },
-
-    border: utils.Color = .gray,
 };
 
 // custom tiler-specific commands
