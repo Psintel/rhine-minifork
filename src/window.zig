@@ -23,7 +23,6 @@ const clock = Animations.clock;
 
 const log = std.log.scoped(.window);
 
-win: *rwm.WindowV1,
 node: *rwm.NodeV1,
 
 app_id: ?[]const u8 = null,
@@ -43,7 +42,6 @@ active_resize: utils.Transaction = .no,
 // initialize window
 pub fn init(_: *Context, win: *rwm.WindowV1) !@This() {
     return .{
-        .win = win,
         .node = try win.getNode(),
     };
 }
@@ -203,6 +201,13 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
             log.warn("lmao! can't actually handle event {s}", .{@tagName(event)});
         },
     }
+}
+
+pub fn goalRect(self: *@This()) utils.Rect2 {
+    return .{
+        .pos = self.pos.end(),
+        .dim = self.goal_size.end()
+    };
 }
 
 pub fn setSize(self: *@This(), new: utils.Vec2, now: Io.Timestamp) void {

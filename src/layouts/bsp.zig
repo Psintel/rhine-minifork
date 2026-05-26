@@ -661,12 +661,22 @@ pub fn manage(self: *@This(), ctx: Tiler.TileContext, bound: utils.Rect2, wins: 
 
 pub fn getWindow(self: *@This(), ctx: Tiler.TileContext, dir: utils.Dir) ?WT {
     const tree = &(self.tree orelse return null);
-    const win = ctx.focus orelse return null;
 
-    switch (tree.getDir(win, dir)) {
-        .success => |res| return res.Leaf,
-        else => return null,
+    if (ctx.focus) |win|
+        switch (tree.getDir(win, dir)) {
+            .success => |res| return res.Leaf,
+            else => return null,
+        };
+
+    if (ctx.cursorPos) |pos| {
+        _, const f = tree.findPos(pos, .unit);
+        switch (f.*) {
+            .Branch => return null,
+            .Leaf => |w| return w,
+        }
     }
+
+    return null;
 }
 
 pub fn move(self: *@This(), ctx: Tiler.TileContext, dir: utils.Dir) Tiler.MoveResult {

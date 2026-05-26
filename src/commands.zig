@@ -327,10 +327,33 @@ pub const Command = union(enum) {
                 const ws_id = Window.getWorkspace(ctx, win) orelse return error.OrphanedFocus;
                 const ws = ctx.workspaces.getPtr(ws_id).?;
 
-                if (ws.getWindow(.{
-                    .focus = seat_data.focus,
-                    .gpa = ctx.gpa,
-                }, dir)) |w| {
+                const focus = new_focus: {
+                    if (ws.getWindow(.{ .focus = seat_data.focus, .gpa = ctx.gpa }, dir)) |w| break :new_focus w;
+
+                    const out = Output.byWorkspace(ctx, ws_id) orelse {
+                        log.err("workspace {} not on output", .{ws_id});
+                        return;
+                    };
+
+                    const win_rect = win_data.goalRect();
+                    const target_out = Output.closest(ctx, out, dir) orelse return;
+                    const target_data = ctx.outs.get(target_out).?;
+
+                    const abs_target = target_data.getArea()
+                        .constrain(win_rect.pos + (win_rect.dim / @as(utils.Vec2, @splat(2))));
+                    const target_ws = Workspace.byOutput(ctx, target_out) orelse {
+                        log.warn("couldn't find workspace to move window to", .{});
+                        return;
+                    };
+                    const target_ws_data = try Workspace.get(ctx, target_ws);
+
+                    break :new_focus target_ws_data.getWindow(.{
+                        .gpa = ctx.gpa,
+                        .cursorPos = utils.absToRel(target_data.getArea(), abs_target),
+                    }, dir);
+                };
+
+                if (focus) |w| {
                     win_data.fullscreen.off();
                     seat_data.focus = w;
                     if (ctx.wm_options.follow_cursor)

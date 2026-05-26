@@ -74,7 +74,11 @@ pub const VTable = struct {
 
     // these two center on the focus from context (since that is an arg, it's easily mockable)
     // getWindow is used for focus shift
+
+    // if focus == null, instead return window closest to cursorPos
+    // if focus == null and cursorPos == null, always return null
     getWindow: *const fn (?*anyopaque, TileContext, utils.Dir) ?WT,
+
     move: *const fn (?*anyopaque, TileContext, utils.Dir) MoveResult,
 
     // set the size of the focused window
