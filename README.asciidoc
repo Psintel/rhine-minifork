@@ -258,6 +258,22 @@ animations {
 | video::rhine/raw/branch/main/assets/sin.mp4[opts="autoplay"]
 |===
 
+=== Window Management options
+These go in a top-level block called `window_management`
+
+[cols="m,a", frame=none, grid=none]
+|===
+| Option | Description
+
+| follow_cursor <bool>
+| whether the cursor follow our focus when we change the focused window
+
+| float_move <float>
+| the amount by which (relative to the size of the output it's on) a `moveWindow` command moves a floating window.
+
+|===
+
+
 == IPC
 
 `rhine` supports _some_ of https://wiki.hypr.land/Configuring/Using-hyprctl/[Hyprland's IPC] mechanism.

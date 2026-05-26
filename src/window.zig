@@ -204,10 +204,7 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
 }
 
 pub fn goalRect(self: *@This()) utils.Rect2 {
-    return .{
-        .pos = self.pos.end(),
-        .dim = self.goal_size.end()
-    };
+    return .{ .pos = self.pos.end(), .dim = self.goal_size.end() };
 }
 
 pub fn setSize(self: *@This(), new: utils.Vec2, now: Io.Timestamp) void {
