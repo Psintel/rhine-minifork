@@ -134,10 +134,10 @@ pub fn loadEnv(self: *@This()) !void {
 pub fn regListener(reg: *wl.Registry, e: wl.Registry.Event, ctx: *@This()) void {
     switch (e) {
         .global => |glob| {
-            if (utils.handleIface(reg, glob, wl.Seat, 4)) |seat| {
-                ctx.wl_seats.map.put(ctx.gpa, glob.name, seat) catch return;
-                ctx.wl_seats.data.put(ctx.gpa, seat, .{ .global = glob.name }) catch return;
-                seat.setListener(*@This(), Seat.Wl.listener, ctx);
+            if (utils.checkIface(glob, wl.Seat, 4)) |seat| {
+                ctx.bindSeat(reg, seat) catch return;
+            } else if (utils.checkIface(glob, wl.Output, 4)) |out| {
+                ctx.bindOut(reg, out) catch return;
             }
         },
         .global_remove => |rem| {
@@ -146,12 +146,17 @@ pub fn regListener(reg: *wl.Registry, e: wl.Registry.Event, ctx: *@This()) void 
                 defer seat.destroy();
                 if (ctx.wl_seats.data.fetchSwapRemove(seat)) |data| data.value.deinit(ctx.gpa);
                 return;
+            } else if (ctx.wl_outs.map.fetchSwapRemove(rem.name)) |kv| {
+                const out = kv.value;
+                defer out.destroy();
+                if (ctx.wl_outs.data.fetchSwapRemove(out)) |data| data.value.deinit(ctx.gpa);
+                return;
             }
         },
     }
 }
 
-pub fn addSeat(self: *@This(), reg: *wl.Registry, _seat: u32) !void {
+pub fn bindSeat(self: *@This(), reg: *wl.Registry, _seat: u32) !void {
     const seat = try reg.bind(_seat, wl.Seat, 4);
     errdefer seat.destroy();
     try self.wl_seats.map.put(self.gpa, _seat, seat);
@@ -160,7 +165,7 @@ pub fn addSeat(self: *@This(), reg: *wl.Registry, _seat: u32) !void {
     seat.setListener(*@This(), Seat.Wl.listener, self);
 }
 
-pub fn addOut(self: *@This(), reg: *wl.Registry, _out: u32) !void {
+pub fn bindOut(self: *@This(), reg: *wl.Registry, _out: u32) !void {
     const out = try reg.bind(_out, wl.Output, 4);
     errdefer out.destroy();
     try self.wl_outs.map.put(self.gpa, _out, out);

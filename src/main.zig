@@ -236,8 +236,8 @@ pub fn main(init: std.process.Init) !void {
     };
     defer ctx.deinit();
     regU = .{ .ctx = &ctx };
-    for (reg.seats.keys()) |_seat| try ctx.addSeat(registry, _seat);
-    for (reg.outs.keys()) |_out| try ctx.addOut(registry, _out);
+    for (reg.seats.keys()) |_seat| try ctx.bindSeat(registry, _seat);
+    for (reg.outs.keys()) |_out| try ctx.bindOut(registry, _out);
 
     const ipc = try HyprIPC.init(&ctx);
     defer ipc.deinit(&ctx);
