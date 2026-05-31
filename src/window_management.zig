@@ -1,6 +1,7 @@
 const std = @import("std");
-const mem = std.mem;
 const wayland = @import("wayland");
+const tributary = @import("tributary");
+const mem = std.mem;
 const linux = std.os.linux;
 const meta = std.meta;
 const Io = std.Io;
@@ -8,7 +9,7 @@ const Io = std.Io;
 const wl = wayland.client.wl;
 const rwm = wayland.client.river;
 
-const utils = @import("utils.zig");
+const utils = tributary.utils;
 const helpers = @import("helpers.zig");
 const keybinds = @import("keybinds.zig");
 const point_binds = @import("pointer_binds.zig");
@@ -27,7 +28,7 @@ const Workspace = @import("workspace.zig");
 const Tiler = @import("tiler.zig");
 const Layouts = @import("layouts.zig");
 
-const Config = @import("config.zig");
+const Config = tributary.Config;
 const HyprIPC = @import("hyprIPC.zig");
 
 const log = std.log.scoped(.window_management);

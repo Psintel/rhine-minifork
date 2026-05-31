@@ -1,6 +1,7 @@
 // these enumerate all posible layouts from which we generate tilers
 const std = @import("std");
 const wayland = @import("wayland");
+const tributary = @import("tributary");
 const mem = std.mem;
 const meta = std.meta;
 const fmt = std.fmt;
@@ -8,10 +9,10 @@ const fmt = std.fmt;
 const wl = wayland.client.wl;
 const rwm = wayland.client.river;
 
-const utils = @import("utils.zig");
+const utils = tributary.utils;
 const Context = @import("context.zig");
 const Tiler = @import("tiler.zig");
-const Config = @import("config.zig");
+const Config = tributary.Config;
 const log = std.log.scoped(.Layout);
 
 const layouts = .{

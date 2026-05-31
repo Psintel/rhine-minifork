@@ -40,6 +40,10 @@
             .url = "git+https://codeberg.org/Games-by-Mason/mr_tween.git?ref=v0.1.0#c20266b0629a828a2b166856b1b543cde7c9a898",
             .hash = "mr_tween-0.1.0-WbH78YcBAQD3RF4QfCYFF6EJCYzAzdIU4BHCj0pFI5yq",
         },
+        .tributary = .{
+            .url = "https://codeberg.org/Sivecano/libtributary/archive/0.1.1.tar.gz",
+            .hash = "tributary-0.1.1-tqCfW9GBAAC3bRMfGE8jA4iqZuG8UdLjsfMfC-GXip_k",
+        },
     },
     .paths = .{
         "build.zig",

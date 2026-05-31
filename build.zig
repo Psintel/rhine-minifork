@@ -6,11 +6,19 @@ const Scanner = @import("wayland").Scanner;
 pub fn build(b: *Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-    const libnotify = b.option(bool, "notify", "add libnotify support for sending notifications") orelse true;
+    const notify = b.option(bool, "notify", "add libnotify support for sending notifications") orelse true;
+    const strip = b.option(bool, "strip", "strip executable");
 
     const tween = b.dependency("mr_tween", .{
         .optimize = optimize,
         .target = target,
+    });
+
+    const tributary = b.dependency("tributary", .{
+        .optimize = optimize,
+        .target = target,
+        .notify = notify,
+        .strip = strip,
     });
 
     const scanner = Scanner.create(b, .{});
@@ -19,8 +27,10 @@ pub fn build(b: *Build) !void {
         .root_source_file = scanner.result,
         .target = target,
         .optimize = optimize,
-        .strip = b.option(bool, "strip", "strip executable"),
+        .strip = strip,
     });
+    const mod_tributary = tributary.module("tributary");
+    mod_tributary.addImport("wayland", wayland);
 
     scanner.addSystemProtocol("staging/cursor-shape/cursor-shape-v1.xml");
     scanner.addSystemProtocol("stable/tablet/tablet-v2.xml");
@@ -52,9 +62,6 @@ pub fn build(b: *Build) !void {
     scanner.generate("river_xkb_bindings_v1", 2);
     scanner.generate("wp_cursor_shape_manager_v1", 1);
 
-    const opt = b.addOptions();
-    opt.addOption(bool, "libnotify", libnotify);
-
     const keysyms = b.addTranslateC(.{
         .optimize = optimize,
         .target = target,
@@ -72,6 +79,7 @@ pub fn build(b: *Build) !void {
             .target = target,
             .optimize = optimize,
             .link_libc = true,
+            .strip = strip,
             .imports = &.{.{
                 .name = "keysysms",
                 .module = keysyms.createModule(),
@@ -79,11 +87,8 @@ pub fn build(b: *Build) !void {
         }),
     });
 
-    exe.root_module.addOptions("options", opt);
-
-    if (libnotify) exe.root_module.linkSystemLibrary("notify", .{});
-
     exe.root_module.addImport("tween", tween.module("mr_tween"));
+    exe.root_module.addImport("tributary", mod_tributary);
     exe.root_module.addImport("wayland", wayland);
     exe.root_module.linkSystemLibrary("wayland-client", .{});
 

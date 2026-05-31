@@ -1,7 +1,8 @@
 const std = @import("std");
-const mem = std.mem;
 const wayland = @import("wayland");
+const tributary = @import("tributary");
 
+const mem = std.mem;
 const meta = std.meta;
 const time = std.time;
 
@@ -9,7 +10,7 @@ const wl = wayland.client.wl;
 const rwm = wayland.client.river;
 
 const Context = @import("context.zig");
-const utils = @import("utils.zig");
+const utils = tributary.utils;
 const Workspace = @import("workspace.zig");
 const Tilable = @import("tilable.zig");
 const Tiler = @import("tiler.zig");

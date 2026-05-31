@@ -1,14 +1,17 @@
 const std = @import("std");
+const wayland = @import("wayland");
+const tributary = @import("tributary");
+
 const mem = std.mem;
 const math = std.math;
 const meta = std.meta;
-const wayland = @import("wayland");
+
 const log = std.log.scoped(.output);
 
 const wl = wayland.client.wl;
 const rwm = wayland.client.river;
 
-const utils = @import("utils.zig");
+const utils = tributary.utils;
 const Context = @import("context.zig");
 const Workspace = @import("workspace.zig");
 const Animations = @import("animations.zig");

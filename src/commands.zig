@@ -1,12 +1,13 @@
 const std = @import("std");
 const wayland = @import("wayland");
+const tributary = @import("tributary");
 const mem = std.mem;
 const meta = std.meta;
 
 const wl = wayland.client.wl;
 const rwm = wayland.client.river;
 
-const utils = @import("utils.zig");
+const utils = tributary.utils;
 const helpers = @import("helpers.zig");
 const Window = @import("window.zig");
 const Output = @import("output.zig");
@@ -16,7 +17,7 @@ const Rules = @import("rules.zig");
 const Context = @import("context.zig");
 const Tiler = @import("tiler.zig");
 const Layouts = @import("layouts.zig");
-const Config = @import("config.zig");
+const Config = tributary.Config;
 const Animations = @import("animations.zig");
 const pointer_ops = @import("pointer_ops.zig");
 
@@ -140,10 +141,10 @@ pub const Command = union(enum) {
         switch (tag) {
             inline .exit => |t| return @unionInit(@This(), @tagName(t), {}),
             .launch => return .{
-                .launch = args.rest(),
+                .launch = args.rest().args,
             },
             .overlay => {
-                const toggle = try args.parseT(ToggleCmd);
+                const toggle = try args.parseSingle(ToggleCmd);
                 const ws = try std.fmt.parseInt(Workspace.WS, args.next() orelse return error.NoWsArg, 0);
                 if (ws >= 0) return error.PositiveSpecialWorkspace;
 
@@ -153,7 +154,7 @@ pub const Command = union(enum) {
                 return .{ .layoutCommand = try Layouts.parseCommand(args) };
             },
             inline else => |t| {
-                return @unionInit(@This(), @tagName(t), try args.parseT(@FieldType(Command, @tagName(t))));
+                return @unionInit(@This(), @tagName(t), try args.parseSingle(@FieldType(Command, @tagName(t))));
             },
         }
     }

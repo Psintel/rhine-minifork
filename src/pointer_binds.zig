@@ -1,5 +1,6 @@
 const std = @import("std");
 const wayland = @import("wayland");
+const tributary = @import("tributary");
 
 const mem = std.mem;
 const meta = std.meta;
@@ -9,13 +10,13 @@ const wl = wayland.client.wl;
 const rwm = wayland.client.river;
 
 const Context = @import("context.zig");
-const utils = @import("utils.zig");
+const utils = tributary.utils;
 const Window = @import("window.zig");
 const Workspace = @import("workspace.zig");
 const Tilable = @import("tilable.zig");
 const Tiler = @import("tiler.zig");
 const Output = @import("output.zig");
-const Config = @import("config.zig");
+const Config = tributary.Config;
 const keybind = @import("keybinds.zig");
 const commands = @import("commands.zig");
 

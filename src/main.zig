@@ -10,19 +10,21 @@ const wl = wayland.client.wl;
 const rwm = wayland.client.river;
 const wp = wayland.client.wp;
 
+const tributary = @import("tributary");
+
 const commands = @import("commands.zig");
 const helpers = @import("helpers.zig");
 const window_managment = @import("window_management.zig");
-const utils = @import("utils.zig");
+const utils = tributary.utils;
 
-const Config = @import("config.zig");
+const Config = tributary.Config;
 const Context = @import("context.zig");
 const HyprIPC = @import("hyprIPC.zig");
-const Inotify = @import("wrappers/inotify.zig");
-const SignalListener = @import("wrappers/signalfd.zig");
+const Inotify = tributary.inotify;
+const SignalListener = tributary.signals;
 const Layouts = @import("layouts.zig");
 const Seat = @import("seat.zig");
-const Notify = @import("libnotify.zig");
+const Notify = tributary.Notify;
 const Restore = @import("restore.zig");
 
 pub const std_options: std.Options = .{

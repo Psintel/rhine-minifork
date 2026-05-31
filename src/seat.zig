@@ -1,7 +1,8 @@
 const std = @import("std");
-const mem = std.mem;
 const wayland = @import("wayland");
-const utils = @import("utils.zig");
+const tributary = @import("tributary");
+const mem = std.mem;
+const utils = tributary.utils;
 
 const wl = wayland.client.wl;
 const wp = wayland.client.wp;
@@ -12,7 +13,7 @@ const Output = @import("output.zig");
 const Window = @import("window.zig");
 const Pointer = @import("pointer.zig");
 const Workspace = @import("workspace.zig");
-const Config = @import("config.zig");
+const Config = tributary.Config;
 const keybinds = @import("keybinds.zig");
 const pointerbinds = @import("pointer_binds.zig");
 const pointer_operations = @import("pointer_ops.zig");

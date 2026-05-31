@@ -1,16 +1,17 @@
 const std = @import("std");
+const wayland = @import("wayland");
+const tributary = @import("tributary");
 const mem = std.mem;
 const meta = std.meta;
 const net = std.Io.net;
 const posix = std.posix;
 const fmt = std.fmt;
 const Io = std.Io;
-const wayland = @import("wayland");
 
 const wl = wayland.client.wl;
 const rwm = wayland.client.river;
 
-const utils = @import("utils.zig");
+const utils = tributary.utils;
 
 const Window = @import("window.zig");
 const Output = @import("output.zig");
@@ -21,7 +22,7 @@ const Workspace = @import("workspace.zig");
 const RhineWs = Workspace;
 const Tiler = @import("tiler.zig");
 const Layouts = @import("layouts.zig");
-const Config = @import("config.zig");
+const Config = tributary.Config;
 const Animations = @import("animations.zig");
 const commands = @import("commands.zig");
 

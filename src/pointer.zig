@@ -1,7 +1,9 @@
 const std = @import("std");
-const mem = std.mem;
 const wayland = @import("wayland");
-const utils = @import("utils.zig");
+const tributary = @import("tributary");
+
+const mem = std.mem;
+const utils = tributary.utils;
 
 const wl = wayland.client.wl;
 const wp = wayland.client.wp;
