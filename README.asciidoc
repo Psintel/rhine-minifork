@@ -347,6 +347,11 @@ optionally rhine also links the following:
 
 * libnotify
 
+=== static libraries
+rhine uses the zig build system to statically depend on https://coeberg.org/Sivecano/libtributary[tributary]
+a small helper library that facilitates code sharing between rhine and channel.
+
+
 === other dependencies
 
 * rhine depends on a header from libxkbcommon
