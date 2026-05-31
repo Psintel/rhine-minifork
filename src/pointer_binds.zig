@@ -44,21 +44,17 @@ pub const Bind = struct {
     button: Button,
     cmd: commands.Command,
 
-    pub fn fromEntry(entry: Config.Entry) !@This() {
-        var args = entry.iterate();
+    pub fn parse(args: *Config.Entry.Iterator) !@This() {
+        const mods = args.parseT(keybind.Mods) catch return error.NoMods;
 
-        const mods = try keybind.Mods.parse(args.next() orelse return error.NoMod);
-
-        const button = args.next() orelse return error.NoButton;
-        const btnval = meta.stringToEnum(Button, button) orelse {
-            log.err("invalid button {s}", .{button});
+        const btnval = args.parseT(Button) catch {
             return error.InvalidBTN;
         };
 
         return .{
             .mods = mods,
             .button = btnval,
-            .cmd = try .fromArg(&args),
+            .cmd = try args.parseT(commands.Command),
         };
     }
 };
@@ -88,7 +84,7 @@ pub fn register(ctx: *Context, seat: *rwm.SeatV1) !void {
     log.info("registering pointer bindings for seat {}", .{seat.getId()});
 
     for (conf) |entry| {
-        const b = Bind.fromEntry(entry) catch |e| {
+        const b = entry.parseT(Bind) catch |e| {
             log.err("error parsing keybind : {}", .{e});
             continue;
         };

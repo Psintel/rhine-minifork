@@ -64,7 +64,7 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
     const rules = try ctx.config.getList("windowrules");
 
     for (rules) |rule| {
-        const wr = Rules.WindowRule.fromEntry(rule) catch |err| {
+        const wr = rule.parseT(Rules.WindowRule) catch |err| {
             log.err("failed to parse window rule \"{s}\" with {}", .{ rule.args, err });
             continue;
         };

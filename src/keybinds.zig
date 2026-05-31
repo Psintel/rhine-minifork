@@ -67,7 +67,8 @@ pub const Mods = struct {
         return out;
     }
 
-    pub fn parse(str: []const u8) !@This() {
+    pub fn parse(args: *Config.Entry.Iterator) !@This() {
+        const str = args.nextAssume() catch return error.NoMod;
         var iter = std.mem.tokenizeScalar(u8, str, '+');
         var mods = @This(){};
 
@@ -83,7 +84,7 @@ pub const Mods = struct {
             } else if (mem.eql(u8, m, "none")) {
                 // do nothing
             } else {
-                return error.ParseError;
+                return error.InvalidModifier;
             }
         }
 
@@ -96,10 +97,8 @@ pub const Bind = struct {
     key: Sym,
     cmd: command.Command,
 
-    pub fn fromEntry(entry: Config.Entry) !@This() {
-        var args = entry.iterate();
-
-        const mods = try Mods.parse(args.next() orelse return error.NoMod);
+    pub fn parse(args: *Config.Entry.Iterator) !@This() {
+        const mods = try args.parseT(Mods);
 
         const key = args.next() orelse return error.NoKey;
         const keyval = syms.get(key) orelse {
@@ -110,7 +109,7 @@ pub const Bind = struct {
         return .{
             .key = keyval,
             .mods = mods,
-            .cmd = try .fromArg(&args),
+            .cmd = try args.parseT(command.Command),
         };
     }
 };
@@ -131,8 +130,8 @@ pub fn registerAll(ctx: *Context, seat: *rwm.SeatV1) !void {
     log.info("registering keybinds for seat {}", .{seat.getId()});
 
     for (conf) |entry| {
-        const b = Bind.fromEntry(entry) catch |e| {
-            log.err("error parsing keybind : {}", .{e});
+        const b = entry.parseT(Bind) catch |e| {
+            log.err("error {} while parsing keybind : {s}", .{ e, entry.args });
             continue;
         };
 

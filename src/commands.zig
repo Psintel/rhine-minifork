@@ -132,7 +132,7 @@ pub const Command = union(enum) {
     pointerOp: pointer_ops.OpType,
     exit: void,
 
-    pub fn fromArg(args: *Config.Entry.Iterator) !@This() {
+    pub fn parse(args: *Config.Entry.Iterator) !@This() {
         const tag = meta.stringToEnum(
             meta.Tag(Command),
             args.next() orelse return error.NoCommand,
@@ -144,7 +144,7 @@ pub const Command = union(enum) {
                 .launch = args.rest().args,
             },
             .overlay => {
-                const toggle = try args.parseSingle(ToggleCmd);
+                const toggle = try args.parseT(ToggleCmd);
                 const ws = try std.fmt.parseInt(Workspace.WS, args.next() orelse return error.NoWsArg, 0);
                 if (ws >= 0) return error.PositiveSpecialWorkspace;
 
@@ -154,7 +154,7 @@ pub const Command = union(enum) {
                 return .{ .layoutCommand = try Layouts.parseCommand(args) };
             },
             inline else => |t| {
-                return @unionInit(@This(), @tagName(t), try args.parseSingle(@FieldType(Command, @tagName(t))));
+                return @unionInit(@This(), @tagName(t), try args.parseT(@FieldType(Command, @tagName(t))));
             },
         }
     }
@@ -454,14 +454,9 @@ pub const Command = union(enum) {
         }
     }
 
-    pub fn fromEntry(entry: Config.Entry) !@This() {
-        var iter = entry.iterate();
-        return .fromArg(&iter);
-    }
-
-    test fromArg {
+    test parse {
         const testing = std.testing;
-        try testing.expectEqual(Command{ .exit = {} }, fromEntry(.{ .args = "exit" }));
+        try testing.expectEqual(Command{ .exit = {} }, Config.Entry.parseT(.{ .args = "exit" }, @This()));
     }
 };
 

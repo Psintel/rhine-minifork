@@ -394,8 +394,7 @@ fn handleCmd(ctx: *Context, word: []const u8) !void {
     var r = std.Io.Reader.fixed(word);
     const e = try Config.parseEntry(ctx.gpa, &r);
     defer e.deinit(ctx.gpa);
-    var iter = e.iterate();
-    const c = try commands.Command.fromArg(&iter);
+    const c = try e.parseT(commands.Command);
 
     if (ctx.last_active) |s|
         try ctx.commands_queue.add(ctx.gpa, ctx.io, s, c);

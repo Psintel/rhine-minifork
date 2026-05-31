@@ -32,9 +32,7 @@ pub const WindowRule = struct {
     match: Matcher,
     rule: Rule,
 
-    pub fn fromEntry(entry: Config.Entry) !@This() {
-        var args = entry.iterate();
-
+    pub fn parse(args: *Config.Entry.Iterator) !@This() {
         const match = try args.nextAssume();
         const rules = try args.nextAssume();
 
