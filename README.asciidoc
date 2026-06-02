@@ -283,7 +283,7 @@ Border contains two keys: `width` and `colours`
 |===
 | Option | Description
 
-| width <integer>
+| width <uint>
 | width of the window borders in pixels, defaults to 2
 
 | colours <colour block>
@@ -313,10 +313,10 @@ a `<Colour>` parameter can be one of the following:
 |===
 | Option | Description
 
-| <integer>, <integer>, <integer>
+| <uint>, <uint>, <uint>
 | an rgb value with a 32-bit unsigned integer for each channel
 
-| <integer>, <integer>, <integer>, <integer>
+| <uint>, <uint>, <uint>, <uint>
 | an rgba value with a 32-bit unsigned integer for each channel
 
 | blue
@@ -331,10 +331,10 @@ a `<Colour>` parameter can be one of the following:
 | hsla, <float>, <float>, <float>, <float>
 | same as `hsl` but with and alpha parameter between 0 and 1
 
-| rgb8, <integer>, <integer>, <integer>
+| rgb8, <uint>, <uint>, <uint>
 | an rgb value with an 8-bit unsigned integer for each channel
 
-| rgba8, <integer>, <integer>, <integer>, <integer>
+| rgba8, <uint>, <uint>, <uint>, <uint>
 | an rgba value with an 8-bit unsigned integer for each channel
 
 |===

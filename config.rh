@@ -110,10 +110,10 @@ window_management {
     follow_cursor true
     float_move 0.1
     border {
-        width 2
+        width 3
         colours {
-            focus blue
-            inactive gray
+            focus rgba8, 0, 0xA0, 0, 0xAA
+            inactive hsla, 6.5, 0.3, 0.5, 0.5
         }
     }
 }
