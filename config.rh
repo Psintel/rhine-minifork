@@ -109,6 +109,13 @@ keybinds [
 window_management {
     follow_cursor true
     float_move 0.1
+    border {
+        width 2
+        colours {
+            focus blue
+            inactive gray
+        }
+    }
 }
 
 windowrules [

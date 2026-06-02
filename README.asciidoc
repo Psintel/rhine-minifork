@@ -266,12 +266,80 @@ These go in a top-level block called `window_management`
 | Option | Description
 
 | follow_cursor <bool>
-| whether the cursor follow our focus when we change the focused window
+| whether the cursor follow the focus when we change the focused window
 
 | float_move <float>
 | the amount by which (relative to the size of the output it's on) a `moveWindow` command moves a floating window.
 
+| border <Border block>
+| configure the border width and colour etc.
+
 |===
+
+==== Border
+Border contains two keys: `width` and `colours`
+
+[cols="m,a", frame=none, grid=none]
+|===
+| Option | Description
+
+| width <integer>
+| width of the window borders in pixels, defaults to 2
+
+| colours <colour block>
+| specify colour for different border types
+
+|===
+
+The following keys are available in the `colours` block.
+
+[cols="m,a", frame=none, grid=none]
+|===
+| Option | Description
+
+| focus <Colour>
+| border colour for focused windows, defaults to `blue`
+
+| inactive
+| border colour for non-focused windows, defaults to `gray`
+
+|===
+
+==== Colours
+
+a `<Colour>` parameter can be one of the following:
+
+[cols="m,a", frame=none, grid=none]
+|===
+| Option | Description
+
+| <integer>, <integer>, <integer>
+| an rgb value with a 32-bit unsigned integer for each channel
+
+| <integer>, <integer>, <integer>, <integer>
+| an rgba value with a 32-bit unsigned integer for each channel
+
+| blue
+| the colour `#4793cc`
+
+| gray
+| the colour `#202020`
+
+| hsl, <float>, <float>, <float>
+| a colour specified as HSL, where the first parameter is between 0 and 2pi and the others between 0 and 1
+
+| hsla, <float>, <float>, <float>, <float>
+| same as `hsl` but with and alpha parameter between 0 and 1
+
+| rgb8, <integer>, <integer>, <integer>
+| an rgb value with an 8-bit unsigned integer for each channel
+
+| rgba8, <integer>, <integer>, <integer>, <integer>
+| an rgba value with an 8-bit unsigned integer for each channel
+
+|===
+
+
 
 
 == IPC

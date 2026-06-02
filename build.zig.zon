@@ -9,12 +9,12 @@
             .hash = "wayland-0.6.0-lQa1kqz8AQADQmdNJsNhLoNHcnEGEUjrOaPV-dtEnEmX",
         },
         .mr_tween = .{
-            .url = "git+https://codeberg.org/Games-by-Mason/mr_tween.git?ref=v0.1.0#c20266b0629a828a2b166856b1b543cde7c9a898",
+            .url = "https://codeberg.org/Games-by-Mason/mr_tween/archive/v0.1.0.tar.gz",
             .hash = "mr_tween-0.1.0-WbH78YcBAQD3RF4QfCYFF6EJCYzAzdIU4BHCj0pFI5yq",
         },
         .tributary = .{
-            .url = "https://codeberg.org/Sivecano/libtributary/archive/0.2.0.tar.gz",
-            .hash = "tributary-0.2.0-tqCfW1iCAACoNXVE0n5RDRGrk5D05W1c2ElIQ5hlg8kO",
+            .url = "git+https://codeberg.org/Sivecano/libtributary#fe88d22bfbd670e49e964d0f698ec0d1ae7257bf",
+            .hash = "tributary-0.2.0-tqCfW0iUAAB6qaExxHk2B8fy5Mb9rUCxNUSGyeSKpr2V",
         },
     },
     .paths = .{

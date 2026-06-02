@@ -36,7 +36,7 @@ const clock = Animations.clock;
 
 pub const Options = struct {
     border: struct {
-        width: u32 = 2,
+        width: u31 = 2,
         colours: struct {
             focus: utils.Color = .blue,
             inactive: utils.Color = .gray,
@@ -186,7 +186,7 @@ fn getOpts(ctx: *Context) !Options {
 }
 
 fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: Io.Timestamp) !void {
-    const opts: Options = .{}; // getOpts(ctx) catch .{ .border_width = 2, .border_colour = .blue };
+    const opts: Options = getOpts(ctx) catch .{};
     var iter = utils.memIter(*rwm.WindowV1, &.{ ws.windows.keys(), ws.floating.keys() });
     while (iter.next()) |win| {
         const wd = ctx.wins.getPtr(win) orelse continue;
@@ -533,7 +533,7 @@ fn render(ctx: *Context) !void {
 }
 
 fn render_workspace(ws: Workspace.WS, ctx: *Context, offset: utils.Vec2, box: utils.Rect2, curr_time: Io.Timestamp) void {
-    const opts: Options = .{}; // getOpts(ctx) catch .{ .border_width = 2, .border_colour = .blue };
+    const opts: Options = getOpts(ctx) catch .{};
     const wsd = ctx.workspaces.get(ws) orelse return;
 
     // floating over non-floating
