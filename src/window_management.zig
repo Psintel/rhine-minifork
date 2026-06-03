@@ -458,8 +458,9 @@ fn manage(ctx: *Context) !void {
         }
 
         const goal = &wd.goal_size;
-        // we lose some window space due to bordes
-        const padding: utils.Vec2 = @splat(2 * ctx.wm_options.border.width);
+        // we lose some window space due to borders
+        // floating windows are unaffected
+        const padding: utils.Vec2 = @splat(if (wd.float) 0 else 2 * ctx.wm_options.border.width);
         const max = @max(goal.max() - padding, wd.size, @as(utils.Vec2, @splat(0)));
 
         if (goal.done(ctx.anims, curr_time) or Seat.anyPointerOp(ctx)) {
