@@ -19,6 +19,8 @@
     ** autostart clients
     ** maybe have a focused workspace per seat
 * config
+    ** includes
+    ** custom parsers
     ** window rules
         *** improve matching and globbing
             *** regex?
