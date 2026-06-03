@@ -34,16 +34,6 @@ const HyprIPC = @import("hyprIPC.zig");
 const log = std.log.scoped(.window_management);
 const clock = Animations.clock;
 
-pub const Options = struct {
-    border: struct {
-        width: u31 = 2,
-        colours: struct {
-            focus: utils.Color = .blue,
-            inactive: utils.Color = .gray,
-        } = .{},
-    } = .{},
-};
-
 pub fn listen(iface: *rwm.WindowManagerV1, event: rwm.WindowManagerV1.Event, ctx: *Context) void {
     switch (event) {
         .finished => {
@@ -180,13 +170,8 @@ fn apply_tiler(ctx: *Context, curr_time: Io.Timestamp) !void {
     }
 }
 
-fn getOpts(ctx: *Context) !Options {
-    const cfg = try ctx.config.sub("window_management");
-    return cfg.parseT(Options);
-}
-
 fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: Io.Timestamp) !void {
-    const opts: Options = getOpts(ctx) catch .{};
+    const opts = ctx.wm_options;
     var iter = utils.memIter(*rwm.WindowV1, &.{ ws.windows.keys(), ws.floating.keys() });
     while (iter.next()) |win| {
         const wd = ctx.wins.getPtr(win) orelse continue;
@@ -473,11 +458,13 @@ fn manage(ctx: *Context) !void {
         }
 
         const goal = &wd.goal_size;
-        const max = @max(goal.max(), wd.size, @as(utils.Vec2, @splat(0)));
+        // we lose some window space due to bordes
+        const padding: utils.Vec2 = @splat(2 * ctx.wm_options.border.width);
+        const max = @max(goal.max() - padding, wd.size, @as(utils.Vec2, @splat(0)));
 
         if (goal.done(ctx.anims, curr_time) or Seat.anyPointerOp(ctx)) {
             goal.staticify();
-            const ts = @max(goal.get(ctx.anims, curr_time), @as(utils.Vec2, @splat(0)));
+            const ts = @max(goal.get(ctx.anims, curr_time) - padding, @as(utils.Vec2, @splat(0)));
             win.proposeDimensions(ts[0], ts[1]);
         } else if (@reduce(.Or, wd.size < max)) {
             win.proposeDimensions(max[0], max[1]);
@@ -533,7 +520,7 @@ fn render(ctx: *Context) !void {
 }
 
 fn render_workspace(ws: Workspace.WS, ctx: *Context, offset: utils.Vec2, box: utils.Rect2, curr_time: Io.Timestamp) void {
-    const opts: Options = getOpts(ctx) catch .{};
+    const opts = ctx.wm_options;
     const wsd = ctx.workspaces.get(ws) orelse return;
 
     // floating over non-floating
@@ -554,17 +541,19 @@ fn render_workspace(ws: Workspace.WS, ctx: *Context, offset: utils.Vec2, box: ut
             continue;
         }
 
+        // space allocated to window
         const rect: utils.Rect2 = .{
             .pos = wd.pos.get(ctx.anims, curr_time) + offset,
             .dim = @max(wd.goal_size.get(ctx.anims, curr_time), @as(utils.Vec2, @splat(0))),
         };
 
-        const bordered = rect.pad(opts.border.width);
+        // space for window contents
+        const inner = rect.pad(-@as(i32, opts.border.width)).posDim();
+        // how much of the window is visible
+        const clip = box.intersect(rect).shift(-inner.pos);
 
-        const clip = box.intersect(bordered).shift(-rect.pos);
-
-        wd.node.setPosition(rect.pos[0], rect.pos[1]);
-        win.setContentClipBox(0, 0, rect.dim[0], rect.dim[1]);
+        wd.node.setPosition(inner.pos[0], inner.pos[1]);
+        win.setContentClipBox(0, 0, inner.dim[0], inner.dim[1]);
         win.setClipBox(clip.pos[0], clip.pos[1], clip.dim[0], clip.dim[1]);
 
         if (clip.dim[0] == 0 or clip.dim[1] == 0) {

@@ -74,6 +74,13 @@ ipcChannel: HyprIPC.HyprQueue,
 pub const WmOptions = struct {
     float_move: f32 = 0.1,
     follow_cursor: bool = true,
+    border: struct {
+        width: u31 = 2,
+        colours: struct {
+            focus: utils.Color = .blue,
+            inactive: utils.Color = .gray,
+        } = .{},
+    } = .{},
 };
 
 pub fn deinit(self: *@This()) void {
