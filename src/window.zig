@@ -154,7 +154,7 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
             win_data.size = .{ d.width, d.height };
             if (d.width > 0 and d.height > 0)
                 if (win_data.float)
-                    win_data.setSize(win_data.size, Animations.clock.now(ctx.io));
+                    win_data.setSize(win_data.size, ctx.anims, Animations.clock.now(ctx.io));
         },
         .parent => |p| {
             if (p.parent) |parent| {
@@ -208,13 +208,14 @@ pub fn goalRect(self: *@This()) utils.Rect2 {
     return .{ .pos = self.pos.end(), .dim = self.goal_size.end() };
 }
 
-pub fn setSize(self: *@This(), new: utils.Vec2, now: Io.Timestamp) void {
+pub fn setSize(self: *@This(), new: utils.Vec2, anims: Animations, now: Io.Timestamp) void {
     if (@reduce(.Or, new < @as(utils.Vec2, @splat(0)))) return;
 
     if (meta.eql(new, self.goal_size.end())) return;
 
+    const curr = self.goal_size.get(anims, now);
     self.goal_size = .{ .transit = .{
-        .from = self.size,
+        .from = curr,
         .to = new,
         .start = now,
     } };

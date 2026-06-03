@@ -166,7 +166,7 @@ fn apply_tiler(ctx: *Context, curr_time: Io.Timestamp) !void {
         if (@reduce(.Or, man_state.dims.dim < @as(utils.Vec2, @splat(0)))) man_state.show = false;
 
         wd.setPos(ctx.anims, man_state.dims.pos, curr_time);
-        wd.setSize(man_state.dims.dim, curr_time);
+        wd.setSize(man_state.dims.dim, ctx.anims, curr_time);
     }
 }
 
@@ -461,7 +461,7 @@ fn manage(ctx: *Context) !void {
         // we lose some window space due to borders
         // floating windows are unaffected
         const padding: utils.Vec2 = @splat(if (wd.float) 0 else 2 * ctx.wm_options.border.width);
-        const max = @max(goal.max() - padding, wd.size, @as(utils.Vec2, @splat(0)));
+        const max = @max(goal.max() - padding, wd.size - padding, @as(utils.Vec2, @splat(0)));
 
         if (goal.done(ctx.anims, curr_time) or Seat.anyPointerOp(ctx)) {
             goal.staticify();
