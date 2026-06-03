@@ -76,6 +76,11 @@ const Registry = struct {
             },
         }
     }
+
+    pub fn deinit(self: *@This()) void {
+        self.seats.deinit(self.gpa);
+        self.outs.deinit(self.gpa);
+    }
 };
 
 const RegUnion = union(enum) {
@@ -126,10 +131,8 @@ pub fn main(init: std.process.Init) !void {
 
     const signal_listener: SignalListener = try .init(.{
         .CHLD = true,
-        .ALRM = true,
         .HUP = true,
         .INT = true,
-        .IO = true,
         .KILL = true,
         .PIPE = true,
         .PROF = true,
@@ -240,6 +243,7 @@ pub fn main(init: std.process.Init) !void {
     regU = .{ .ctx = &ctx };
     for (reg.seats.keys()) |_seat| try ctx.bindSeat(registry, _seat);
     for (reg.outs.keys()) |_out| try ctx.bindOut(registry, _out);
+    reg.deinit();
 
     const ipc = try HyprIPC.init(&ctx);
     defer ipc.deinit(&ctx);

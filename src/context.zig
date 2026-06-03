@@ -105,21 +105,19 @@ pub fn deinit(self: *@This()) void {
     for (self.workspaces.values()) |*w| {
         w.deinit(self);
     }
+    self.workspaces.deinit(self.gpa);
 
-    self.manage_states.clearAndFree(self.gpa);
+    for (self.pointers.values()) |ptr| ptr.deinit();
+    self.pointers.deinit(self.gpa);
 
-    self.workspaces.clearAndFree(self.gpa);
+    self.wl_outs.deinit(self.gpa);
+    self.wl_seats.deinit(self.gpa);
 
-    self.wins.deinit(self.gpa);
-    self.outs.deinit(self.gpa);
+    self.manage_states.deinit(self.gpa);
     self.shell_outs.deinit(self.gpa);
-    self.seats.deinit(self.gpa);
     self.config.deinit(self.gpa);
-
     self.should_close.deinit(self.gpa);
     self.should_open.deinit(self.gpa);
-
-    self.child_env.deinit();
 }
 
 pub fn loadEnv(self: *@This()) !void {

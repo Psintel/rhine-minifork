@@ -1,7 +1,5 @@
 = TODO
 
-* protocol errors are not handled gracefully
-    ** I think we fail to crash
 * fullscreen is still scuffed
     ** workspace transition are scuffed
     ** fullscreen application should maybe force focus
