@@ -31,6 +31,7 @@
 * each tiler gets its own memory arena
 * C abi for tilers
     ** we can override malloc, calloc, realloc and free for the shared object :D
+    *** https://github.com/D-Berg/zalloc
 * maybe include a builtin bar
 * layouts
     ** scroller

@@ -114,19 +114,27 @@ fn apply_tiler(ctx: *Context, curr_time: Io.Timestamp) !void {
         // this stays until I figure out a better way of doing this
         out_data.shell_out.setDefault();
 
-        for (ws.floating.keys()) |w| {
+		var idx: usize = 0;
+        while (idx < ws.floating.count()){
+            const w = ws.floating.keys()[idx];
             const wd = ctx.wins.getPtr(w) orelse continue;
             if (!wd.float) {
                 try ws.addWindow(.{ .gpa = ctx.gpa, .focus = focus }, w);
                 _ = ws.floating.swapRemove(w);
+            } else {
+                idx += 1;
             }
         }
 
-        for (ws.windows.keys()) |w| {
+		idx = 0;
+        while (idx < ws.windows.count()){
+            const w = ws.windows.keys()[idx];
             const wd = ctx.wins.getPtr(w) orelse continue;
             if (wd.float) {
                 try ws.floating.put(ctx.gpa, w, {});
                 ws.rmWindow(.{ .gpa = ctx.gpa, .focus = focus }, w);
+            } else {
+                idx += 1;
             }
         }
 
@@ -140,13 +148,13 @@ fn apply_tiler(ctx: *Context, curr_time: Io.Timestamp) !void {
             const ows = try Workspace.get(ctx, _ows);
             ows.manage(.{ .gpa = ctx.gpa, .focus = focus }, out_data.getArea().scale(0.95), &ctx.manage_states);
             for (ows.windows.keys()) |win| {
-                const data = ctx.manage_states.getPtr(win) orelse continue;
+                const data = ctx.manage_states.getPtr(win).?;
                 data.dims = data.dims.scale(0.95);
             }
         }
 
         for (ws.floating.keys()) |w| {
-            const ms = ctx.manage_states.getPtr(w) orelse continue;
+            const ms = ctx.manage_states.getPtr(w).?;
             ms.show = true;
         }
     }
@@ -249,53 +257,6 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: Io.Timestamp)
                 wd.fullscreen = .no;
             },
         }
-    }
-
-    for (ws.floating.keys()) |win| {
-        const wd = ctx.wins.getPtr(win) orelse continue;
-        var col = opts.border.colours.inactive;
-
-        for (ctx.seats.values()) |seat|
-            if (seat.focus == win) {
-                col = opts.border.colours.focus;
-            };
-
-        switch (wd.fullscreen) {
-            .no, .yes => {},
-            .soon => {
-                win.fullscreen(out);
-                win.informFullscreen();
-                wd.fullscreen = .yes;
-            },
-            .was => {
-                win.exitFullscreen();
-                win.informNotFullscreen();
-                wd.fullscreen = .no;
-            },
-        }
-
-        win.setBorders(
-            .{ .top = true, .bottom = true, .left = true, .right = true },
-            opts.border.width,
-            col.r,
-            col.g,
-            col.b,
-            col.a,
-        );
-
-        win.setCapabilities(.{
-            .window_menu = false,
-            .maximize = false,
-            .minimize = false,
-            .fullscreen = false,
-        });
-        win.useSsd();
-        win.setTiled(.{
-            .top = false,
-            .left = false,
-            .right = false,
-            .bottom = false,
-        });
     }
 }
 
@@ -522,7 +483,7 @@ fn render(ctx: *Context) !void {
 
 fn render_workspace(ws: Workspace.WS, ctx: *Context, offset: utils.Vec2, box: utils.Rect2, curr_time: Io.Timestamp) void {
     const opts = ctx.wm_options;
-    const wsd = ctx.workspaces.get(ws) orelse return;
+    const wsd = ctx.workspaces.get(ws) orelse return; // nothing to do on empty ws
 
     // floating over non-floating
     var iter = utils.memIter(*rwm.WindowV1, &.{ wsd.windows.keys(), wsd.floating.keys() });
@@ -571,19 +532,13 @@ fn render_workspace(ws: Workspace.WS, ctx: *Context, offset: utils.Vec2, box: ut
     // put focus on top (if it is in this workspace)
     for (ctx.seats.values()) |seat| {
         if (seat.focus) |f| {
-            const focus_data = ctx.wins.get(f) orelse continue;
-            if (wsd.windows.contains(f) or wsd.floating.contains(f)) {
-                for (wsd.windows.keys()) |w| {
-                    const wd = ctx.wins.get(w) orelse continue;
-                    focus_data.node.placeAbove(wd.node);
-                }
+            const focus_data = ctx.wins.get(f).?;
+            focus_data.node.placeTop();
 
+            if (!focus_data.float) {
                 for (wsd.floating.keys()) |w| {
-                    const wd = ctx.wins.get(w) orelse continue;
-                    if (focus_data.float)
-                        focus_data.node.placeAbove(wd.node)
-                    else
-                        focus_data.node.placeBelow(wd.node);
+                    const wd = ctx.wins.get(w).?;
+                    wd.node.placeTop();
                 }
             }
         }
