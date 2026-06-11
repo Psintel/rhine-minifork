@@ -6,8 +6,6 @@
     ** should at most have one fullscreen application per output
     ** unsure how to deal with overlays and fullscreen
     ** did we get the possiblity to place windows in layer shell?
-* re-unify rhine and channel in utils.zig, config.zig
-    ** it's going to be called `libtributary`
 * I should probably have a different animation type for the workspace sliding
 * figure out what happens when floating windows leave workspace bounds
     ** currently they're just getting clipped

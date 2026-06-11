@@ -248,23 +248,17 @@ pub fn byPointer(ctx: *Context, pos: utils.Vec2) ?*rwm.WindowV1 {
     const ws = Workspace.byPointer(ctx, pos) orelse return null;
     const ws_data = ctx.workspaces.get(ws).?;
 
-    for (ws_data.floating.keys()) |win| {
+    var out: ?*rwm.WindowV1 = null;
+    var iter = utils.memIter(*rwm.WindowV1, &.{ ws_data.windows.keys(), ws_data.floating.keys() });
+
+    while (iter.next()) |win| {
         const win_data = ctx.wins.get(win).?;
         const rec: utils.Rect2 = .{
             .dim = win_data.size,
             .pos = win_data.pos.current(ctx.anims, ctx.io),
         };
-        if (rec.inside(pos)) return win;
+        if (rec.inside(pos)) out = win;
     }
 
-    for (ws_data.windows.keys()) |win| {
-        const win_data = ctx.wins.get(win).?;
-        const rec: utils.Rect2 = .{
-            .dim = win_data.goal_size.current(ctx.anims, ctx.io),
-            .pos = win_data.pos.current(ctx.anims, ctx.io),
-        };
-        if (rec.inside(pos)) return win;
-    }
-
-    return null;
+    return out;
 }

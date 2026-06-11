@@ -95,6 +95,21 @@ pub fn listen(iface: *rwm.WindowManagerV1, event: rwm.WindowManagerV1.Event, ctx
     }
 }
 
+const WindowSorter = struct {
+    ctx: *Context,
+    keys: []*rwm.WindowV1,
+
+    pub fn lessThan(ws: WindowSorter, _: usize, ri: usize) bool {
+        // I don't understand why this check is necessary
+        if (ri >= ws.keys.len) return false;
+        const rw = ws.keys[ri];
+        for (ws.ctx.seats.values()) |seat| {
+            if (seat.focus == rw) return true;
+        }
+        return false;
+    }
+};
+
 fn apply_tiler(ctx: *Context, curr_time: Io.Timestamp) !void {
     // update workspace manage state from tiler
     var outs = ctx.outs.iterator();
@@ -137,6 +152,10 @@ fn apply_tiler(ctx: *Context, curr_time: Io.Timestamp) !void {
                 idx += 1;
             }
         }
+
+        // this ensures that focused windows go on top
+        ws.windows.sort(WindowSorter{ .ctx = ctx, .keys = ws.floating.keys() });
+        ws.floating.sort(WindowSorter{ .ctx = ctx, .keys = ws.floating.keys() });
 
         ws.manage(
             .{ .gpa = ctx.gpa, .focus = focus },
@@ -527,20 +546,5 @@ fn render_workspace(ws: Workspace.WS, ctx: *Context, offset: utils.Vec2, box: ut
 
         if (meta.activeTag(wd.pos) == .transit) ctx.dirty = true;
         if (meta.activeTag(wd.goal_size) == .transit) ctx.dirty = true;
-    }
-
-    // put focus on top (if it is in this workspace)
-    for (ctx.seats.values()) |seat| {
-        if (seat.focus) |f| {
-            const focus_data = ctx.wins.get(f).?;
-            focus_data.node.placeTop();
-
-            if (!focus_data.float) {
-                for (wsd.floating.keys()) |w| {
-                    const wd = ctx.wins.get(w).?;
-                    wd.node.placeTop();
-                }
-            }
-        }
     }
 }
