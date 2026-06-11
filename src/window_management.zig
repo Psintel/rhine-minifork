@@ -114,8 +114,8 @@ fn apply_tiler(ctx: *Context, curr_time: Io.Timestamp) !void {
         // this stays until I figure out a better way of doing this
         out_data.shell_out.setDefault();
 
-		var idx: usize = 0;
-        while (idx < ws.floating.count()){
+        var idx: usize = 0;
+        while (idx < ws.floating.count()) {
             const w = ws.floating.keys()[idx];
             const wd = ctx.wins.getPtr(w) orelse continue;
             if (!wd.float) {
@@ -126,8 +126,8 @@ fn apply_tiler(ctx: *Context, curr_time: Io.Timestamp) !void {
             }
         }
 
-		idx = 0;
-        while (idx < ws.windows.count()){
+        idx = 0;
+        while (idx < ws.windows.count()) {
             const w = ws.windows.keys()[idx];
             const wd = ctx.wins.getPtr(w) orelse continue;
             if (wd.float) {

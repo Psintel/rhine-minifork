@@ -6,7 +6,7 @@ const Scanner = @import("wayland").Scanner;
 pub fn build(b: *Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-    const notify = b.option(bool, "notify", "add libnotify support for sending notifications") orelse true;
+    const notify = b.option(bool, "notify", "add dbus notification support for some errors") orelse true;
     const strip = b.option(bool, "strip", "strip executable");
 
     const tween = b.dependency("mr_tween", .{
@@ -17,7 +17,7 @@ pub fn build(b: *Build) !void {
     const tributary = b.dependency("tributary", .{
         .optimize = optimize,
         .target = target,
-        .notify = notify,
+        .dbus = notify,
         .strip = strip,
     });
 

@@ -24,7 +24,7 @@ const Inotify = tributary.inotify;
 const SignalListener = tributary.signals;
 const Layouts = @import("layouts.zig");
 const Seat = @import("seat.zig");
-const Notify = tributary.Notify;
+const Notify = tributary.Nobloatify;
 const Restore = @import("restore.zig");
 
 pub const std_options: std.Options = .{
@@ -220,12 +220,11 @@ pub fn main(init: std.process.Init) !void {
         .config = Config.parse(alloc, &reader_object.interface) catch |e| {
             Notify.send(.{
                 .summary = "failed to start rhine",
-                .body =
+                .description =
                 \\failed to load the initial configuration file.
                 \\this is most likely due to a missing or invalid config
                 ,
-                .duration = 0,
-                .urgency = .Critical,
+                .urgency = .critical,
             }) catch {};
             std.process.fatal(
                 \\failed to load the initial configuration file: {}.
@@ -296,7 +295,7 @@ pub fn main(init: std.process.Init) !void {
                 const nc = Config.parse(alloc, &reader_object.interface) catch |e| {
                     Notify.send(.{
                         .summary = "failure reloading config",
-                        .urgency = .Critical,
+                        .urgency = .critical,
                     }) catch |ne| log.err("failed to send notification {}", .{ne});
                     log.err("failure reloading config: {}", .{e});
                     continue;

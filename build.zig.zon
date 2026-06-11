@@ -13,8 +13,8 @@
             .hash = "mr_tween-0.1.0-WbH78YcBAQD3RF4QfCYFF6EJCYzAzdIU4BHCj0pFI5yq",
         },
         .tributary = .{
-            .url = "git+https://codeberg.org/Sivecano/libtributary#7d9eab1fdb6ee9c3b05831c67fab3a276bd8404e",
-            .hash = "tributary-0.2.0-tqCfWzeVAACK6V4N7B3kCRvYV8Q1YUWzN_71dgisbvdt",
+            .url = "https://codeberg.org/Sivecano/libtributary/archive/0.3.0.tar.gz",
+            .hash = "tributary-0.3.0-tqCfW-K8AABTU22iSwFBEE-lcmH7ULYYpSMuauPyusuf",
         },
     },
     .paths = .{
