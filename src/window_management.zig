@@ -154,7 +154,7 @@ fn apply_tiler(ctx: *Context, curr_time: Io.Timestamp) !void {
         }
 
         // this ensures that focused windows go on top
-        ws.windows.sort(WindowSorter{ .ctx = ctx, .keys = ws.floating.keys() });
+        ws.windows.sort(WindowSorter{ .ctx = ctx, .keys = ws.windows.keys() });
         ws.floating.sort(WindowSorter{ .ctx = ctx, .keys = ws.floating.keys() });
 
         ws.manage(

@@ -16,6 +16,7 @@ const Tilable = @import("tilable.zig");
 const Tiler = @import("tiler.zig");
 const Output = @import("output.zig");
 const Window = @import("window.zig");
+const Seat = @import("seat.zig");
 const Rules = @import("rules.zig");
 const Animations = @import("animations.zig");
 const Io = std.Io;
@@ -99,7 +100,11 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
                 paren.pos.get(ctx.anims, mics) + (paren.size - self.size) / @as(utils.Vec2, @splat(2)),
                 mics,
             );
-            // self.setPos(paren.pos.get(mics), mics);
+
+            while (Seat.byFocus(ctx, p)) |_seat| {
+                const seat_data = ctx.seats.getPtr(_seat).?;
+                seat_data.focus = win;
+            }
         }
 
         try ws_data.floating.put(ctx.gpa, win, {});
