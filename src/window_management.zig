@@ -2,7 +2,6 @@ const std = @import("std");
 const wayland = @import("wayland");
 const tributary = @import("tributary");
 const mem = std.mem;
-const linux = std.os.linux;
 const meta = std.meta;
 const Io = std.Io;
 

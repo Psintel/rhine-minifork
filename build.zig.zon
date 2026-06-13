@@ -1,6 +1,6 @@
 .{
     .name = .rhine,
-    .version = "0.2.0",
+    .version = "0.3.0",
     .fingerprint = 0x3a02b80fe25d2685, // Changing this has security and trust implications.
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
@@ -13,8 +13,8 @@
             .hash = "mr_tween-0.1.0-WbH78YcBAQD3RF4QfCYFF6EJCYzAzdIU4BHCj0pFI5yq",
         },
         .tributary = .{
-            .url = "https://codeberg.org/Sivecano/libtributary/archive/0.3.0.tar.gz",
-            .hash = "tributary-0.3.0-tqCfW-K8AABTU22iSwFBEE-lcmH7ULYYpSMuauPyusuf",
+            .url = "https://codeberg.org/Sivecano/libtributary/archive/0.3.1.tar.gz",
+            .hash = "tributary-0.3.0-tqCfWxK9AABlyfL39xkeZJomTszkfzDDd7TIXteh5KMu",
         },
     },
     .paths = .{
