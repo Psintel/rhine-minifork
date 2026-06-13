@@ -50,10 +50,8 @@ pub const Animation = struct {
 const Animations = @This();
 
 animations: std.EnumArray(AnimationType, Animation) = .initFill(.{
-    .duration = .fromMicroseconds(300_000),
-    .easing = .{ .fun = .{ .elasticOut = .{
-        .amplitude = 0.5,
-    } } },
+    .duration = .fromMicroseconds(150_000),
+    .easing = .{ .fun = .{ .linear= {} } },
 }),
 
 pub const Easing = struct {
