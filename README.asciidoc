@@ -234,16 +234,16 @@ Putting it all together might look something like this
 ```
 animations {
     move {
-        duration 250_000
-        easing elasticOut, amplitude=0.2
+        duration 300_000
+        easing bounceOut
     }
     resize {
-        duration 250_000
-        easing elasticOut, amplitude=0.2
+        duration 300_000
+        easing bounceOut
     }
     workspace {
         duration 500_000
-        easing elasticOut, amplitude=0.2
+        easing elasticOut, amplitude=0.005, period=0.5
     }
 }
 ```
