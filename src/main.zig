@@ -32,7 +32,7 @@ const Restore = @import("restore.zig");
 const minimal_config = @embedFile("minimal.rh");
 
 pub const std_options: std.Options = .{
-    .log_level = .info,
+    .logFn = @import("notifyLog.zig").logFn,
 };
 
 const Registry = struct {
