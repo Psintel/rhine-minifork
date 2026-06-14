@@ -104,6 +104,9 @@ pub fn build(b: *Build) !void {
         run_cmd.addArgs(args);
     }
 
+    const fmt = b.addFmt(.{ .paths = &.{ "src", "build.zig", "build.zig.zon" } });
+    b.getInstallStep().dependOn(&fmt.step);
+
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 }
