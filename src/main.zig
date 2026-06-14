@@ -3,7 +3,9 @@ const mem = std.mem;
 const linux = std.os.linux;
 const posix = std.posix;
 const meta = std.meta;
-const log = std.log;
+const path = std.fs.path;
+const Io = std.Io;
+const log = std.log.scoped(.main);
 
 const wayland = @import("wayland");
 const wl = wayland.client.wl;
@@ -26,6 +28,8 @@ const Layouts = @import("layouts.zig");
 const Seat = @import("seat.zig");
 const Notify = tributary.Nobloatify;
 const Restore = @import("restore.zig");
+
+const minimal_config = @embedFile("minimal.rh");
 
 pub const std_options: std.Options = .{
     .log_level = .info,
@@ -106,28 +110,57 @@ fn unwrapIFace(iface: anytype) !@TypeOf(iface.?) {
     };
 }
 
+const FileData = struct {
+    file: Io.File,
+    wd: Inotify.WatchDescriptor,
+    reader: Io.File.Reader,
+
+    pub fn deinit(self: @This(), io: Io, inotify: Inotify) void {
+        inotify.unwatch(self.wd);
+        self.file.close(io);
+    }
+};
+
 pub fn main(init: std.process.Init) !void {
+    var buffer: [0x100]u8 = undefined;
     const alloc = init.gpa;
     const io = init.io;
     const home = init.environ_map.get("HOME").?;
     const cwd = std.Io.Dir.cwd();
 
+    var inotify: Inotify = try .init(io, alloc, .{ .nonblock = true });
+    defer inotify.deinit(io, alloc);
+
     const config_path = path: {
-        const xdg_config_home = init.environ_map.get("XDG_CONFIG_HOME");
-        const cfile = try if (xdg_config_home) |xdg|
-            std.fmt.allocPrint(alloc, "{s}/river/config.rh", .{xdg})
+        const components: []const []const u8 = if (init.environ_map.get("XDG_CONFIG_HOME")) |xdg|
+            &.{ xdg, "river", "config.rh" }
         else
-            std.fmt.allocPrint(alloc, "{s}/.config/river/config.rh", .{home});
-        break :path cfile;
+            &.{ home, ".config", "river", "config.rh" };
+
+        break :path try path.join(alloc, components);
     };
     defer alloc.free(config_path);
 
-    const config = try cwd.openFile(init.io, config_path, .{});
+    const dir_path = std.fs.path.dirname(config_path).?;
 
-    var inotify: Inotify = try .init(.{ .nonblock = true });
-    defer inotify.deinit(io);
+    const config_dir = try cwd.createDirPathOpen(io, dir_path, .{});
+    defer config_dir.close(io);
 
-    const wid = try inotify.watch(config_path, .{ .MODIFY = true });
+    const dirwd = try inotify.watch(dir_path, .{ .CREATE = true, .DELETE = true });
+    defer inotify.unwatch(dirwd);
+
+    var config_file: ?FileData = if (config_dir.openFile(io, "config.rh", .{})) |f|
+        .{
+            .file = f,
+            .wd = try inotify.watch(config_path, .{ .MODIFY = true, .CREATE = true }),
+            .reader = f.reader(io, &buffer),
+        }
+    else |e| switch (e) {
+        error.FileNotFound => null,
+        else => return e,
+    };
+
+    defer if (config_file) |f| f.deinit(io, inotify);
 
     const signal_listener: SignalListener = try .init(.{
         .CHLD = true,
@@ -145,7 +178,7 @@ pub fn main(init: std.process.Init) !void {
     }, .{ .NONBLOCK = true });
     defer signal_listener.deinit(io);
 
-    const restorePath = try std.fmt.allocPrint(alloc, "{s}/.cache/rhine.restore", .{home});
+    const restorePath = try path.join(alloc, &.{ home, ".cache", "rhine.restore" });
     defer alloc.free(restorePath);
 
     var restore = cwd.openFile(io, restorePath, .{ .mode = .read_write }) catch |e|
@@ -156,9 +189,6 @@ pub fn main(init: std.process.Init) !void {
     defer restore.close(io);
     var restore_buf: [5 * Restore.buf_size]u8 = undefined;
     var restore_reader = restore.reader(io, &restore_buf);
-
-    var buffer: [0x100]u8 = undefined;
-    var reader_object = config.reader(io, &buffer);
 
     try Notify.init();
     defer Notify.deinit();
@@ -209,6 +239,19 @@ pub fn main(init: std.process.Init) !void {
 
     var queue_buf: [100]HyprIPC.HyprEvent = undefined;
 
+    const initial_config = cfg: {
+        if (config_file) |*f| {
+            if (Config.parse(alloc, &f.reader.interface)) |c| break :cfg c else |e| {
+                log.err("failed to load initial config: {}", .{e});
+            }
+        }
+        log.err("couldn't load config file, falling back to minimal", .{});
+
+        var fb = Io.Reader.fixed(minimal_config);
+
+        break :cfg try Config.parse(alloc, &fb);
+    };
+
     var ctx: Context = .{
         .gpa = alloc,
         .io = io,
@@ -217,20 +260,7 @@ pub fn main(init: std.process.Init) !void {
         .bind = try unwrapIFace(reg.bindings),
         .shell = try unwrapIFace(reg.shell),
         .cursor_shape = try unwrapIFace(reg.cursor_shape),
-        .config = Config.parse(alloc, &reader_object.interface) catch |e| {
-            Notify.send(.{
-                .summary = "failed to start rhine",
-                .description =
-                \\failed to load the initial configuration file.
-                \\this is most likely due to a missing or invalid config
-                ,
-                .urgency = .critical,
-            }) catch {};
-            std.process.fatal(
-                \\failed to load the initial configuration file: {}.
-                \\this is most likely due to a missing or invalid config
-            , .{e});
-        },
+        .config = initial_config,
         .events = events,
         .ipcChannel = .init(&queue_buf),
         .restore = Restore.deserialize(&restore_reader.interface, alloc) catch |e| res: {
@@ -285,29 +315,47 @@ pub fn main(init: std.process.Init) !void {
 
         {
             var reload_conf = false;
-            while (try inotify.nextEvent(io)) |e| {
-                if (e.wd == wid) reload_conf = true;
+            while (try inotify.nextEvent()) |e| {
+                log.info("inotify event: {}", .{e.mask});
+
+                if (config_file) |f| {
+                    if (e.wd == f.wd) reload_conf = true;
+                }
+
+                if (e.wd == dirwd) {
+                    if (!mem.eql(u8, "config.rh", mem.sliceTo(e.name, 0))) continue;
+                    if (e.mask.DELETE) {
+                        if (config_file) |f| {
+                            f.deinit(io, inotify);
+                            config_file = null;
+                        }
+                    } else if (e.mask.CREATE) {
+                        if (config_file != null) return error.WHAT;
+                        const file = try config_dir.openFile(io, "config.rh", .{});
+                        config_file = .{
+                            .file = file,
+                            .wd = try inotify.watch(config_path, .{ .MODIFY = true }),
+                            .reader = file.reader(io, &buffer),
+                        };
+                        reload_conf = true;
+                    }
+                }
             }
 
-            if (reload_conf) {
+            if (reload_conf) if (config_file) |*f| {
                 log.info("reloading config :D", .{});
-                try reader_object.seekTo(0);
-                const nc = Config.parse(alloc, &reader_object.interface) catch |e| {
-                    Notify.send(.{
-                        .summary = "failure reloading config",
-                        .urgency = .critical,
-                    }) catch |ne| log.err("failed to send notification {}", .{ne});
-                    log.err("failure reloading config: {}", .{e});
+                try f.reader.seekTo(0);
+                const nc = Config.parse(alloc, &f.reader.interface) catch |e| {
+                    log.err("failed to parse config: {}", .{e});
                     continue;
                 };
-                // try nc.serialize(&writer.interface);
                 ctx.config.deinit(alloc);
                 ctx.config = nc;
                 ctx.dirty = true;
                 ctx.reload() catch |e| {
                     log.err("failed to reload config: {}", .{e});
                 };
-            }
+            };
         }
 
         {
