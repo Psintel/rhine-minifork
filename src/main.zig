@@ -316,8 +316,6 @@ pub fn main(init: std.process.Init) !void {
         {
             var reload_conf = false;
             while (try inotify.nextEvent()) |e| {
-                log.info("inotify event: {}", .{e.mask});
-
                 if (config_file) |f| {
                     if (e.wd == f.wd) reload_conf = true;
                 }
