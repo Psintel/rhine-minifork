@@ -251,7 +251,7 @@ animations {
 
 
 .Examples
-[cols="a,a", frame=none, grid=none]
+[cols="1a,1a", frame=none, grid=none]
 |===
 | bounceOut
 | sinOut
