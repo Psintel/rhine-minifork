@@ -118,6 +118,7 @@ pub fn deinit(self: *@This()) void {
     self.config.deinit(self.gpa);
     self.should_close.deinit(self.gpa);
     self.should_open.deinit(self.gpa);
+    self.restore.deinit(self.gpa);
 }
 
 pub fn loadEnv(self: *@This()) !void {

@@ -78,7 +78,6 @@ pub fn build(b: *Build) !void {
             .root_source_file = b.path("src/main.zig"),
             .target = target,
             .optimize = optimize,
-            .link_libc = true,
             .strip = strip,
             .imports = &.{.{
                 .name = "keysysms",
@@ -98,8 +97,8 @@ pub fn build(b: *Build) !void {
 
     run_cmd.step.dependOn(b.getInstallStep());
 
-    const screen = b.option(u32, "wayland", "sets the WAYLAND_DISPLAY env variable to wayland-[wayland]") orelse 1;
-    run_cmd.setEnvironmentVariable("WAYLAND_DISPLAY", b.fmt("wayland-{}", .{screen}));
+    if (b.option(u32, "wayland", "set the WAYLAND_DISPLAY")) |disp|
+        run_cmd.setEnvironmentVariable("WAYLAND_DISPLAY", b.fmt("wayland-{}", .{disp}));
 
     if (b.args) |args| {
         run_cmd.addArgs(args);

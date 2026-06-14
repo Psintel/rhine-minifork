@@ -51,7 +51,7 @@ const Animations = @This();
 
 animations: std.EnumArray(AnimationType, Animation) = .initFill(.{
     .duration = .fromMicroseconds(150_000),
-    .easing = .{ .fun = .{ .linear= {} } },
+    .easing = .{ .fun = .{ .linear = {} } },
 }),
 
 pub const Easing = struct {

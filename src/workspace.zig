@@ -75,7 +75,7 @@ pub fn get(ctx: *Context, id: WS) !*Workspace {
 
     const layt: ?Layouts.LayoutType = if (layout) |l| std.meta.stringToEnum(Layouts.LayoutType, l) else null;
 
-    if (layt == null) log.err("invalid layout {?s} for workspace {}", .{ layout, id });
+    if (layt == null) if (layout) |l| log.err("invalid layout {s} for workspace {}", .{ l, id });
 
     const tiler = try Layouts.new(
         ctx.gpa,
