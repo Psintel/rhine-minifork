@@ -228,7 +228,7 @@ each one of these groups then has the same parameters. Namely:
 | duration <MICROSECONDS>
 | The duration of this animation in microseconds. Setting this to 0 disables this animation.
 | easing{nbsp}<FUNCTION>{nbsp}[,{nbsp}PARAMETERS..]
-| The easing function to use as well as some optional parameters. These are the same ones as available in https://codeberg.org/Games-by-Mason/mr_tween[this library] using the same function names, the same named parameters and the same default values for the named parameters.
+| The easing function to use as well as some optional parameters. The animations are taken from in https://docs.gamesbymason.com/mr_tween/#tween.ease[mr_tween] using the same function names, named parameters and default values for the named parameters.
 |===
 
 Putting it all together might look something like this
@@ -253,9 +253,9 @@ animations {
 .Examples
 [cols="a,a", frame=none, grid=none]
 |===
-| elasticOut
+| bounceOut
 | sinOut
-| video::rhine/raw/branch/main/assets/elastic.mp4[opts="autoplay"]
+| video::rhine/raw/branch/main/assets/bounce.mp4[opts="autoplay"]
 | video::rhine/raw/branch/main/assets/sin.mp4[opts="autoplay"]
 |===
 
