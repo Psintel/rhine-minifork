@@ -25,6 +25,7 @@ There is an example link:rhine/src/branch/main/config.rh[config.rh] at the root 
 - The config is loaded from `~/.config/river/config.rh` ( or `XDG_CONFIG_HOME/river/config.rh`).
 - The config is reloaded whenever it is changed.
 - The config may contain more options than what is specified below. (this allows for example for https://codeberg.org/Sivecano/channel[channel] to share the same config file).
+- If rhine fails to load a valid config on startup it will fall back to link:rhine/src/branch/main/src/minimal.rh[minimal.rh].
 
 === input devices & output layout
 
@@ -413,7 +414,7 @@ rhine links the following shared libraries:
 
 optionally rhine also links the following:
 
-* libnotify
+* libdbus-1
 
 === static libraries
 rhine uses the zig build system to statically depend on https://codeberg.org/Sivecano/libtributary[tributary]
