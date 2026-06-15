@@ -44,7 +44,11 @@ elements of the `layout` block have the form of `<Workspace ID> <layout>`.
 | Layout | Description
 
 | bsp
-| A fairly standard binary space partitioning layout.
+| A fairly standard binary space partitioning layout. This is the primary layout of rhine.
+
+| monocle
+| a monocle layout, this means that only one window is visible at a time. The windows are arranged on a horizontal band.
+ this layout is still somewhat experimental.
 
 |===
 

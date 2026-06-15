@@ -125,13 +125,13 @@ pub fn move(self: *@This(), ct: TC, dir: Dir) Tiler.MoveResult {
                 if (n.prev) |p| {
                     self.list.remove(n);
                     self.list.insertBefore(p, n);
-                }
+                } else return .{ .escalate = .unit };
             },
             .Right => {
                 if (n.next) |p| {
                     self.list.remove(n);
                     self.list.insertAfter(p, n);
-                }
+                } else return .{ .escalate = .unit };
             },
         }
 
