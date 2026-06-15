@@ -17,7 +17,7 @@ const log = std.log.scoped(.Layout);
 
 const layouts = .{
     .bsp = @import("layouts/bsp.zig"),
-    // .monocle = @import("layouts/monocle.zig"),
+    .monocle = @import("layouts/monocle.zig"),
 };
 
 comptime {
