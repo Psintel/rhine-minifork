@@ -96,12 +96,12 @@ pub fn getWindow(self: *@This(), ct: TC, dir: Dir) ?WT {
 
         switch (dir) {
             .Left => {
-                const prev = n.prev orelse self.list.last orelse return null;
+                const prev = n.prev orelse return null;
                 const preve: *Elem = @fieldParentPtr("node", prev);
                 return preve.w;
             },
             .Right => {
-                const next = n.next orelse self.list.first orelse return null;
+                const next = n.next orelse return null;
                 const nexte: *Elem = @fieldParentPtr("node", next);
                 return nexte.w;
             },
@@ -119,22 +119,18 @@ pub fn move(self: *@This(), ct: TC, dir: Dir) Tiler.MoveResult {
         const par: *Elem = @fieldParentPtr("node", n);
         if (par.w != ct.focus) continue;
 
-        self.list.remove(n);
-
         switch (dir) {
             .Up, .Down => return .{ .escalate = .unit },
             .Left => {
                 if (n.prev) |p| {
+                    self.list.remove(n);
                     self.list.insertBefore(p, n);
-                } else {
-                    self.list.append(n);
                 }
             },
             .Right => {
                 if (n.prev) |p| {
+                    self.list.remove(n);
                     self.list.insertAfter(p, n);
-                } else {
-                    self.list.prepend(n);
                 }
             },
         }
