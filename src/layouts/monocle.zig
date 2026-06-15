@@ -128,7 +128,7 @@ pub fn move(self: *@This(), ct: TC, dir: Dir) Tiler.MoveResult {
                 }
             },
             .Right => {
-                if (n.prev) |p| {
+                if (n.next) |p| {
                     self.list.remove(n);
                     self.list.insertAfter(p, n);
                 }
