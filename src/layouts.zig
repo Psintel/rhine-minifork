@@ -29,8 +29,6 @@ comptime {
     }
 }
 
-var storageMap: LayoutMap = .empty;
-
 pub const LayoutMap = std.AutoHashMapUnmanaged(Tiler, *anyopaque);
 pub const LayoutType = meta.FieldEnum(@TypeOf(layouts));
 
@@ -86,14 +84,13 @@ pub fn new(gpa: mem.Allocator, _lay: LayoutType) !Tiler {
             errdefer gpa.destroy(l);
             l.* = create(lay);
             const t = l.tiler.get(lay);
-            try storageMap.put(gpa, t, l);
             return t;
         },
     }
 }
 
 pub fn delete(gpa: mem.Allocator, tile: Tiler) void {
-    const ptr = storageMap.get(tile).?;
+    const ptr = tile.context orelse return;
     switch (tile.tag) {
         inline else => |t| {
             const T = @field(layouts, @tagName(t));
@@ -101,10 +98,7 @@ pub fn delete(gpa: mem.Allocator, tile: Tiler) void {
             if (@hasDecl(T, "deinit")) {
                 v.deinit(gpa);
             }
-
-            _ = storageMap.remove(tile);
             gpa.destroy(v);
         },
     }
-    if (storageMap.size == 0) storageMap.clearAndFree(gpa);
 }

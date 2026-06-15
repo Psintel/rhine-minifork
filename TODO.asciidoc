@@ -26,6 +26,7 @@
 * multi-touch gestures (also tiling specific)
     ** waiting for protocol
     ** sidestep a protocol and just use libinput directly (migration should be cheap(-ish))
+        *** this approach doesn't sync with the manage sequence
 * each tiler gets its own memory arena
 * C abi for tilers
     ** we can override malloc, calloc, realloc and free for the shared object :D

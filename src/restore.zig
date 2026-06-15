@@ -26,8 +26,8 @@ pub const Out = struct {
 
 pub const empty: @This() = .{ .outs = .empty, .relations = .empty };
 
-outs: std.StringArrayHashMapUnmanaged(Out.Data),
-relations: std.AutoArrayHashMapUnmanaged(Win.Id, Win.Data),
+outs: std.array_hash_map.String(Out.Data),
+relations: std.array_hash_map.Auto(Win.Id, Win.Data),
 
 pub fn deserialize(reader: *std.Io.Reader, gpa: std.mem.Allocator) !@This() {
     var out: @This() = .empty;
@@ -93,6 +93,7 @@ pub fn serialize(self: @This(), writer: *std.Io.Writer) !void {
 
 pub fn fromCtx(ctx: *const Context) !@This() {
     var out: @This() = .empty;
+    errdefer out.deinit(ctx.gpa);
 
     var out_iter = ctx.outs.iterator();
     while (out_iter.next()) |kv| {
@@ -102,6 +103,7 @@ pub fn fromCtx(ctx: *const Context) !@This() {
         const wl_data = ctx.wl_outs.data.get(wl_out) orelse continue;
         const _name = wl_data.name orelse continue;
         const name = try ctx.gpa.dupe(u8, _name);
+        errdefer ctx.gpa.free(name);
 
         try out.outs.put(ctx.gpa, name, .{ .workspace = out_data.workspace });
     }
@@ -126,4 +128,6 @@ pub fn fromCtx(ctx: *const Context) !@This() {
 
 pub fn deinit(self: *@This(), alloc: std.mem.Allocator) void {
     self.relations.deinit(alloc);
+    for (self.outs.keys()) |k| alloc.free(k); // free hashmap keys
+    self.outs.deinit(alloc);
 }

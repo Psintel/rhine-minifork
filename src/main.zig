@@ -279,7 +279,10 @@ pub fn main(init: std.process.Init) !void {
     const t = try std.Thread.spawn(.{}, HyprIPC.sock1Worker, .{ ipc, &ctx });
     t.detach();
     var fut = try io.concurrent(HyprIPC.sock2Worker, .{ ipc, io, &ctx, &ctx.ipcChannel });
-    defer fut.cancel(io) catch |e| log.err("sock2Worker failed with {}", .{e});
+    defer fut.cancel(io) catch |e| switch (e) {
+        error.Canceled => {}, // cancelation is the expected outcome....
+        else => log.err("sock2Worker failed with {}", .{e}),
+    };
 
     ctx.wm.setListener(*Context, window_managment.listen, &ctx);
     try ctx.reload();
@@ -292,7 +295,7 @@ pub fn main(init: std.process.Init) !void {
                     var a: u32 = undefined;
                     _ = linux.waitpid(@intCast(sig.pid), &a, linux.W.NOHANG);
                 },
-                else => |s| {
+                else => {
                     posix.sigprocmask(posix.SIG.SETMASK, &posix.sigemptyset(), null);
 
                     var restore_writer = restore.writer(io, &restore_buf);
@@ -308,7 +311,8 @@ pub fn main(init: std.process.Init) !void {
                     };
 
                     log.info("wrote restore info successfully :)", .{});
-                    try std.posix.raise(s);
+                    ctx.running = false;
+                    return;
                 },
             }
         }
