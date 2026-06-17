@@ -29,7 +29,7 @@ node: *rwm.NodeV1,
 
 app_id: ?[]const u8 = null,
 title: ?[]const u8 = null,
-size: utils.Vec2 = @splat(1),
+size: utils.Vec2 = @splat(0), // 0 means yet to be configured
 float: bool = false, // is this window floating
 parent: ?*rwm.WindowV1 = null,
 fullscreen: utils.Transaction = .no,
@@ -91,9 +91,13 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
 
     const ws_data: *Workspace = try .get(ctx, ws.?);
 
+    if (@reduce(.And, self.size == @as(utils.Vec2, @splat(0)))) {
+        self.size = @splat(1);
+    }
+
     if (self.float) {
+        const mics = clock.now(ctx.io);
         if (self.parent) |p| {
-            const mics = clock.now(ctx.io);
             const paren = ctx.wins.getPtr(p).?;
             self.setPos(
                 ctx.anims,
@@ -105,6 +109,15 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
                 const seat_data = ctx.seats.getPtr(_seat).?;
                 seat_data.focus = win;
             }
+        } else if (Output.byWorkspace(ctx, ws.?)) |out| {
+            const out_data = ctx.outs.get(out).?;
+            const r = out_data.getArea();
+
+            self.setPos(
+                ctx.anims,
+                r.pos + (r.dim - self.size) / @as(utils.Vec2, @splat(2)),
+                mics,
+            );
         }
 
         try ws_data.floating.put(ctx.gpa, win, {});
@@ -176,11 +189,12 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
                 h.max_width,
                 h.max_height,
             });
-            if (h.min_height == h.max_height and h.min_width == h.max_width and h.min_height != 0 and h.min_width != 0) {
-                win_data.size = .{ h.max_width, h.max_height };
-                log.info("window {} set to floating", .{win.getId()});
-                win_data.float = true;
-            }
+            if (@reduce(.And, win_data.size == @as(utils.Vec2, @splat(2))))
+                if (h.min_height == h.max_height and h.min_width == h.max_width and h.min_height != 0 and h.min_width != 0) {
+                    win_data.size = .{ h.max_width, h.max_height };
+                    log.info("window {} set to floating", .{win.getId()});
+                    win_data.float = true;
+                };
         },
         .fullscreen_requested => {
             win_data.fullscreen.on();
