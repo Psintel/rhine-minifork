@@ -14,7 +14,7 @@
         },
         .tributary = .{
             .url = "https://codeberg.org/Sivecano/libtributary/archive/0.4.0.tar.gz",
-            .hash = "tributary-0.3.0-tqCfW4HAAABfD0MtiMI6e72FdqzGwXY9UIl71Rsq8wey",
+            .hash = "tributary-0.4.0-tqCfW3_AAADU2wZZZ-bkvnDm1vAXnh3ZqxhvOPWSTheU",
         },
     },
     .paths = .{
