@@ -357,6 +357,7 @@ pub fn main(init: std.process.Init) !void {
                 ctx.reload() catch |e| {
                     log.err("failed to reload config: {}", .{e});
                 };
+                try ctx.ipcChannel.putOneUncancelable(ctx.io, .{ .configreloaded = {} });
             };
         }
 

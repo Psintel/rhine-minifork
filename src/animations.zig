@@ -56,13 +56,9 @@ animations: std.EnumArray(AnimationType, Animation) = .initFill(.{
 
 pub const Easing = struct {
     const Inner = ez: {
-        const Type = std.builtin.Type;
+        var field_names: []const []const u8 = &.{};
+        var field_types: []const type = &.{};
 
-        const data = struct {
-            name: []const u8,
-            params: []const Type.Fn.Param,
-        };
-        var want: []const data = &.{};
         for (meta.declarations(ease)) |dec| {
             const ft = switch (@typeInfo(@TypeOf(@field(ease, dec.name)))) {
                 .@"fn" => |f| f,
@@ -71,26 +67,18 @@ pub const Easing = struct {
             const params = ft.params;
             if (params.len < 1 or params.len > 2 or !params[0].is_generic) continue;
             if (params.len == 2 and params[1].is_generic) continue;
-            want = want ++ .{data{ .name = dec.name, .params = params }};
+
+            field_names = field_names ++ .{dec.name};
+            const T = if (params.len == 2) params[1].type orelse void else void;
+            field_types = field_types ++ .{T};
         }
 
-        const TagI = meta.Int(.unsigned, math.log2_int_ceil(usize, want.len));
+        const TagI = meta.Int(.unsigned, math.log2_int_ceil(usize, field_names.len));
 
-        var efields: [want.len][]const u8 = undefined;
-        var evals: [want.len]TagI = undefined;
-        var utypes: [want.len]type = undefined;
-        var uattrs: [want.len]Type.UnionField.Attributes = undefined;
-
-        for (want, 0..) |dec, i| {
-            efields[i] = dec.name;
-            evals[i] = i;
-            utypes[i] = if (dec.params.len == 2) dec.params[1].type orelse void else void;
-            uattrs[i] = .{ .@"align" = @alignOf(utypes[i]) };
-        }
-
-        const E = @Enum(TagI, .exhaustive, &efields, &evals);
-        break :ez @Union(.auto, E, &efields, &utypes, &uattrs);
+        const E = @Enum(TagI, .exhaustive, field_names, &std.simd.iota(TagI, field_names.len));
+        break :ez @Union(.auto, E, field_names, field_types[0..field_names.len], &@splat(.{}));
     };
+
     fun: Inner,
 
     pub fn apply(self: @This(), prog: f32) f32 {

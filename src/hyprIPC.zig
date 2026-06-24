@@ -436,10 +436,29 @@ pub fn sock1Worker(self: @This(), ctx: *Context) !void {
     var serv = try addr.listen(ctx.io, .{});
     defer serv.deinit(ctx.io);
 
+    // const TimeoutU = union(enum) {
+    //     con: @typeInfo(@TypeOf(handleCon)).@"fn".return_type.?,
+    //     timeout: error{Canceled}!void,
+    // };
+    // var buf: [2]TimeoutU = undefined;
+
     while (true) {
-        handleCon(&serv, ctx) catch |e| {
-            log.err("HyprIPC error: {}", .{e});
-        };
+        // var select: Io.Select(TimeoutU) = .init(ctx.io, &buf);
+        // defer select.cancelDiscard();
+        // try select.concurrent(.con, handleCon, .{ &serv, ctx });
+        // try select.concurrent(.timeout, Io.sleep, .{ ctx.io, Io.Duration.fromSeconds(5), .awake });
+
+        // switch (try select.await()) {
+        //     .timeout => {},
+        //     .con => |r| {
+        //         r catch |e| log.err("HyprIPC error: {}", .{e});
+        //     },
+        // }
+
+        // const fut = try ctx.io.concurrent(handleCon, .{ &serv, ctx });
+        // errdefer fut.cancel(ctx.io);
+
+        handleCon(&serv, ctx) catch |e| log.err("HyprIPC error: {}", .{e});
     }
 }
 

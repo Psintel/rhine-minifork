@@ -72,9 +72,9 @@ const WsSpec = union(enum) {
                 };
             },
             .PrevActive => {
-                const out = Output.bySeat(ctx, seat) orelse return error.NotFound;
-                const out_data = ctx.outs.get(out) orelse return error.NotFound;
-                return out_data.last_workspace orelse error.NotFound;
+                const out = Output.bySeat(ctx, seat) orelse return error.NoPreviousWorkspace;
+                const out_data = ctx.outs.get(out) orelse return error.NoPreviousWorkspace;
+                return out_data.last_workspace orelse error.NoPreviousWorkspace;
             },
         }
     }
