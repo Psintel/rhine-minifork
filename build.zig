@@ -80,7 +80,7 @@ pub fn build(b: *Build) !void {
             .optimize = optimize,
             .strip = strip,
             .imports = &.{.{
-                .name = "keysysms",
+                .name = "keysyms",
                 .module = keysyms.createModule(),
             }},
         }),

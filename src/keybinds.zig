@@ -22,7 +22,7 @@ const Config = tributary.Config;
 pub const Sym = u32;
 
 const syms: std.StaticStringMap(Sym) = .initComptime(kvs: {
-    const xkb = @import("keysysms");
+    const xkb = @import("keysyms");
     const T = struct { []const u8, Sym };
 
     var out: []const T = &.{};
