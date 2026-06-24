@@ -8,6 +8,7 @@ pub fn build(b: *Build) !void {
     const optimize = b.standardOptimizeOption(.{});
     const notify = b.option(bool, "notify", "add dbus notification support for some errors") orelse true;
     const strip = b.option(bool, "strip", "strip executable");
+    const pie = b.option(bool, "pie", "build Position Independent Executable");
 
     const tween = b.dependency("mr_tween", .{
         .optimize = optimize,
@@ -90,6 +91,7 @@ pub fn build(b: *Build) !void {
     exe.root_module.addImport("tributary", mod_tributary);
     exe.root_module.addImport("wayland", wayland);
     exe.root_module.linkSystemLibrary("wayland-client", .{});
+    exe.pie = pie;
 
     b.installArtifact(exe);
     b.installFile("rhine.desktop", "share/wayland-sessions/rhine.desktop");
