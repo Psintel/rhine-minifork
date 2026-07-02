@@ -332,7 +332,10 @@ pub fn main(init: std.process.Init) !void {
                             config_file = null;
                         }
                     } else if (e.mask.CREATE) {
-                        if (config_file != null) return error.WHAT;
+                        if (config_file) |f| { // if we already watch a config file, gracefully deinit
+                            f.deinit(io, inotify);
+                            config_file = null;
+                        }
                         const file = try config_dir.openFile(io, "config.rh", .{});
                         config_file = .{
                             .file = file,

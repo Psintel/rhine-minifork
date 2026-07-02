@@ -9,8 +9,6 @@
 * I should probably have a different animation type for the workspace sliding
 * figure out what happens when floating windows leave workspace bounds
     ** currently they're just getting clipped
-* multi-monitor should be made to suck less
-    ** better workspace monitor switching
 * special workspaces
     ** autostart clients
     ** maybe have a focused workspace per seat
@@ -22,7 +20,6 @@
             *** regex?
 
 = Ambitions
-
 * multi-touch gestures (also tiling specific)
     ** waiting for protocol
     ** sidestep a protocol and just use libinput directly (migration should be cheap(-ish))
