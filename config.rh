@@ -120,7 +120,7 @@ window_management {
 
 windowrules [
     com.mitchellh.ghostty, workspace 1
-    zenity, float
+    zenity, float, true
 ]
 
 pointer_binds [

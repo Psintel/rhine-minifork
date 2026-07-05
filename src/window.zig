@@ -71,8 +71,7 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
         };
         if (!wr.match.match(self.app_id orelse "")) continue;
         switch (wr.rule) {
-            .float => self.float = true,
-            .nofloat => self.float = false,
+            .float => |f| self.float = f,
             .workspace => |_ws| ws = _ws,
         }
     }
