@@ -13,12 +13,13 @@ const Seat = @import("seat.zig");
 const Workspace = @import("workspace.zig");
 const Context = @import("context.zig");
 const Config = tributary.Config;
+const globbing = tributary.globbing;
 
 const Matcher = union(enum) {
     appid: []const u8,
 
     pub fn match(self: @This(), appid: []const u8) bool {
-        return std.mem.eql(u8, self.appid, appid);
+        return globbing.match(self.appid, appid);
     }
 };
 
