@@ -34,22 +34,7 @@ pub const WindowRule = struct {
 
     pub fn parse(args: *Config.Entry.Iterator) !@This() {
         const match = try args.nextAssume();
-        const rules = try args.nextAssume();
-
-        var ruleit = std.mem.tokenizeScalar(u8, rules, ' ');
-        const rtype = std.meta.stringToEnum(
-            std.meta.Tag(Rule),
-            ruleit.next() orelse return error.ParseError,
-        ) orelse return error.WrongKey;
-
-        const rule: Rule = switch (rtype) {
-            .float => .{ .float = try args.parseT(bool) },
-            .workspace => ws: {
-                const wss = ruleit.next() orelse return error.ParseError;
-                const ws = std.fmt.parseInt(Workspace.WS, wss, 0) catch return error.ParseError;
-                break :ws .{ .workspace = ws };
-            },
-        };
+        const rule = try args.parseT(Rule);
 
         return .{
             .match = .{ .appid = match },
