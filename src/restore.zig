@@ -36,7 +36,7 @@ pub fn deserialize(reader: *std.Io.Reader, gpa: std.mem.Allocator) !@This() {
     const outsec = try reader.takeArray(Out.name.len);
     if (!mem.eql(u8, outsec, Out.name)) return error.Invalid;
     const out_len = try reader.takeInt(u64, .native);
-    for (0..out_len) |_| {
+    for (0..@intCast(out_len)) |_| {
         const len = try reader.takeInt(u32, .native);
         const name = try reader.readAlloc(gpa, len);
         errdefer gpa.free(name);
@@ -49,7 +49,7 @@ pub fn deserialize(reader: *std.Io.Reader, gpa: std.mem.Allocator) !@This() {
     if (!mem.eql(u8, winsec, Win.name)) return error.Invalid;
 
     const win_len = try reader.takeInt(u64, .native);
-    for (0..win_len) |_| {
+    for (0..@intCast(win_len)) |_| {
         const arr = try reader.takeArray(32);
         var id: Win.Id = @splat(0);
         @memcpy(&id, arr);
