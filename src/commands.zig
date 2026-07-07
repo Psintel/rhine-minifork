@@ -313,7 +313,7 @@ pub const Command = union(enum) {
                 log.info("sending workspace {}", .{ws});
 
                 // floating case
-                if (s.floating.swapRemove(focus)) {
+                if (s.floating.orderedRemove(focus)) {
                     w.floating.put(ctx.gpa, focus, {}) catch ctx.orphan(focus);
                     return;
                 }

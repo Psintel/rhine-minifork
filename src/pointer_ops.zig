@@ -120,7 +120,7 @@ const move = struct {
         const to_ws_data = ctx.workspaces.getPtr(to_ws) orelse return;
 
         // floating case
-        if (ws_data.floating.swapRemove(ct.win)) {
+        if (ws_data.floating.orderedRemove(ct.win)) {
             to_ws_data.floating.put(ctx.gpa, ct.win, {}) catch ctx.orphan(ct.win);
             return;
         }
@@ -137,7 +137,7 @@ const move = struct {
         tc.focus = Window.byPointer(ctx, end_pos);
         to_ws_data.addWindow(tc, ct.win) catch {
             log.err("couldn't reinsert window {}", .{ct.win.getId()});
-            _ = ws_data.windows.swapRemove(ct.win);
+            _ = ws_data.windows.orderedRemove(ct.win);
             ctx.orphan(ct.win);
         };
     }

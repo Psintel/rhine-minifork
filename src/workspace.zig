@@ -107,7 +107,7 @@ pub fn addWindow(self: *@This(), ctx: Tiler.TileContext, win: *rwm.WindowV1) !vo
 }
 
 pub fn rmWindow(self: *@This(), ctx: Tiler.TileContext, win: *rwm.WindowV1) void {
-    if (self.windows.swapRemove(win))
+    if (self.windows.orderedRemove(win))
         self.tiler.vtable.remove(self.tiler.context, ctx, win);
 }
 
@@ -178,7 +178,7 @@ pub fn setTiling(self: *@This(), ctx: *Context, win: *rwm.WindowV1) !void {
     if (self.windows.contains(win)) return std.debug.assert(!self.floating.contains(win));
 
     try self.addWindow(.{ .gpa = ctx.gpa }, win);
-    _ = self.floating.swapRemove(win);
+    _ = self.floating.orderedRemove(win);
 }
 
 pub fn isEmpty(self: @This()) bool {

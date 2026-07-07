@@ -147,7 +147,7 @@ pub fn deinit(self: *const @This(), ctx: *Context, win: *rwm.WindowV1) void {
 
     const ws_data = ctx.workspaces.getPtr(ws).?;
 
-    if (!ws_data.floating.swapRemove(win)) {
+    if (!ws_data.floating.orderedRemove(win)) {
         ws_data.rmWindow(.{ .gpa = ctx.gpa }, win);
     }
 }

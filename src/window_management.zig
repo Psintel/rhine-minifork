@@ -114,6 +114,7 @@ const WindowSorter = struct {
         for (ws.ctx.seats.values()) |seat| {
             if (seat.focus == rw) return true;
         }
+
         return false;
     }
 };
@@ -140,7 +141,7 @@ fn apply_tiler(ctx: *Context, curr_time: Io.Timestamp) !void {
             const wd = ctx.wins.getPtr(w) orelse continue;
             if (!wd.float) {
                 try ws.addWindow(.{ .gpa = ctx.gpa, .focus = focus }, w);
-                _ = ws.floating.swapRemove(w);
+                _ = ws.floating.orderedRemove(w);
             } else {
                 idx += 1;
             }
