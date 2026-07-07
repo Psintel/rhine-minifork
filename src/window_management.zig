@@ -98,10 +98,19 @@ const WindowSorter = struct {
     ctx: *Context,
     keys: []*rwm.WindowV1,
 
-    pub fn lessThan(ws: WindowSorter, _: usize, ri: usize) bool {
+    pub fn lessThan(ws: WindowSorter, li: usize, ri: usize) bool {
         // I don't understand why this check is necessary
-        if (ri >= ws.keys.len) return false;
+        if (ri >= ws.keys.len or li >= ws.keys.len) return false;
+
+        const lw = ws.keys[li];
         const rw = ws.keys[ri];
+
+        const lw_data = ws.ctx.wins.get(lw) orelse return true; // missing left window is always low-prio
+        const rw_data = ws.ctx.wins.get(rw) orelse return false; // missing right window is alway low-prio
+
+        if (lw_data.pinned and !rw_data.pinned) return false;
+        if (!lw_data.pinned and rw_data.pinned) return true;
+
         for (ws.ctx.seats.values()) |seat| {
             if (seat.focus == rw) return true;
         }
@@ -149,10 +158,6 @@ fn apply_tiler(ctx: *Context, curr_time: Io.Timestamp) !void {
             }
         }
 
-        // this ensures that focused windows go on top
-        ws.windows.sort(WindowSorter{ .ctx = ctx, .keys = ws.windows.keys() });
-        ws.floating.sort(WindowSorter{ .ctx = ctx, .keys = ws.floating.keys() });
-
         ws.manage(
             .{ .gpa = ctx.gpa, .focus = focus },
             out_data.getArea(),
@@ -195,6 +200,10 @@ fn apply_tiler(ctx: *Context, curr_time: Io.Timestamp) !void {
 
 fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: Io.Timestamp) !void {
     const opts = ctx.wm_options;
+    // this ensures that focused windows go on top
+    ws.windows.sort(WindowSorter{ .ctx = ctx, .keys = ws.windows.keys() });
+    ws.floating.sort(WindowSorter{ .ctx = ctx, .keys = ws.floating.keys() });
+
     var iter = utils.memIter(*rwm.WindowV1, &.{ ws.windows.keys(), ws.floating.keys() });
     while (iter.next()) |win| {
         const wd = ctx.wins.getPtr(win) orelse continue;

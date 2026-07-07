@@ -40,6 +40,7 @@ identifier: [32]u8 = @splat(0),
 pos: Animations.Lerp(.move) = .{ .static = @splat(0) },
 goal_size: Animations.Lerp(.resize) = .{ .static = @splat(0) },
 active_resize: utils.Transaction = .no,
+pinned: bool = false,
 
 // initialize window
 pub fn init(_: *Context, win: *rwm.WindowV1) !@This() {

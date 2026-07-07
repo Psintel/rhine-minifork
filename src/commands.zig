@@ -123,6 +123,7 @@ pub const Command = union(enum) {
     fullscreen: struct { ToggleCmd, WinSpec },
     floating: struct { ToggleCmd, WinSpec },
     overlay: struct { ToggleCmd, Workspace.WS },
+    pin: struct { WinSpec, ToggleCmd },
     focusWorkspace: WsSpec,
     sendToWorkspace: WsSpec,
     moveToWorkspace: WsSpec,
@@ -256,6 +257,16 @@ pub const Command = union(enum) {
                 try ctx.ipcChannel.putOneUncancelable(ctx.io, .{
                     .activespecialv2 = .{ out_data.overlay, wl_out },
                 });
+            },
+            .pin => |args| {
+                const win = args.@"0".resolve(ctx, seat) orelse return;
+                const win_data = ctx.wins.getPtr(win) orelse return;
+
+                switch (args.@"1") {
+                    .enable => win_data.pinned = true,
+                    .disable => win_data.pinned = false,
+                    .toggle => win_data.pinned = !win_data.pinned,
+                }
             },
             .focusWorkspace => |_ws| {
                 const ws = try _ws.resolve(ctx, seat);
