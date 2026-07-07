@@ -21,6 +21,7 @@ pub fn main(init: process.Init) !void {
     var arg_iter = init.minimal.args.iterate();
 
     var json: bool = false;
+    var help: bool = false;
 
     var fst: ?[]const u8 = undefined;
 
@@ -30,26 +31,32 @@ pub fn main(init: process.Init) !void {
 
     while (arg_iter.next()) |arg| {
         if (oneOf(arg, &.{ "-h", "--help" })) {
-            try stdout.writeStreamingAll(io,
-                \\ ============ rhinectl ============
-                \\ rhinectl : a hyprctl stub for rhine
-                \\
-                \\ usage: rhinectl [flags] <command>
-                \\
-                \\ <command> is a hyprctl command the below:
-                \\
-                \\ use: rhinectl rhine <cmd>
-                \\
-                \\ where <cmd> is a rhine command. same syntax as a keybind
-                \\
-            );
-            return;
+            help = true;
         } else if (oneOf(arg, &.{ "-j", "--json" })) {
             json = true;
         } else {
             fst = arg;
             break;
         }
+    } else {
+        help = true;
+    }
+
+    if (help) {
+        try stdout.writeStreamingAll(io,
+            \\ ============ rhinectl ============
+            \\ rhinectl : a hyprctl stub for rhine
+            \\
+            \\ usage: rhinectl [flags] <command>
+            \\
+            \\ <command> is a hyprctl command the below:
+            \\
+            \\ use: rhinectl rhine <cmd>
+            \\
+            \\ where <cmd> is a rhine command. same syntax as a keybind
+            \\
+        );
+        return;
     }
 
     if (fst == null) process.fatal("no argument, use riverctl -h to get help", .{});
