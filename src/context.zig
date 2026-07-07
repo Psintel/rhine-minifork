@@ -78,6 +78,7 @@ pub const WmOptions = struct {
         colours: struct {
             focus: utils.Color = .blue,
             inactive: utils.Color = .gray,
+            pinned: utils.Color = .yellow,
         } = .{},
     } = .{},
 };

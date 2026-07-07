@@ -213,7 +213,10 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: Io.Timestamp)
             continue;
         };
 
-        var col = opts.border.colours.inactive;
+        var col = if (wd.pinned)
+            opts.border.colours.pinned
+        else
+            opts.border.colours.inactive;
 
         for (ctx.seats.values()) |seat|
             if (seat.focus == win) {
