@@ -415,6 +415,9 @@ fn handleCon(serv: *net.Server, ctx: *Context) !void {
     }
     errdefer log.info("unknown IPC request: {s}", .{reader.buffered()});
 
+    // we assume to have read everything
+    try stream.shutdown(ctx.io, .recv);
+
     const _j = reader.takeDelimiter('/') catch |e| switch (e) {
         error.StreamTooLong => return error.Invalid,
         error.ReadFailed => return e,
