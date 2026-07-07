@@ -93,7 +93,19 @@ pub fn build(b: *Build) !void {
     exe.root_module.linkSystemLibrary("wayland-client", .{});
     exe.pie = pie;
 
+    const rhinectl = b.addExecutable(.{
+        .name = "rhinectl",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/rhinectl.zig"),
+            .target = target,
+            .optimize = optimize,
+            .strip = strip,
+        }),
+    });
+    rhinectl.pie = pie;
+
     b.installArtifact(exe);
+    b.installArtifact(rhinectl);
     b.installFile("rhine.desktop", "share/wayland-sessions/rhine.desktop");
     const run_cmd = b.addRunArtifact(exe);
 
