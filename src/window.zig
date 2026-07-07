@@ -72,7 +72,9 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
         if (!wr.match.match(self.app_id orelse "")) continue;
         switch (wr.rule) {
             .float => |f| self.float = f,
-            .workspace => |_ws| ws = _ws,
+            .workspace => |_ws| {
+                if (ctx.last_active) |s| ws = try _ws.resolve(ctx, s);
+            },
         }
     }
 

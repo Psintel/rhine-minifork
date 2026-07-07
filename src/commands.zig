@@ -54,7 +54,7 @@ pub const Queue = struct {
     }
 };
 
-const WsSpec = union(enum) {
+pub const WsSpec = union(enum) {
     const WsDir = enum { Previous, Next };
 
     Abs: Workspace.WS,

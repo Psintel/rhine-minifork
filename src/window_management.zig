@@ -125,9 +125,6 @@ fn apply_tiler(ctx: *Context, curr_time: Io.Timestamp) !void {
             if (!ctx.wins.contains(f)) seat.?.focus = null;
         }
 
-        // this stays until I figure out a better way of doing this
-        out_data.shell_out.setDefault();
-
         var idx: usize = 0;
         while (idx < ws.floating.count()) {
             const w = ws.floating.keys()[idx];
@@ -287,6 +284,12 @@ fn manage(ctx: *Context) !void {
     }
     ctx.should_open.clearAndFree(ctx.gpa);
 
+    // close old windows
+    for (ctx.should_close.items) |w| {
+        if (ctx.wins.contains(w)) w.close();
+    }
+    ctx.should_close.clearAndFree(ctx.gpa);
+
     // reap workspaces
     var wsiter = ctx.workspaces.iterator();
     while (wsiter.next()) |_ws| {
@@ -396,11 +399,6 @@ fn manage(ctx: *Context) !void {
         const out_data = ctx.outs.get(out) orelse break :layer_shell_pos;
         out_data.shell_out.setDefault();
     }
-
-    for (ctx.should_close.items) |w| {
-        if (ctx.wins.contains(w)) w.close();
-    }
-    ctx.should_close.clearAndFree(ctx.gpa);
 
     // apply window management
     var outs = ctx.outs.iterator();

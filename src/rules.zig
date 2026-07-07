@@ -13,6 +13,7 @@ const Seat = @import("seat.zig");
 const Workspace = @import("workspace.zig");
 const Context = @import("context.zig");
 const Config = tributary.Config;
+const Commands = @import("commands.zig");
 const globbing = tributary.globbing;
 
 const Matcher = union(enum) {
@@ -25,7 +26,7 @@ const Matcher = union(enum) {
 
 const Rule = union(enum) {
     float: bool,
-    workspace: Workspace.WS,
+    workspace: Commands.WsSpec,
 };
 
 pub const WindowRule = struct {
