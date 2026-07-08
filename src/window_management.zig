@@ -214,7 +214,7 @@ fn manage_ws(ctx: *Context, ws: *Workspace, out: *rwm.OutputV1, t: Io.Timestamp)
             continue;
         };
 
-        var col = if (wd.pinned)
+        var col = if (wd.pinned and wd.float)
             opts.border.colours.pinned
         else
             opts.border.colours.inactive;
