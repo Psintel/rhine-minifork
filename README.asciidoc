@@ -308,8 +308,11 @@ The following keys are available in the `colours` block.
 | focus <Colour>
 | border colour for focused windows, defaults to `blue`
 
-| inactive
+| inactive <Colour>
 | border colour for non-focused windows, defaults to `gray`
+
+| pinned <Colour>
+| border colour pinned floating windows, defaults to `yellow`
 
 |===
 
@@ -333,6 +336,9 @@ a `<Colour>` parameter can be one of the following:
 | gray
 | the colour `#202020`
 
+| yellow
+| the colour `#b0a040`
+
 | hsl, <float>, <float>, <float>
 | a colour specified as HSL, where the first parameter is between 0 and 2pi and the others between 0 and 1
 
@@ -347,12 +353,9 @@ a `<Colour>` parameter can be one of the following:
 
 |===
 
-
-
-
 == IPC
 
-`rhine` supports _some_ of https://wiki.hypr.land/Configuring/Using-hyprctl/[Hyprland's IPC] mechanism.
+`rhine` supports _some_ of https://wiki.hypr.land/Configuring/Advanced-and-Cool/Using-hyprctl//[Hyprland's IPC] mechanism.
 The table below lists the available request and their differences.
 
 [cols="a,a"]
@@ -360,8 +363,8 @@ The table below lists the available request and their differences.
 | request | description
 
 | `dispatch`
-| only `workspace` is available
-| `workspaces` 
+| only `workspace` is available. (Only the pre-lua request style will be available)
+| `workspaces`
 | contains less information
 | `monitors`
 | contains less information
@@ -377,6 +380,18 @@ Rhine also adds the following _new_ commands to the interface.
 | `rhine`
 | run a `rhine` command from the table above
 |===
+
+=== Socket 2
+
+`rhine` also supports the hyprland https://wiki.hypr.land/IPC/[event socket]. Not all events get emitted, mostly the workspace related ones.
+If you find some event missing feel free to open an issue or PR.
+
+=== Rhinectl
+
+building `rhine` also builds a small utility called `rhinectl`. Which is more or less a drop-in `hyprctl`
+replacement (some options are missing).
+
+This allows access to the hyprland socket even when `hyprctl` is not available.
 
 == non-goals
 
