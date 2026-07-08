@@ -119,7 +119,7 @@ window_management {
 }
 
 windowrules [
-    com.mitchellh.ghostty, workspace 1
+    com.mitchellh.ghostty, workspace, 1
     zenity, float, true
 ]
 

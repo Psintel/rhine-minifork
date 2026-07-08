@@ -119,7 +119,7 @@ to the workspace with highest/lowest ID which is lower/higher than that of the c
 | kill, <window>
 | send SIGTERM to the process owning window <window> politely asking the process to die
 
-| murder, Focus
+| murder, <window>
 | send SIGKILL to the process owning window <window>, killing it
 
 | launch, <shell command>
@@ -190,17 +190,17 @@ A pointer operation is one of the following:
 
 === windowrules
 
-elements of the `windowrules` block are of the form `<appid>, <rule>`. Where `[appid]` must match a window's appid exactly. The following rules are available:
+elements of the `windowrules` block are of the form `<appid>, <rule>`. Where `[appid]` is a glob matching a window's appid. The following rules are available:
 
 [cols="m,a", frame=none, grid=none]
 |===
 | Option | Description
 
-| float
-| make the window floating.
+| float, <true|false>
+| force the window to be floating or non-floating.
 
-| workspace <workspace ID>
-| send the window to workspace `<workspace ID>`.
+| workspace, <workspace>
+| always spawn the the window on workspace `<workspace>`.
 |===
 
 window rules are only applied to new windows.
