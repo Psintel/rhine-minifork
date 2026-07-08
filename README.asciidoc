@@ -134,6 +134,9 @@ to the workspace with highest/lowest ID which is lower/higher than that of the c
 | overlay, <toggle>, <workspace>
 | toggle `<workspace>` as overlay workspace.
 
+| pin, <window>, <toggle>
+| pin a floating window making always appear above other floating windows.
+
 | focusWorkspace, <workspace>
 | focus the workspace `<workspace>`.
 
