@@ -41,8 +41,8 @@ const Registry = struct {
     shell: ?*rwm.LayerShellV1 = null,
     bindings: ?*rwm.XkbBindingsV1 = null,
     cursor_shape: ?*wp.CursorShapeManagerV1 = null,
-    seats: std.AutoArrayHashMapUnmanaged(u32, void) = .empty,
-    outs: std.AutoArrayHashMapUnmanaged(u32, void) = .empty,
+    seats: std.array_hash_map.Auto(u32, void) = .empty,
+    outs: std.array_hash_map.Auto(u32, void) = .empty,
 
     pub fn listener(registry: *wl.Registry, event: wl.Registry.Event, context: *@This()) void {
         switch (event) {

@@ -63,7 +63,6 @@ pub fn main(init: process.Init) !void {
 
     const sig = env.get("HYPRLAND_INSTANCE_SIGNATURE") orelse return error.InstanceNotFound;
     const runtime = env.get("XDG_RUNTIME_DIR") orelse return error.XDGNotFound;
-
     const sockpath = try std.fs.path.join(gpa, &.{ runtime, "hypr", sig, ".socket.sock" });
 
     const sock: Io.net.UnixAddress = try .init(sockpath);
@@ -76,18 +75,13 @@ pub fn main(init: process.Init) !void {
     if (json) try writer.writeByte('j');
     try writer.writeByte('/');
     try writer.writeAll(fst.?);
-
     while (arg_iter.next()) |arg| {
         try writer.print(" {s}", .{arg});
     }
-
     try writer.flush();
 
-    var reader = connection.reader(io, b[0..0x100]);
-
-    var stdout_writer = stdout.writerStreaming(io, b[0x100..]);
-
+    var reader = connection.reader(io, &.{});
+    var stdout_writer = stdout.writerStreaming(io, &b);
     _ = try reader.interface.streamRemaining(&stdout_writer.interface);
-
     try stdout_writer.interface.flush();
 }
