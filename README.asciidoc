@@ -107,6 +107,18 @@ to the workspace with highest/lowest ID which is lower/higher than that of the c
 
 |===
 
+==== Globbing
+
+Some Strings are globbed. A glob is simply a string which may contain one or more `\*`.
+A string matches a glob, if all occurences of `*` in the glob could be replaced by one or more characters
+in order to obtain the string.
+
+===== Examples
+
+* the glob `Touchpad` only matches the string `Touchpad`
+* the glob `*ouchpad` matches `touchpad`, `Touchpad`, `my Touchpad` but not `ouchpad`
+* the glob `**` matches `Hi`, `Hello` but not `a`
+
 ==== Command
 
 [cols="m,a", frame=none, grid=none]
@@ -182,6 +194,7 @@ A pointer operation is one of the following:
 |===
 
 ==== Layout-specific commands
+
 ===== bsp
 [cols="m,a", frame=none, grid=none]
 |===
@@ -193,7 +206,8 @@ A pointer operation is one of the following:
 
 === windowrules
 
-elements of the `windowrules` block are of the form `<appid>, <rule>`. Where `[appid]` is a glob matching a window's appid. The following rules are available:
+elements of the `windowrules` block are of the form `<appid>, <rule>`. Where `[appid]` is a glob matching a window's appid. 
+The following rules are available:
 
 [cols="m,a", frame=none, grid=none]
 |===
