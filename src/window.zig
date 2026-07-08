@@ -60,6 +60,7 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
 
     if (ctx.restore.relations.get(self.identifier)) |data| {
         ws = data.workspace;
+        self.float = data.float;
         _ = ctx.restore.relations.swapRemove(self.identifier);
     }
 

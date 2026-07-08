@@ -12,8 +12,9 @@ pub const buf_size = @sizeOf(Win.Id) + @sizeOf(Win.Data) + @sizeOf(Out.Data);
 pub const Win = struct {
     pub const name = @typeName(Win);
     pub const Id = [32]u8;
-    pub const Data = packed struct {
+    pub const Data = extern struct {
         workspace: Workspace.WS,
+        float: bool,
     };
 };
 
@@ -118,6 +119,7 @@ pub fn fromCtx(ctx: *const Context) !@This() {
 
         const data: Win.Data = .{
             .workspace = ws,
+            .float = win_data.float,
         };
 
         try out.relations.put(ctx.gpa, win_data.identifier, data);
