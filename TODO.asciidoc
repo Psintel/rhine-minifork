@@ -1,6 +1,5 @@
 = TODO
 
-* include hyprctl-like tool for interacting with the command socket
 * fullscreen is still scuffed
     ** workspace transition are scuffed
     ** fullscreen application should maybe force focus

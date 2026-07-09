@@ -486,7 +486,7 @@ This is the same policy as https://codeberg.org/river/river#strict-no-llm-no-ai-
 The following list should make it easier to contribute to rhine, if one so wishes to do so:
 
 * I reserve the right to make architectural decisions, please ask before you make a huge PR
-* In general, I'd prefer if to have a draft PR opened even when you haven't started yet
+* In general, I'd prefer to have a draft PR opened even when you haven't started yet
 * Contributions are most welcome in the following parts:
     ** src/commands.zig for adding more commands
     ** adding more tiler layouts (they are specified in srd/layouts.zig)
