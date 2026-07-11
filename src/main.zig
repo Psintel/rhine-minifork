@@ -394,6 +394,9 @@ pub fn main(init: std.process.Init) !void {
                 return error.ReadEvent;
         }
 
-        if (display.dispatchPending() != .SUCCESS) return error.Dispatch;
+        if (display.dispatchPending() != .SUCCESS) {
+            log.err("wayland dispatch failure, quitting", .{});
+            try posix.raise(.TERM);
+        }
     }
 }
