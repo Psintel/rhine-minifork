@@ -186,7 +186,7 @@ pub const Command = union(enum) {
                 if (win.resolve(ctx, seat)) |w| {
                     const win_data = ctx.wins.get(w) orelse return error.NotFound;
                     if (win_data.unreliable_pid) |pid| {
-                        log.info("sent SIGTERM to {}", .{w.getId()});
+                        log.info("sent SIGKLILL to {}", .{w.getId()});
                         try std.posix.kill(pid, std.posix.SIG.KILL);
                     } else {
                         log.err("can't kill {} does not have pid", .{w.getId()});
