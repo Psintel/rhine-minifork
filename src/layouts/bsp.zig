@@ -28,6 +28,7 @@ tiler: Tiler.tiler(@This()) = .{},
 config: Conf = .{},
 
 const Conf = struct {
+    smart_gaps: bool = false,
     gaps: u31 = 3,
     split_override: ?utils.Vec2f = null,
 };
@@ -657,6 +658,13 @@ pub fn manage(self: *@This(), ctx: Tiler.TileContext, bound: utils.Rect2, wins: 
     const tree = &(self.tree orelse return);
     const fbound = utils.Rect2f{ .dim = @floatFromInt(bound.dim), .pos = @floatFromInt(bound.pos) };
 
+    if (self.config.smart_gaps and meta.activeTag(tree.*) == .Leaf) {
+        wins.putAssumeCapacity(tree.Leaf, .{
+            .show = true,
+            .dims = bound,
+        });
+        return;
+    }
     tree.manage(self.config, ctx, fbound, wins);
 }
 
