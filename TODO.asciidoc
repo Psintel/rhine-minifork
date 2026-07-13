@@ -30,6 +30,9 @@
     ** we can override malloc, calloc, realloc and free for the shared object :D
     *** https://github.com/D-Berg/zalloc
 * maybe include a builtin bar
+* custom cursor rendering through external program
+    ** expose wayland protocol subset and have an external client render it all
+    ** won't do unless someone volunteers a client
 * layouts
     ** scroller
 * custom decorations

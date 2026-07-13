@@ -107,7 +107,6 @@ pub fn assign(ctx: *Context, win: *rwm.WindowV1) !void {
                 paren.pos.get(ctx.anims, mics) + (paren.size - self.size) / @as(utils.Vec2, @splat(2)),
                 mics,
             );
-
             while (Seat.byFocus(ctx, p)) |_seat| {
                 const seat_data = ctx.seats.getPtr(_seat).?;
                 seat_data.focus = win;
@@ -174,8 +173,14 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
         .dimensions => |d| {
             win_data.size = .{ d.width, d.height };
             if (d.width > 0 and d.height > 0)
-                if (win_data.float)
-                    win_data.setSize(win_data.size, ctx.anims, Animations.clock.now(ctx.io));
+                if (win_data.float) {
+                    const now = Animations.clock.now(ctx.io);
+                    const prev_size = win_data.goal_size.get(ctx.anims, now);
+                    const prev_pos = win_data.pos.get(ctx.anims, now);
+                    const next_pos = prev_pos + @divTrunc(prev_size - win_data.size, @as(utils.Vec2, @splat(2)));
+                    win_data.setSize(win_data.size, ctx.anims, now);
+                    win_data.setPos(ctx.anims, next_pos, now);
+                };
         },
         .parent => |p| {
             if (p.parent) |parent| {
