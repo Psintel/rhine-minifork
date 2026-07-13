@@ -175,11 +175,17 @@ pub fn listener(win: *rwm.WindowV1, event: rwm.WindowV1.Event, ctx: *Context) vo
             if (d.width > 0 and d.height > 0)
                 if (win_data.float) {
                     const now = Animations.clock.now(ctx.io);
-                    const prev_size = win_data.goal_size.get(ctx.anims, now);
-                    const prev_pos = win_data.pos.get(ctx.anims, now);
-                    const next_pos = prev_pos + @divTrunc(prev_size - win_data.size, @as(utils.Vec2, @splat(2)));
-                    win_data.setSize(win_data.size, ctx.anims, now);
-                    win_data.setPos(ctx.anims, next_pos, now);
+
+                    if (win_data.goal_size.done(ctx.anims, now)) {
+                        if (win_data.pos.done(ctx.anims, now)) {
+                            const prev_size = win_data.goal_size.get(ctx.anims, now);
+                            const prev_pos = win_data.pos.get(ctx.anims, now);
+                            const next_pos = prev_pos + @divTrunc(prev_size - win_data.size, @as(utils.Vec2, @splat(2)));
+                            win_data.setPos(ctx.anims, next_pos, now);
+                        }
+
+                        win_data.setSize(win_data.size, ctx.anims, now);
+                    }
                 };
         },
         .parent => |p| {
