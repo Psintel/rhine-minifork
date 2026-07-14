@@ -58,6 +58,7 @@ restore: Restore,
 // short-lived state
 last_active: ?*rwm.SeatV1 = null, // last seat with activity
 dirty: bool = false,
+last_render: std.Io.Timestamp = .{ .nanoseconds = 0 },
 
 should_close: std.ArrayList(*rwm.WindowV1) = .empty,
 should_open: std.ArrayList(*rwm.WindowV1) = .empty, // uninitalized windows

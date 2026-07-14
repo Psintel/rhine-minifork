@@ -84,6 +84,14 @@ pub fn listen(iface: *rwm.WindowManagerV1, event: rwm.WindowManagerV1.Event, ctx
             iface.manageFinish();
         },
         .render_start => {
+            var refresh: i32 = 0;
+            for (ctx.wl_outs.data.values()) |out| refresh = @max(out.mode.refresh, refresh);
+
+            const milis = if (refresh == 0) 10 else @divTrunc(1_000_000, refresh);
+
+            ctx.last_render.addDuration(.fromMilliseconds(milis)).withClock(.real).wait(ctx.io) catch {};
+            defer ctx.last_render = Io.Clock.real.now(ctx.io);
+
             render(ctx) catch |err| log.err("render failed with error {}", .{err});
             iface.renderFinish();
         },
