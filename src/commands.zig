@@ -228,6 +228,9 @@ pub const Command = union(enum) {
 
                 ovrl: switch (state) {
                     .enable => {
+                        for (ctx.outs.values()) |*anyout| {
+                            if (anyout.overlay == ws) anyout.overlay = null;
+                        }
                         out_data.overlay = ws;
                         target_ws = ws;
                     },
