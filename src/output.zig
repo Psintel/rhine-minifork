@@ -271,6 +271,7 @@ pub fn setWorkspace(self: *Output, ctx: *Context, ws: Workspace.WS, curr_time: s
     log.info("switching to workspace {}", .{ws});
 
     if (Workspace.getOutput(ctx, ws)) |_| return;
+    if (self.overlay == ws) return;
 
     self.last_workspace = self.workspace;
     self.workspace = ws;
