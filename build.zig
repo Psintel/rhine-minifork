@@ -100,6 +100,7 @@ pub fn build(b: *Build) !void {
             .target = target,
             .optimize = optimize,
             .strip = strip,
+            .single_threaded = true,
         }),
     });
     rhinectl.pie = pie;
