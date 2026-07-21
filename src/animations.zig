@@ -73,7 +73,7 @@ pub const Easing = struct {
             field_types = field_types ++ .{T};
         }
 
-        const TagI = meta.Int(.unsigned, math.log2_int_ceil(usize, field_names.len));
+        const TagI = @Int(.unsigned, math.log2_int_ceil(usize, field_names.len));
 
         const E = @Enum(TagI, .exhaustive, field_names, &std.simd.iota(TagI, field_names.len));
         break :ez @Union(.auto, E, field_names, field_types[0..field_names.len], &@splat(.{}));
