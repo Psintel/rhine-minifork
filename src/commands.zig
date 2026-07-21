@@ -276,7 +276,8 @@ pub const Command = union(enum) {
 
                 const ws_data = Workspace.get(ctx, target_ws) catch return;
 
-                seat_data.focus = if (ws_data.windows.entries.len > 0) ws_data.windows.keys()[0] else null;
+                const wins = ws_data.windows.keys();
+                seat_data.focus = if (wins.len > 0) wins[wins.len - 1] else null;
                 seat_data.warp_to_window = seat_data.focus;
                 ctx.dirty = true;
 
@@ -320,7 +321,8 @@ pub const Command = union(enum) {
                     out_data.setWorkspace(ctx, ws, Animations.clock.now(ctx.io));
                 }
 
-                seat_data.focus = if (w.windows.entries.len > 0) w.windows.keys()[0] else null;
+                const wins = w.windows.keys();
+                seat_data.focus = if (wins.len > 0) wins[wins.len - 1] else null;
                 seat_data.warp_to_window = seat_data.focus;
                 ctx.dirty = true;
                 try ctx.ipcChannel.putOneUncancelable(ctx.io, .{ .workspace = ws });
