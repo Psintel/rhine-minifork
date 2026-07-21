@@ -60,6 +60,7 @@ pub const WsSpec = union(enum) {
     Abs: Workspace.WS,
     Rel: WsDir,
     PrevActive: void,
+    byOutput: OutSpec,
 
     pub fn resolve(self: @This(), ctx: *Context, seat: *rwm.SeatV1) !Workspace.WS {
         switch (self) {
@@ -76,6 +77,10 @@ pub const WsSpec = union(enum) {
                 const out_data = ctx.outs.get(out) orelse return error.NoPreviousWorkspace;
                 return out_data.last_workspace orelse error.NoPreviousWorkspace;
             },
+            .byOutput => |os| {
+                const out = os.resolve(ctx, seat) orelse return error.NoOutputFound;
+                return Workspace.byOutput(ctx, out) orelse error.NoWorkspaceFound;
+            },
         }
     }
 
@@ -86,10 +91,32 @@ pub const WsSpec = union(enum) {
             .{ .Abs = w }
         else |_| if (meta.stringToEnum(WsDir, arg)) |rel|
             .{ .Rel = rel }
-        else if (meta.stringToEnum(Tag, arg) == .PrevActive)
-            .{ .PrevActive = {} }
-        else
-            error.ParseError;
+        else if (meta.stringToEnum(Tag, arg)) |t| switch (t) {
+            inline else => |tag| val: {
+                const tagname = @tagName(tag);
+                break :val @unionInit(@This(), tagname, try args.parseT(@FieldType(@This(), tagname)));
+            },
+        } else error.ParseError;
+    }
+};
+
+const OutSpec = union(enum) {
+    name: []const u8,
+
+    pub fn resolve(self: @This(), ctx: *Context, seat: *rwm.SeatV1) ?*rwm.OutputV1 {
+        _ = seat; // autofix
+        switch (self) {
+            .name => |_name| {
+                const name = std.mem.trim(u8, _name, &std.ascii.whitespace);
+                var iter = ctx.outs.iterator();
+                while (iter.next()) |out| {
+                    const wl_out = ctx.wl_outs.get(out.value_ptr.wl_out orelse continue) orelse continue;
+                    if (std.mem.eql(u8, wl_out.name orelse continue, name)) return out.key_ptr.*;
+                }
+
+                return null;
+            },
+        }
     }
 };
 
