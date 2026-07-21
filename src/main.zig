@@ -295,7 +295,7 @@ pub fn main(init: std.process.Init) !void {
                     var a: u32 = undefined;
                     _ = linux.waitpid(@intCast(sig.pid), &a, linux.W.NOHANG);
                 },
-                else => {
+                else => |s| {
                     posix.sigprocmask(posix.SIG.SETMASK, &posix.sigemptyset(), null);
 
                     var restore_writer = restore.writer(io, &restore_buf);
@@ -312,7 +312,7 @@ pub fn main(init: std.process.Init) !void {
 
                     log.info("wrote restore info successfully :)", .{});
                     ctx.running = false;
-                    return;
+                    try std.posix.raise(s);
                 },
             }
         }
