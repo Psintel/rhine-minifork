@@ -1,14 +1,13 @@
 layout {
     0 bsp
     1 bsp
-    2 bsp
     * bsp
 }
 
 layout_config {
     bsp {
         # split_override 1, 1
-        gaps 5
+        gaps 2
     }
 }
 
@@ -16,22 +15,36 @@ env {
     SDL_VIDEODRIVER wayland,x11
     QT_QPA_PLATFORM wayland
     ELECTRON_OZONE_PLATFORM_HINT wayland
+    QT_QPA_PLATFORMTHEME qt6ct
+    GTK_CSD 0
+    XDG_CURRENT_DESKTOP wlr
+    # XDG_SESSION_TYPE wayland
+    # XDG_SESSION_DESKTOP river
 }
 
 animations {
     move {
-        duration 250_000
-        easing expOut
+        duration 500_000
+        # easing expOut
+        # easing elasticOut, amplitude=0.1, period=0.3
+        easing bounceOut
     }
     resize {
-        duration 250_000
-        easing expOut
+        duration 500_000
+        # easing expOut
+        # easing elasticOut, amplitude=0.1, period=0.3
+        easing bounceOut
     }
     workspace {
         duration 500_000
         easing elasticOut, amplitude=0.005, period=0.5
-        # easing sinOut
+        # easing sinInOut
     }
+}
+
+xcursor {
+    theme Breeze_Hacked
+    size 24
 }
 
 # alt, s, tiler, bsp, togglesplit
@@ -40,7 +53,10 @@ keybinds [
     super, m, exit
     super, Escape, pointerOp, xkill
     super, Return, launch, foot
-    super, d, launch, fuzzel
+    super, d, launch, wofi -G
+    none, Print, launch, grim - | tee /tmp/scrt.png | wl-copy
+    ctrl, Print, launch, grim -g "$(slurp)" - | tee /tmp/rscrt.png | wl-copy
+
     super, f, fullscreen, toggle, Focus
     super, Tab, focusWorkspace, PrevActive
     super, v, floating, toggle, Focus
@@ -48,6 +64,20 @@ keybinds [
     super+shift, s, layoutCommand, bsp, swapAllSplits
     none, F12, overlay, toggle, -1
     super, F12, sendToWorkspace, -1
+
+    super, x, launch, loginctl lock-session
+    super, w, launch, awww img "$(find /usr/share/backgrounds/ -type f | shuf -n1)" --transition-type grow
+
+    # autism buttons
+    none, XF86AudioRaiseVolume, launch, volumectl -d +5%
+    none, XF86AudioLowerVolume, launch, volumectl -d -5%
+    none, XF86AudioMute, launch, volumectl -d %
+    none, XF86AudioPlay, launch, playerctl play-pause
+    none, XF86AudioNext, launch, playerctl next
+    none, XF86AudioPrev, launch, playerctl previous
+    none, XF86AudioStop, launch, playerctl stop
+    none, XF86MonBrightnessUp,   launch, lightctl -d +5%
+    none, XF86MonBrightnessDown, launch, lightctl -d -5%
 
     super, h, moveFocus, Left
     super, l, moveFocus, Right
@@ -104,6 +134,9 @@ keybinds [
     super+ctrl, 8, sendToWorkspace, 7
     super+ctrl, 9, sendToWorkspace, 8
     super+ctrl, 0, sendToWorkspace, 9
+
+    super, t, pin, Focus, enable
+    super+shift, t, pin, Focus, disable
 ]
 
 window_management {
@@ -111,10 +144,12 @@ window_management {
     float_move 0.1
     border {
         width 3
-        colours {
-            focus rgba8, 0, 0xA0, 0, 0xAA
-            inactive hsla, 6.5, 0.3, 0.5, 0.5
-        }
+            colours {
+            #     pinned rgb8, 0xB0, 0xA0, 0x40
+            #     focus rgba8, 0, 0xA0, 0, 0xAA
+            #     # inactive hsl, 1, 1, 0.5, 0.5
+            #     inactive rgba8, 100, 0, 0xff, 0x20
+            }
     }
 }
 
@@ -131,25 +166,25 @@ pointer_binds [
 
 startup [
     dbus-update-activation-environment --all --systemd
+    /home/sivecano/repos/channel/zig-out/bin/channel 2> /tmp/channel-$(date +%T).log
     kanshi
-    awww-daemon
+    sleep 0.1 && awww-daemon
+    avizo-service
+    kdeconnectd
     swayidle
+    gBar bar 0
+    renice -15 $(pgrep rhine)
+    renice -15 $(pgrep river)
+    wayneko --layer top --follow-pointer false
 ]
-
-xcursor {
-    theme Breeze_Hacked
-    size 24
-}
-
-
 
 # requires https://codeberg.org/Sivecano/channel
 input {
     profiles {
         keyboard {
             keyboard {
-                layout us, ch
-                variant , de
+                layout us
+                variant 
                 # layout
                 # rules
                 options grp:ctrl_space_toggle,apple:alupckeys,compose:rctrl
@@ -174,6 +209,7 @@ input {
                 click_method clickfinger
                 disable_while_typing true
                 accel_profile flat
+                accel_speed 1.2
             }
         }
     }
