@@ -263,6 +263,7 @@ pub fn main(init: std.process.Init) !void {
         .config = initial_config,
         .events = events,
         .ipcChannel = .init(&queue_buf),
+        .arena = .init(alloc),
         .restore = Restore.deserialize(&restore_reader.interface, alloc) catch |e| res: {
             log.err("failed to read restore info {}", .{e});
             break :res .empty;
@@ -374,6 +375,7 @@ pub fn main(init: std.process.Init) !void {
                     log.err("command dispatch failed with {}", .{e});
                 };
             }
+            _ = ctx.arena.reset(.free_all);
         }
 
         if (ctx.dirty) {

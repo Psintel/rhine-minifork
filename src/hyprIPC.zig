@@ -392,8 +392,7 @@ fn handle(ctx: *Context, reader: *Io.Reader, json: bool, writer: *Io.Writer) !vo
 fn handleCmd(ctx: *Context, word: []const u8) !void {
     log.info("trying to parse command: {s}", .{word});
     var r = std.Io.Reader.fixed(word);
-    const e = try Config.parseEntry(ctx.gpa, &r);
-    defer e.deinit(ctx.gpa);
+    const e = try Config.parseEntry(ctx.arena.allocator(), &r);
     const c = try e.parseT(commands.Command);
 
     if (ctx.last_active) |s|

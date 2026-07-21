@@ -70,6 +70,7 @@ events: std.Io.File,
 
 // hypr IPC stuff
 ipcChannel: HyprIPC.HyprQueue,
+arena: std.heap.ArenaAllocator, // to host strings that come in via IPC
 
 pub const WmOptions = struct {
     float_move: f32 = 0.1,
