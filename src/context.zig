@@ -124,6 +124,7 @@ pub fn deinit(self: *@This()) void {
 }
 
 pub fn loadEnv(self: *@This()) !void {
+    const log = std.log.scoped(.env);
     const env = try self.config.sub("env");
 
     var iter = env.values.keyIterator();
@@ -131,12 +132,17 @@ pub fn loadEnv(self: *@This()) !void {
     while (iter.next()) |name| {
         const confval = try env.getArgs(name.*) orelse continue;
 
-        const key = try self.gpa.dupe(u8, name.*);
-        errdefer self.gpa.free(key);
-        const val = try self.gpa.dupe(u8, confval.args);
-        errdefer self.gpa.free(val);
+        if (name.len == 0) {
+            log.err("invalid env variable of length 0", .{});
+            continue;
+        }
 
-        try self.child_env.putMove(key, val);
+        if (mem.findAny(u8, name.*, &.{ 0, '=' })) |_| {
+            log.err("invalid name for env variable: {s}", .{name.*});
+            continue;
+        }
+
+        try self.child_env.put(name.*, confval.args);
     }
 }
 
