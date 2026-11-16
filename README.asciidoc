@@ -1,4 +1,6 @@
 = Changes
+:table-caption!:
+
 Focus isn't missing when last window on display is closed
 
 = Rhine: a modular window manager for river
