@@ -1,3 +1,6 @@
+= Author
+https://codeberg.org/Sivecano/rhine
+
 = Changes
 :table-caption!:
 
