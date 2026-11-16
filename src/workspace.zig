@@ -218,3 +218,12 @@ pub fn getPrevious(ctx: *Context, current: WS) WS {
     }
     return next orelse current - 1;
 }
+
+pub fn getAnyNonEmpty(ctx: *Context, exclude: WS) ?WS {
+    for (ctx.workspaces.keys()) |ws| {
+        if (ws == exclude) continue;
+        const ws_data = ctx.workspaces.getPtr(ws) orelse continue;
+        if (!ws_data.isEmpty()) return ws;
+    }
+    return null;
+}

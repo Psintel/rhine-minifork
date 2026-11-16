@@ -306,8 +306,70 @@ fn manage(ctx: *Context) !void {
     ctx.should_open.clearAndFree(ctx.gpa);
 
     // close old windows
+    // close old windows
     for (ctx.should_close.items) |w| {
+        // Check which workspace this window belongs to BEFORE closing
+        const ws_id = Workspace.byWindow(ctx, w) orelse {
+            if (ctx.wins.contains(w)) w.close();
+            continue;
+        };
+
+        const ws = ctx.workspaces.getPtr(ws_id) orelse {
+            if (ctx.wins.contains(w)) w.close();
+            continue;
+        };
+
+        // Check if this is the last window in the workspace
+        const is_last = ws.windows.count() + ws.floating.count() == 1;
+
         if (ctx.wins.contains(w)) w.close();
+
+        // If this was the last window, switch focus to another workspace
+        if (is_last) {
+            // Try to find next workspace with windows, then previous
+            const next_ws = Workspace.getNext(ctx, ws_id);
+            const prev_ws = Workspace.getPrevious(ctx, ws_id);
+
+            var target_ws: ?Workspace.WS = null;
+
+            // Prefer next workspace if it has windows
+            if (next_ws != ws_id) {
+                const next_ws_data = ctx.workspaces.getPtr(next_ws) orelse null;
+                if (next_ws_data != null and !next_ws_data.?.isEmpty()) {
+                    target_ws = next_ws;
+                }
+            }
+
+            // Fall back to previous workspace
+            if (target_ws == null and prev_ws != ws_id) {
+                const prev_ws_data = ctx.workspaces.getPtr(prev_ws) orelse null;
+                if (prev_ws_data != null and !prev_ws_data.?.isEmpty()) {
+                    target_ws = prev_ws;
+                }
+            }
+
+            // Switch focus to a window in the target workspace
+            if (target_ws) |tws| {
+                const tws_data = ctx.workspaces.getPtr(tws).?;
+                const focus_win = if (tws_data.windows.count() > 0)
+                    tws_data.windows.keys()[0]
+                else if (tws_data.floating.count() > 0)
+                    tws_data.floating.keys()[0]
+                else
+                    null;
+
+                if (focus_win) |fw| {
+                    // Update all seats that were focused on the closed window
+                    for (ctx.seats.keys()) |seat| {
+                        const seat_data = ctx.seats.getPtr(seat) orelse continue;
+                        if (seat_data.focus == w) {
+                            seat_data.focus = fw;
+                            seat_data.warp_to_window = fw;
+                        }
+                    }
+                }
+            }
+        }
     }
     ctx.should_close.clearAndFree(ctx.gpa);
 
