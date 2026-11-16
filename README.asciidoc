@@ -3,6 +3,8 @@
 
 Focus isn't missing when last window on display is closed
 
+That's all. This repo is just a storage of early version of rhine
+
 = Rhine: a modular window manager for river
 :table-caption!:
 
